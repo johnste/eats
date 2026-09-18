@@ -26,9 +26,14 @@ RUN npm ci --omit=dev
 FROM node:26-alpine AS runtime
 WORKDIR /app
 
-# The only non-Node part of the image. English ships in the base tesseract
+# Tesseract is the only non-Node part of the app. English ships in the base
 # package; Swedish is separate.
-RUN apk add --no-cache tesseract-ocr tesseract-ocr-data-eng tesseract-ocr-data-swe
+#
+# curl is here purely for the platform: Coolify replaces the HEALTHCHECK below
+# with its own shell-based probe and expects curl or wget on PATH.
+RUN apk add --no-cache \
+      tesseract-ocr tesseract-ocr-data-eng tesseract-ocr-data-swe \
+      curl
 
 ENV NODE_ENV=production \
     PORT=3000 \
