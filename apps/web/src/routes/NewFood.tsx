@@ -18,6 +18,47 @@ const NUMERIC: { name: FieldName; label: string; suffix: string }[] = [
 /** Anything the parser wasn't sure about gets flagged for a human look. */
 const UNCERTAIN = 0.8;
 
+/**
+ * What the scan actually saw. Shown after every scan, not just failures: when
+ * a number comes out wrong the recognised text is nearly always the
+ * explanation, and without it a bad scan is just a mystery.
+ */
+function ScanReport({ scan, flagged }: { scan: OcrResponse; flagged: number }) {
+  const found = [scan.kcal100g, scan.protein100g, scan.carbs100g, scan.fat100g].filter(
+    (f) => f.value !== null,
+  ).length;
+  const text = scan.rawText.trim();
+
+  return (
+    <div className="mt-3 space-y-2">
+      <p className="text-faint text-[13px]">
+        {found === 0
+          ? "Couldn't find a nutrition table in that photo. Check the text below — if it's empty or garbled, try again with the table filling the frame, straight on and in good light."
+          : found < 4
+            ? `Found ${found} of 4 values. Fill in the rest by hand.`
+            : flagged === 0
+              ? 'Read cleanly. Check it against the packet before saving.'
+              : `Check the highlighted ${flagged === 1 ? 'value' : 'values'} — the scan wasn't sure.`}
+      </p>
+
+      <details className="group">
+        <summary className="text-muted cursor-pointer text-[13px] underline underline-offset-4">
+          What the scan read
+        </summary>
+        <div className="text-faint mt-2 space-y-1 text-[11px]">
+          <p className="nums">
+            language: {scan.detectedLanguage} · column: {scan.column} · macros{' '}
+            {scan.atwaterOk ? 'add up' : "don't add up"}
+          </p>
+          <pre className="bg-surface border-line max-h-60 overflow-auto rounded-lg border p-2 text-[11px] leading-relaxed whitespace-pre-wrap">
+            {text.length > 0 ? text : '(no text recognised)'}
+          </pre>
+        </div>
+      </details>
+    </div>
+  );
+}
+
 export function NewFood() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
@@ -124,13 +165,7 @@ export function NewFood() {
           </p>
         )}
 
-        {scan && (
-          <p className="text-faint mt-3 text-[13px]">
-            {flagged.size === 0
-              ? 'Read cleanly. Check it against the packet before saving.'
-              : `Check the highlighted ${flagged.size === 1 ? 'value' : 'values'} — the scan wasn't sure.`}
-          </p>
-        )}
+        {scan && <ScanReport scan={scan} flagged={flagged.size} />}
       </Card>
 
       <form

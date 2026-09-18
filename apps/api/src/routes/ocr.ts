@@ -40,11 +40,37 @@ export const ocrRoutes: FastifyPluginAsync<AppDeps> = async (app) => {
         return reply.status(400).send({ error: 'That photo is too large.' });
       }
 
+      const started = Date.now();
       try {
         // The image is never written to disk: it goes straight to Tesseract's
         // stdin and is dropped once the text comes back.
-        return parseNutritionText(await imageToText(buffer));
+        const text = await imageToText(buffer);
+        const result = parseNutritionText(text);
+
+        // Logged so a scan that "didn't work" can be diagnosed from the
+        // container logs alone, without reproducing it.
+        req.log.info(
+          {
+            ms: Date.now() - started,
+            bytes: buffer.length,
+            chars: text.trim().length,
+            found: [
+              result.kcal100g,
+              result.protein100g,
+              result.carbs100g,
+              result.fat100g,
+            ].filter((f) => f.value !== null).length,
+            language: result.detectedLanguage,
+            atwaterOk: result.atwaterOk,
+          },
+          'label scanned',
+        );
+        return result;
       } catch (err) {
+        req.log.warn(
+          { err, ms: Date.now() - started, bytes: buffer.length },
+          'label scan failed',
+        );
         if (err instanceof OcrUnavailableError) {
           req.log.error({ err }, 'tesseract missing');
           return reply.status(503).send({ error: 'Label scanning is not available.' });
