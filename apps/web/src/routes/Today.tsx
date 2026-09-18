@@ -65,27 +65,44 @@ export function Today() {
 
   return (
     <div {...handlers} className="relative">
-      {/* The day you are heading towards, revealed from the edge you are
-          pulling from. Opacity tracks the drag so the gesture reads as
-          continuous rather than as a threshold that silently trips. */}
-      {swipe.dragging && swipe.direction && (
+      {/* An edge glow rather than a moving page: the view barely travels, so
+          the glow is what carries direction and how close you are. It turns
+          accent at the point releasing would actually change the day. */}
+      {swipe.dragging && swipe.direction && swipe.progress > 0 && (
         <div
           aria-hidden
-          className={`pointer-events-none absolute top-0 z-10 flex h-12 items-center ${
+          className={`pointer-events-none absolute inset-y-0 z-10 w-28 ${
             swipe.direction === 'right' ? 'left-0' : 'right-0'
+          }`}
+          style={{
+            opacity: swipe.progress,
+            background: `linear-gradient(to ${
+              swipe.direction === 'right' ? 'right' : 'left'
+            }, ${
+              swipe.willCommit ? 'var(--color-accent)' : 'var(--color-faint)'
+            }, transparent)`,
+            maskImage: `linear-gradient(to ${
+              swipe.direction === 'right' ? 'right' : 'left'
+            }, black, transparent)`,
+          }}
+        />
+      )}
+
+      {/* Which day you would land on, held still while the glow does the work. */}
+      {swipe.dragging && swipe.direction && swipe.progress > 0.15 && (
+        <div
+          aria-hidden
+          className={`pointer-events-none absolute top-1 z-20 ${
+            swipe.direction === 'right' ? 'left-1' : 'right-1'
           }`}
           style={{ opacity: swipe.progress }}
         >
           <span
-            className={`rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors ${
-              swipe.willCommit
-                ? 'bg-accent text-surface'
-                : 'bg-raised border-line text-muted border'
+            className={`text-[11px] font-medium ${
+              swipe.willCommit ? 'text-accent' : 'text-faint'
             }`}
           >
-            {swipe.direction === 'right' ? '← ' : ''}
             {humanDate(peekDate)}
-            {swipe.direction === 'left' ? ' →' : ''}
           </span>
         </div>
       )}

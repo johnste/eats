@@ -4,8 +4,20 @@ import { useRef, useState, type TouchEvent } from 'react';
 const COMMIT_DISTANCE = 70;
 /** Movement before we decide whether this is a horizontal swipe or a scroll. */
 const AXIS_LOCK = 10;
-/** How far a blocked direction is allowed to give before it stops. */
-const RUBBER_BAND = 0.25;
+/** Furthest the view will travel, however hard you pull. */
+const MAX_PULL = 28;
+/** A blocked direction barely gives at all. */
+const MAX_PULL_BLOCKED = 10;
+
+/**
+ * Asymptotic resistance: the view follows closely at first and then stiffens,
+ * approaching the limit without ever reaching it. Moving the whole page one
+ * to one felt loose and made the page look like it was falling over; this
+ * reads as tension against a stop instead.
+ */
+function damp(distance: number, limit: number): number {
+  return Math.sign(distance) * limit * (1 - Math.exp(-Math.abs(distance) / limit));
+}
 
 export type SwipeDirection = 'left' | 'right' | null;
 
@@ -86,8 +98,10 @@ export function useSwipe(handlers: {
 
         // Swiping left moves forward in time, matching the arrow on that side.
         const blocked = dx < 0 ? !canLeft : !canRight;
-        const offset = blocked ? dx * RUBBER_BAND : dx;
-        const progress = Math.min(Math.abs(offset) / COMMIT_DISTANCE, 1);
+        const offset = damp(dx, blocked ? MAX_PULL_BLOCKED : MAX_PULL);
+        // Progress tracks the finger, not the damped offset, so the glow keeps
+        // responding after the view has stopped moving.
+        const progress = blocked ? 0 : Math.min(Math.abs(dx) / COMMIT_DISTANCE, 1);
 
         setState({
           offset,
