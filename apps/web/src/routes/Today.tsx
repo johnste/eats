@@ -1,6 +1,6 @@
 import { addDays, round, toDateKey, type Meal } from '@eats/shared';
 import { useNavigate, useParams } from 'react-router';
-import { CalorieRing, MacroBars } from '../components/Macros.tsx';
+import { DaySummary } from '../components/Macros.tsx';
 import { Card, Empty, ErrorNote, Spinner } from '../components/ui.tsx';
 import { useDay, useLogMutations } from '../lib/queries.ts';
 import { useSwipe } from '../lib/useSwipe.ts';
@@ -81,12 +81,14 @@ export function Today() {
         style={{ transform: `translateX(${swipe.offset}px)` }}
         className={swipe.dragging ? undefined : 'transition-transform duration-200'}
       >
-      <header className="mb-4 flex items-center justify-between">
+      <header className="mb-3 flex items-center justify-between">
         <StepButton label="Previous day" onClick={() => go(-1)} d="M15 18l-6-6 6-6" />
         <div className="text-center">
-          <h1 className="text-ink text-lg font-semibold">{humanDate(date)}</h1>
+          <h1 className="text-ink text-[17px] leading-tight font-semibold">
+            {humanDate(date)}
+          </h1>
           {humanDate(date) !== date && (
-            <p className="text-faint nums text-xs">{date}</p>
+            <p className="text-faint nums text-[11px]">{date}</p>
           )}
         </div>
         <StepButton
@@ -102,82 +104,83 @@ export function Today() {
 
       {day.data && (
         <div className="space-y-4">
-          <Card className="space-y-5">
-            <CalorieRing kcal={day.data.totals.kcal} goal={day.data.goal?.calories ?? null} />
-            <MacroBars totals={day.data.totals} goal={day.data.goal} />
+          <Card>
+            <DaySummary totals={day.data.totals} goal={day.data.goal} />
           </Card>
 
-          {(Object.keys(MEAL_LABELS) as Meal[]).map((meal) => {
-            const entries = day.data.meals[meal] ?? [];
-            const kcal = Math.round(entries.reduce((a, e) => a + e.kcal, 0));
-            return (
-              <Card key={meal}>
-                <div className="mb-3 flex items-baseline justify-between">
-                  <h2 className="text-ink text-[15px] font-semibold">
-                    {MEAL_LABELS[meal]}
-                  </h2>
-                  <div className="flex items-center gap-3">
-                    {entries.length > 0 && (
-                      <span className="nums text-faint text-[13px]">{kcal} kcal</span>
-                    )}
-                    <button
-                      type="button"
-                      aria-label={`Add to ${MEAL_LABELS[meal]}`}
-                      onClick={() => navigate(`/add?meal=${meal}&date=${date}`)}
-                      className="text-accent border-accent/30 grid size-8 place-items-center rounded-full border text-lg leading-none"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
+          <Card className="divide-line divide-y p-0">
+            {(Object.keys(MEAL_LABELS) as Meal[]).map((meal) => {
+              const entries = day.data.meals[meal] ?? [];
+              const kcal = Math.round(entries.reduce((a, e) => a + e.kcal, 0));
 
-                {entries.length === 0 ? (
-                  <p className="text-faint text-[13px]">Nothing logged.</p>
-                ) : (
-                  <ul className="divide-line divide-y">
-                    {entries.map((entry) => (
-                      <li
-                        key={entry.id}
-                        className="flex items-center justify-between gap-3 py-2.5"
+              return (
+                <section key={meal} className="px-4 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <h2 className="text-ink text-sm font-semibold">
+                      {MEAL_LABELS[meal]}
+                    </h2>
+                    <div className="flex items-center gap-2">
+                      {entries.length > 0 && (
+                        <span className="nums text-faint text-xs">{kcal} kcal</span>
+                      )}
+                      <button
+                        type="button"
+                        aria-label={`Add to ${MEAL_LABELS[meal]}`}
+                        onClick={() => navigate(`/add?meal=${meal}&date=${date}`)}
+                        className="text-accent bg-accent-soft grid size-7 place-items-center rounded-full text-base leading-none"
                       >
-                        <div className="min-w-0">
-                          <p className="text-ink truncate text-sm">{entry.food.name}</p>
-                          <p className="text-faint nums text-xs">
-                            {round(entry.grams)} g
-                            {entry.food.brand && ` · ${entry.food.brand}`}
-                          </p>
-                        </div>
-                        <div className="flex shrink-0 items-center gap-3">
-                          <span className="nums text-muted text-sm">
-                            {Math.round(entry.kcal)}
-                            <span className="text-faint text-xs"> kcal</span>
-                          </span>
-                          <button
-                            type="button"
-                            aria-label={`Remove ${entry.food.name}`}
-                            onClick={() => remove.mutate(entry.id)}
-                            className="text-faint hover:text-danger grid size-8 place-items-center rounded-full"
-                          >
-                            <svg
-                              viewBox="0 0 24 24"
-                              className="size-4"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="1.8"
-                              strokeLinecap="round"
-                              aria-hidden
+                        +
+                      </button>
+                    </div>
+                  </div>
+
+                  {entries.length > 0 && (
+                    <ul className="mt-1.5 space-y-0.5">
+                      {entries.map((entry) => (
+                        <li
+                          key={entry.id}
+                          className="group flex items-center justify-between gap-3 py-1"
+                        >
+                          <div className="min-w-0">
+                            <p className="text-ink truncate text-[13px] leading-tight">
+                              {entry.food.name}
+                            </p>
+                            <p className="text-faint nums text-[11px]">
+                              {round(entry.grams)} g
+                              {entry.food.brand && ` · ${entry.food.brand}`}
+                            </p>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-1">
+                            <span className="nums text-muted text-[13px]">
+                              {Math.round(entry.kcal)}
+                            </span>
+                            <button
+                              type="button"
+                              aria-label={`Remove ${entry.food.name}`}
+                              onClick={() => remove.mutate(entry.id)}
+                              className="text-faint active:text-danger grid size-7 place-items-center rounded-full"
                             >
-                              <path d="M18 6L6 18M6 6l12 12" />
-                            </svg>
-                          </button>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </Card>
-            );
-          })}
+                              <svg
+                                viewBox="0 0 24 24"
+                                className="size-3.5"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                aria-hidden
+                              >
+                                <path d="M18 6L6 18M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              );
+            })}
+          </Card>
 
           {day.data.totals.kcal === 0 && !day.data.goal && (
             <Empty title="No goal set yet">
@@ -185,8 +188,8 @@ export function Today() {
             </Empty>
           )}
 
-          <p className="text-faint pt-1 text-center text-[11px]">
-            Swipe left or right to change day
+          <p className="text-faint pt-0.5 text-center text-[11px]">
+            Swipe to change day
           </p>
         </div>
       )}

@@ -14,7 +14,7 @@ export function Card({
   return (
     <section
       className={cx(
-        'bg-raised border-line rounded-card border p-4',
+        'bg-raised border-line rounded-card border p-4 shadow-[var(--shadow-card)]',
         className,
       )}
     >
