@@ -1,5 +1,6 @@
-import { lazy, Suspense } from 'react';
+import { type ComponentType, lazy, Suspense } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
+import { UpdatePrompt } from './components/UpdatePrompt.tsx';
 import { TabBar } from './components/TabBar.tsx';
 import { Spinner } from './components/ui.tsx';
 import { useMe } from './lib/queries.ts';
@@ -7,19 +8,50 @@ import { Login } from './routes/Login.tsx';
 import { Today } from './routes/Today.tsx';
 
 /**
+ * A deploy replaces every hashed chunk, so a tab that has been open across one
+ * will ask for a file that no longer exists the moment you navigate. That
+ * surfaces as a blank screen rather than an error, so treat a failed chunk
+ * fetch as "the app moved underneath me" and reload once.
+ *
+ * The sessionStorage guard matters: without it, a genuinely missing chunk
+ * would reload forever.
+ */
+const RELOAD_GUARD = 'eats:chunk-reloaded';
+
+function lazyRoute<T extends ComponentType<unknown>>(
+  load: () => Promise<{ default: T }>,
+) {
+  return lazy(() =>
+    load().catch((error: unknown) => {
+      if (!sessionStorage.getItem(RELOAD_GUARD)) {
+        sessionStorage.setItem(RELOAD_GUARD, '1');
+        window.location.reload();
+      }
+      throw error;
+    }),
+  );
+}
+
+// A load that succeeds means we are on a coherent build; forget the guard so a
+// later deploy can reload again.
+if (typeof sessionStorage !== 'undefined') {
+  window.addEventListener('load', () => sessionStorage.removeItem(RELOAD_GUARD));
+}
+
+/**
  * Today is the screen the app opens on, so it ships in the main bundle.
  * The rest are split out: Weight pulls in Recharts and Add pulls in the
  * barcode detector's WebAssembly, neither of which should be downloaded
  * before they are needed on a phone connection.
  */
-const Add = lazy(() => import('./routes/Add.tsx').then((m) => ({ default: m.Add })));
-const NewFood = lazy(() =>
+const Add = lazyRoute(() => import('./routes/Add.tsx').then((m) => ({ default: m.Add })));
+const NewFood = lazyRoute(() =>
   import('./routes/NewFood.tsx').then((m) => ({ default: m.NewFood })),
 );
-const Weight = lazy(() =>
+const Weight = lazyRoute(() =>
   import('./routes/Weight.tsx').then((m) => ({ default: m.Weight })),
 );
-const Settings = lazy(() =>
+const Settings = lazyRoute(() =>
   import('./routes/Settings.tsx').then((m) => ({ default: m.Settings })),
 );
 
@@ -41,6 +73,7 @@ function Shell() {
         </Suspense>
       </div>
       <TabBar />
+      <UpdatePrompt />
     </>
   );
 }
