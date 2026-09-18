@@ -1,4 +1,5 @@
 import cookie from '@fastify/cookie';
+import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
 import Fastify, {
@@ -20,6 +21,7 @@ import { authRoutes } from './routes/auth.ts';
 import { foodRoutes } from './routes/foods.ts';
 import { logRoutes } from './routes/log.ts';
 import { meRoutes } from './routes/me.ts';
+import { ocrRoutes } from './routes/ocr.ts';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -60,6 +62,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   app.setSerializerCompiler(serializerCompiler);
 
   await app.register(cookie, { secret: env.SESSION_SECRET });
+  await app.register(multipart, { limits: { files: 1, fileSize: 12 * 1024 * 1024 } });
   await app.register(rateLimit, {
     global: false,
     max: 100,
@@ -88,6 +91,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   await app.register(authRoutes, { prefix: '/api/auth', ...deps });
   await app.register(foodRoutes, { prefix: '/api/foods', ...deps });
   await app.register(logRoutes, { prefix: '/api/log', ...deps });
+  await app.register(ocrRoutes, { prefix: '/api/foods', ...deps });
   await app.register(meRoutes, { prefix: '/api', ...deps });
 
   // In production the same process serves the built SPA. Unknown non-API paths
