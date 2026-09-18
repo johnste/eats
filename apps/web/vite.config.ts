@@ -27,10 +27,12 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      // 'prompt' rather than 'autoUpdate': the running page keeps executing
-      // the code it loaded with either way, so the useful thing is to tell the
-      // user a new version exists and let them choose when to take it.
-      registerType: 'prompt',
+      // autoUpdate, not prompt. Under 'prompt' the new worker installs and
+      // then waits for every client to close before activating -- which on a
+      // phone essentially never happens, so refreshing kept serving the old
+      // cache indefinitely. The new worker now claims control as soon as it is
+      // ready, and the toast tells you to reload to pick up the new code.
+      registerType: 'autoUpdate',
       includeAssets: ['favicon.png', 'apple-touch-icon.png'],
       manifest: {
         name: 'Eats',
@@ -61,6 +63,10 @@ export default defineConfig({
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api\//],
         cleanupOutdatedCaches: true,
+        // Take over from the previous worker immediately rather than waiting
+        // for all tabs to close.
+        skipWaiting: true,
+        clientsClaim: true,
         // Recharts alone is over the 2MB default.
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
       },
