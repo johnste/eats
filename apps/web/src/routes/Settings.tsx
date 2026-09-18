@@ -61,6 +61,13 @@ export function Settings() {
 function VersionCard() {
   const built = new Date(__BUILD_TIME__);
   const valid = !Number.isNaN(built.getTime());
+  // Coolify does not pass the commit to the build, so outside a local build
+  // there is nothing useful to show. A row reading "unknown" is worse than no
+  // row: the build time already identifies the deploy.
+  const commit = __COMMIT_SHA__ === 'unknown' ? null : __COMMIT_SHA__;
+
+  // Nothing identifiable at all -- drop the card rather than show a shell.
+  if (!valid && !commit) return null;
 
   return (
     <Card>
@@ -84,10 +91,12 @@ function VersionCard() {
             )}
           </dd>
         </div>
-        <div className="flex justify-between gap-3">
-          <dt className="text-muted">Build</dt>
-          <dd className="text-ink nums">{__COMMIT_SHA__}</dd>
-        </div>
+        {commit && (
+          <div className="flex justify-between gap-3">
+            <dt className="text-muted">Build</dt>
+            <dd className="text-ink nums">{commit}</dd>
+          </div>
+        )}
       </dl>
     </Card>
   );
