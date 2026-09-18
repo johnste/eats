@@ -4,8 +4,24 @@ import {
   useQueryClient,
   type UseQueryResult,
 } from '@tanstack/react-query';
-import type { UserResponse } from '@eats/shared';
+import { addDays, toDateKey, type UserResponse } from '@eats/shared';
+import { useEffect } from 'react';
 import { api, ApiError } from './api.ts';
+
+/**
+ * How far back the weight chart looks. Exported so the prefetch and the page
+ * agree on the query key -- warming a key nothing reads is worse than not
+ * warming at all, since it costs a request and still leaves you waiting.
+ */
+export const WEIGHT_WINDOW_DAYS = 90;
+
+/** Respect an explicit request not to spend bandwidth on speculation. */
+function saveDataEnabled(): boolean {
+  const connection = (
+    navigator as Navigator & { connection?: { saveData?: boolean } }
+  ).connection;
+  return connection?.saveData === true;
+}
 
 export const keys = {
   me: ['me'] as const,
@@ -47,6 +63,51 @@ export const useGoals = () =>
 
 export const useProfile = () =>
   useQuery({ queryKey: keys.profile, queryFn: api.profile });
+
+/**
+ * Warm the tabs you have not opened yet. Each of these is a small payload and
+ * the alternative is a spinner on every first visit; they are fetched once at
+ * startup rather than on navigation so the tab is already populated when you
+ * get there.
+ */
+export function useWarmCache(enabled: boolean): void {
+  const qc = useQueryClient();
+
+  useEffect(() => {
+    if (!enabled || saveDataEnabled()) return;
+    const today = toDateKey();
+    const from = addDays(today, -WEIGHT_WINDOW_DAYS);
+
+    void qc.prefetchQuery({ queryKey: keys.recent, queryFn: api.recentFoods });
+    void qc.prefetchQuery({ queryKey: keys.goals, queryFn: api.goals });
+    void qc.prefetchQuery({
+      queryKey: keys.weights(from, today),
+      queryFn: () => api.weights(from, today),
+    });
+  }, [enabled, qc]);
+}
+
+/**
+ * Fetch the days either side of the one being viewed, so swiping between them
+ * lands on data that is already there. Bounded to two days because the swipe
+ * only ever moves one at a time, and the future has nothing to fetch.
+ */
+export function usePrefetchAdjacentDays(date: string): void {
+  const qc = useQueryClient();
+
+  useEffect(() => {
+    if (saveDataEnabled()) return;
+    const today = toDateKey();
+
+    for (const neighbour of [addDays(date, -1), addDays(date, 1)]) {
+      if (neighbour > today) continue;
+      void qc.prefetchQuery({
+        queryKey: keys.day(neighbour),
+        queryFn: () => api.day(neighbour),
+      });
+    }
+  }, [date, qc]);
+}
 
 /** Invalidate everything a change to the log can affect. */
 export function useLogMutations(date: string) {

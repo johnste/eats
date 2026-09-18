@@ -3,7 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 import { UpdatePrompt } from './components/UpdatePrompt.tsx';
 import { TabBar } from './components/TabBar.tsx';
 import { Spinner } from './components/ui.tsx';
-import { useMe } from './lib/queries.ts';
+import { useMe, useWarmCache } from './lib/queries.ts';
 import { Login } from './routes/Login.tsx';
 import { Today } from './routes/Today.tsx';
 
@@ -56,6 +56,8 @@ const Settings = lazyRoute(() =>
 );
 
 function Shell() {
+  useWarmCache(true);
+
   return (
     <>
       {/* Bottom padding clears the fixed tab bar plus the home indicator. */}

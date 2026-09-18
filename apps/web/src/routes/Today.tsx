@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { DaySummary } from '../components/Macros.tsx';
 import { Card, Empty, ErrorNote, Spinner } from '../components/ui.tsx';
-import { useDay, useLogMutations } from '../lib/queries.ts';
+import { useDay, useLogMutations, usePrefetchAdjacentDays } from '../lib/queries.ts';
 import { useSwipe } from '../lib/useSwipe.ts';
 
 const MEAL_LABELS: Record<Meal, string> = {
@@ -32,6 +32,9 @@ export function Today() {
   const date = params.date ?? toDateKey();
   const day = useDay(date);
   const { remove } = useLogMutations(date);
+
+  // Swiping should land on data that is already here, not on a spinner.
+  usePrefetchAdjacentDays(date);
 
   // Deleting is one tap away from a list you scroll with your thumb, so the
   // first tap only arms it. Nothing is removed until the second.
