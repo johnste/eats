@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router';
 import { CalorieRing, MacroBars } from '../components/Macros.tsx';
 import { Card, Empty, ErrorNote, Spinner } from '../components/ui.tsx';
 import { useDay, useLogMutations } from '../lib/queries.ts';
+import { useSwipe } from '../lib/useSwipe.ts';
 
 const MEAL_LABELS: Record<Meal, string> = {
   breakfast: 'Breakfast',
@@ -32,12 +33,16 @@ export function Today() {
   const { remove } = useLogMutations(date);
 
   const go = (delta: number) => {
+    // Nothing to log in the future, so forward stops at today.
+    if (delta > 0 && date >= toDateKey()) return;
     const next = addDays(date, delta);
     navigate(next === toDateKey() ? '/' : `/day/${next}`);
   };
 
+  const swipe = useSwipe({ onLeft: () => go(1), onRight: () => go(-1) });
+
   return (
-    <>
+    <div {...swipe}>
       <header className="mb-4 flex items-center justify-between">
         <StepButton label="Previous day" onClick={() => go(-1)} d="M15 18l-6-6 6-6" />
         <div className="text-center">
@@ -107,6 +112,7 @@ export function Today() {
                         <div className="flex shrink-0 items-center gap-3">
                           <span className="nums text-muted text-sm">
                             {Math.round(entry.kcal)}
+                            <span className="text-faint text-xs"> kcal</span>
                           </span>
                           <button
                             type="button"
@@ -140,9 +146,13 @@ export function Today() {
               Set one in Settings to see how the day is tracking.
             </Empty>
           )}
+
+          <p className="text-faint pt-1 text-center text-[11px]">
+            Swipe left or right to change day
+          </p>
         </div>
       )}
-    </>
+    </div>
   );
 }
 

@@ -31,8 +31,11 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     res = await fetch(`/api${path}`, {
       ...init,
       credentials: 'same-origin',
+      // Only declare a JSON body when there is one. Sending the header with an
+      // empty body makes Fastify reject the request outright, which silently
+      // broke every bodyless call -- deleting a log entry, and signing out.
       headers:
-        init.body instanceof FormData
+        init.body === undefined || init.body instanceof FormData
           ? init.headers
           : { 'content-type': 'application/json', ...init.headers },
     });

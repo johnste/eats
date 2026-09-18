@@ -277,19 +277,31 @@ function QuantitySheet({
           </div>
         </fieldset>
 
-        <dl className="bg-surface nums grid grid-cols-4 gap-2 rounded-xl p-3 text-center">
-          {[
-            ['kcal', Math.round(food.kcal100g * factor)],
-            ['protein', round(food.protein100g * factor)],
-            ['carbs', round(food.carbs100g * factor)],
-            ['fat', round(food.fat100g * factor)],
-          ].map(([label, v]) => (
-            <div key={label}>
-              <dt className="text-faint text-[11px]">{label}</dt>
-              <dd className="text-ink text-sm font-medium">{v}</dd>
-            </div>
-          ))}
-        </dl>
+        <div className="bg-surface space-y-2 rounded-xl p-3">
+          <p className="text-muted text-center text-[11px] font-medium">
+            {valid ? `In ${round(value)} g` : 'Enter an amount'}
+          </p>
+          <dl className="nums grid grid-cols-4 gap-2 text-center">
+            {[
+              ['kcal', Math.round(food.kcal100g * factor)],
+              ['protein', round(food.protein100g * factor)],
+              ['carbs', round(food.carbs100g * factor)],
+              ['fat', round(food.fat100g * factor)],
+            ].map(([label, v]) => (
+              <div key={label}>
+                <dt className="text-faint text-[11px]">{label}</dt>
+                <dd className="text-ink text-sm font-medium">{v}</dd>
+              </div>
+            ))}
+          </dl>
+
+          {/* The basis for the figures above. Without it there is no way to
+              tell whether 297 kcal is the food or the portion. */}
+          <p className="text-faint nums border-line border-t pt-2 text-center text-[11px]">
+            Per 100 g: {Math.round(food.kcal100g)} kcal · {round(food.protein100g)} g
+            protein · {round(food.carbs100g)} g carbs · {round(food.fat100g)} g fat
+          </p>
+        </div>
 
         {add.error instanceof ApiError && <ErrorNote>{add.error.message}</ErrorNote>}
 
