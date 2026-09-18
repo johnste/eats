@@ -10,6 +10,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { BottomBar, BottomBarSpacer } from '../components/BottomBar.tsx';
 import { Button, Card, Empty, ErrorNote, Field, Spinner } from '../components/ui.tsx';
 import { api, ApiError } from '../lib/api.ts';
 import { keys } from '../lib/queries.ts';
@@ -49,36 +50,6 @@ export function Weight() {
   return (
     <>
       <h1 className="text-ink mb-4 text-lg font-semibold">Weight</h1>
-
-      <Card className="mb-4">
-        <form
-          className="flex items-end gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (valid) save.mutate(parsed);
-          }}
-        >
-          <div className="flex-1">
-            <Field
-              label="Today's weight"
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              inputMode="decimal"
-              suffix="kg"
-              placeholder="—"
-              invalid={value !== '' && !valid}
-            />
-          </div>
-          <Button type="submit" disabled={!valid || save.isPending}>
-            {save.isPending ? 'Saving…' : 'Save'}
-          </Button>
-        </form>
-        {save.error instanceof ApiError && (
-          <p className="mt-2">
-            <ErrorNote>{save.error.message}</ErrorNote>
-          </p>
-        )}
-      </Card>
 
       {weights.isPending && <Spinner />}
       {weights.isError && <ErrorNote>Couldn't load your weight history.</ErrorNote>}
@@ -183,6 +154,38 @@ export function Weight() {
           </div>
         </Card>
       )}
+
+      <BottomBarSpacer />
+
+      <BottomBar>
+        <form
+          className="flex items-end gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (valid) save.mutate(parsed);
+          }}
+        >
+          <div className="flex-1">
+            <Field
+              label="Today's weight"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              inputMode="decimal"
+              suffix="kg"
+              placeholder="—"
+              invalid={value !== '' && !valid}
+            />
+          </div>
+          <Button type="submit" disabled={!valid || save.isPending}>
+            {save.isPending ? 'Saving…' : 'Save'}
+          </Button>
+        </form>
+        {save.error instanceof ApiError && (
+          <p className="mt-2">
+            <ErrorNote>{save.error.message}</ErrorNote>
+          </p>
+        )}
+      </BottomBar>
     </>
   );
 }

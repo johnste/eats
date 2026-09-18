@@ -2,6 +2,7 @@ import { MEALS, round, toDateKey, type FoodResponse, type Meal } from '@eats/sha
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
+import { BottomBar, BottomBarSpacer } from '../components/BottomBar.tsx';
 import { Sheet } from '../components/Sheet.tsx';
 import { Button, Card, Empty, ErrorNote, Field, Spinner } from '../components/ui.tsx';
 import { api, ApiError } from '../lib/api.ts';
@@ -47,27 +48,6 @@ export function Add() {
     <>
       <h1 className="text-ink mb-4 text-lg font-semibold">Add food</h1>
 
-      <div className="mb-4 flex gap-2">
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search foods…"
-          type="search"
-          autoComplete="off"
-          className="bg-raised border-line text-ink placeholder:text-faint focus:border-accent min-h-11 flex-1 rounded-xl border px-3 focus:outline-none"
-        />
-        <Button
-          variant="ghost"
-          onClick={() => setScanning(true)}
-          aria-label="Scan a barcode"
-          className="px-3"
-        >
-          <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
-            <path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 8v8M11 8v8M15 8v8" strokeLinecap="round" />
-          </svg>
-        </Button>
-      </div>
-
       {resolve.isPending && <Spinner label="Looking it up…" />}
       {resolve.error instanceof ApiError && <ErrorNote>{resolve.error.message}</ErrorNote>}
 
@@ -97,6 +77,31 @@ export function Add() {
       >
         Can't find it? Add it manually
       </button>
+
+      <BottomBarSpacer />
+
+      <BottomBar>
+        <div className="flex gap-2">
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search foods…"
+            type="search"
+            autoComplete="off"
+            className="bg-surface border-line text-ink placeholder:text-faint focus:border-accent min-h-11 flex-1 rounded-xl border px-3 focus:outline-none"
+          />
+          <Button
+            variant="ghost"
+            onClick={() => setScanning(true)}
+            aria-label="Scan a barcode"
+            className="px-3"
+          >
+            <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+              <path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 8v8M11 8v8M15 8v8" strokeLinecap="round" />
+            </svg>
+          </Button>
+        </div>
+      </BottomBar>
 
       {scanning && (
         <BarcodeScanner
