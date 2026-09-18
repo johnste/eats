@@ -46,7 +46,31 @@ days keep the numbers they always had.
 Goals are **append-only** with an `effective_from` date: changing your target in
 March doesn't retroactively rewrite how January looked.
 
-## Deployment
+## Deployment (Coolify)
 
-One container: the API serves `/api/*` and falls through to the built SPA. See
-the `Dockerfile` and the deployment notes in the plan.
+One container. The API serves `/api/*` and falls through to the built SPA, so
+client-side routes survive a hard refresh. Migrations run on boot, so a deploy
+carrying a schema change applies it with no separate release step.
+
+1. Add a **Postgres** service in Coolify.
+2. Create an application from this repository, build pack **Dockerfile**.
+3. Set the environment variables below.
+4. Point the healthcheck at `/api/health`.
+
+| Variable | Notes |
+|---|---|
+| `DATABASE_URL` | From the Coolify Postgres service |
+| `SESSION_SECRET` | 32+ chars. `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
+| `INVITE_BOOTSTRAP_CODE` | Lets you register the first account; inert once any user exists |
+| `OFF_USER_AGENT` | Open Food Facts rate-limits on this; make it descriptive |
+| `NODE_ENV` | `production` |
+
+Coolify terminates TLS, which barcode scanning needs — `getUserMedia` requires
+a secure context, so scanning cannot be tested over a plain LAN address.
+
+To verify the image locally before pushing:
+
+```bash
+docker build -t eats:local . && docker run --rm -p 3100:3000 \
+  -e DATABASE_URL=... -e SESSION_SECRET=... eats:local
+```

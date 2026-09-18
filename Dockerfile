@@ -6,13 +6,16 @@
 FROM node:26-alpine AS build
 WORKDIR /app
 
-COPY package.json package-lock.json ./
+# tsconfig.base.json comes along because each workspace's tsconfig extends it,
+# and Vite reads that chain during the build.
+COPY package.json package-lock.json tsconfig.base.json ./
 COPY packages/shared/package.json packages/shared/
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
 RUN npm ci
 
 COPY packages/shared packages/shared
+COPY apps/api apps/api
 COPY apps/web apps/web
 RUN npm run build --workspace @eats/web
 
