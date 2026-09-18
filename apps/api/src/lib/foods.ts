@@ -1,5 +1,5 @@
 import type { FoodResponse } from '@eats/shared';
-import { and, desc, eq, ilike, or, sql } from 'drizzle-orm';
+import { and, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm';
 import type { Database, Executor } from '../db/client.ts';
 import { foods, foodServings, logEntries } from '../db/schema.ts';
 import type { OffProduct } from './off.ts';
@@ -38,7 +38,7 @@ export async function withServings(
   const servings = await db
     .select()
     .from(foodServings)
-    .where(sql`${foodServings.foodId} = ANY(${ids})`);
+    .where(inArray(foodServings.foodId, ids));
 
   const byFood = new Map<string, ServingRow[]>();
   for (const s of servings) {
