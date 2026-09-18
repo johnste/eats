@@ -13,6 +13,7 @@ export function Card({
 }) {
   return (
     <section
+      data-card=""
       className={cx(
         'bg-raised border-line rounded-card border p-4 shadow-[var(--shadow-card)]',
         className,

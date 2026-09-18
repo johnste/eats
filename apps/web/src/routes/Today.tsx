@@ -65,34 +65,6 @@ export function Today() {
 
   return (
     <div {...handlers} className="relative">
-      {/* An edge glow rather than a moving page: the view barely travels, so
-          the glow is what carries direction and how close you are. It turns
-          accent at the point releasing would actually change the day.
-
-          It sits behind the cards (z-0 against the content's z-10) and bleeds
-          past the page gutter with -inset-y-4 / -left-4, so it reads as light
-          coming in from the edge of the screen rather than as a panel laid over
-          the day. */}
-      {swipe.dragging && swipe.direction && swipe.progress > 0 && (
-        <div
-          aria-hidden
-          className={`pointer-events-none absolute -inset-y-4 z-0 w-32 ${
-            swipe.direction === 'right' ? '-left-4' : '-right-4'
-          }`}
-          style={{
-            opacity: swipe.progress,
-            background: `linear-gradient(to ${
-              swipe.direction === 'right' ? 'right' : 'left'
-            }, ${
-              swipe.willCommit ? 'var(--color-accent)' : 'var(--color-faint)'
-            }, transparent)`,
-            maskImage: `linear-gradient(to ${
-              swipe.direction === 'right' ? 'right' : 'left'
-            }, black, transparent)`,
-          }}
-        />
-      )}
-
       {/* Which day you would land on, held still while the glow does the work. */}
       {swipe.dragging && swipe.direction && swipe.progress > 0.15 && (
         <div
@@ -113,7 +85,21 @@ export function Today() {
       )}
 
       <div
-        style={{ transform: `translateX(${swipe.offset}px)` }}
+        style={{
+          transform: `translateX(${swipe.offset}px)`,
+          // Spread the glow away from the edge being pulled in, and fade it up
+          // with the drag. color-mix carries the strength so the hue stays a
+          // single token rather than being duplicated per opacity step.
+          ...(swipe.dragging && swipe.progress > 0
+            ? {
+                ['--swipe-glow' as string]: `${
+                  swipe.direction === 'right' ? 18 : -18
+                }px 0 28px -10px color-mix(in oklch, ${
+                  swipe.willCommit ? 'var(--color-accent)' : 'var(--color-faint)'
+                } ${Math.round(swipe.progress * 85)}%, transparent)`,
+              }
+            : {}),
+        }}
         className={`relative z-10 ${
           swipe.dragging ? '' : 'transition-transform duration-200'
         }`}

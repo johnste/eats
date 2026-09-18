@@ -89,6 +89,18 @@ h2 {
   letter-spacing: -0.011em;
 }
 
+/**
+ * While the day is being swiped, the cards themselves light on the leading
+ * edge. The glow belongs to the content rather than sitting behind it, which
+ * reads as the day lifting towards the day you are pulling in.
+ *
+ * --swipe-glow is composed in Today.tsx, where the direction and strength of
+ * the drag are known; unset, this collapses to the ordinary card shadow.
+ */
+[data-card] {
+  box-shadow: var(--shadow-card), var(--swipe-glow, 0 0 transparent);
+}
+
 /* Tabular figures keep macro numbers from jittering as they update. */
 .nums {
   font-variant-numeric: tabular-nums;
