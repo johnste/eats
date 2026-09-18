@@ -39,10 +39,48 @@ export function Today() {
     navigate(next === toDateKey() ? '/' : `/day/${next}`);
   };
 
-  const swipe = useSwipe({ onLeft: () => go(1), onRight: () => go(-1) });
+  const canForward = date < toDateKey();
+  const { swipe, handlers } = useSwipe({
+    onLeft: () => go(1),
+    onRight: () => go(-1),
+    canLeft: canForward,
+    canRight: true,
+  });
+
+  // Pulling from the right edge reveals the previous day, and vice versa.
+  const peekDate = swipe.direction === 'right' ? addDays(date, -1) : addDays(date, 1);
 
   return (
-    <div {...swipe}>
+    <div {...handlers} className="relative">
+      {/* The day you are heading towards, revealed from the edge you are
+          pulling from. Opacity tracks the drag so the gesture reads as
+          continuous rather than as a threshold that silently trips. */}
+      {swipe.dragging && swipe.direction && (
+        <div
+          aria-hidden
+          className={`pointer-events-none absolute top-0 z-10 flex h-12 items-center ${
+            swipe.direction === 'right' ? 'left-0' : 'right-0'
+          }`}
+          style={{ opacity: swipe.progress }}
+        >
+          <span
+            className={`rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors ${
+              swipe.willCommit
+                ? 'bg-accent text-surface'
+                : 'bg-raised border-line text-muted border'
+            }`}
+          >
+            {swipe.direction === 'right' ? '← ' : ''}
+            {humanDate(peekDate)}
+            {swipe.direction === 'left' ? ' →' : ''}
+          </span>
+        </div>
+      )}
+
+      <div
+        style={{ transform: `translateX(${swipe.offset}px)` }}
+        className={swipe.dragging ? undefined : 'transition-transform duration-200'}
+      >
       <header className="mb-4 flex items-center justify-between">
         <StepButton label="Previous day" onClick={() => go(-1)} d="M15 18l-6-6 6-6" />
         <div className="text-center">
@@ -152,6 +190,7 @@ export function Today() {
           </p>
         </div>
       )}
+      </div>
     </div>
   );
 }
