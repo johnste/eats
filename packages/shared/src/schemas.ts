@@ -10,6 +10,9 @@ export const mealSchema = z.enum(MEALS);
 export const sexSchema = z.enum(SEXES);
 export const activityLevelSchema = z.enum(ACTIVITY_LEVEL_KEYS);
 
+/** Every non-2xx response in the API has this shape. */
+export const errorResponse = z.object({ error: z.string() });
+
 /* ---------------------------------------------------------------- auth --- */
 
 export const registerBody = z.object({
@@ -190,3 +193,4 @@ export type DayResponse = z.infer<typeof dayResponse>;
 export type CreateWeightBody = z.infer<typeof createWeightBody>;
 export type OcrResponse = z.infer<typeof ocrResponse>;
 export type OcrField = z.infer<typeof ocrField>;
+export type ErrorResponse = z.infer<typeof errorResponse>;
