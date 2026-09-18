@@ -1,0 +1,5 @@
+{
+  "extends": "./tsconfig.base.json",
+  "include": [],
+  "comment": "Typechecking runs per-package; see each workspace's tsconfig.json."
+}
