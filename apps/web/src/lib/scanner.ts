@@ -24,7 +24,20 @@ export class ScanError extends Error {
 
 const FORMATS = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128'] as const;
 
-export async function startCamera(video: HTMLVideoElement): Promise<MediaStream> {
+export interface CameraOptions {
+  /**
+   * Reading a nutrition table needs far more detail than reading a barcode:
+   * Tesseract starts merging a value's unit into its number once glyphs fall
+   * below roughly 40px, so the label camera asks for as much resolution as the
+   * device will give.
+   */
+  highResolution?: boolean;
+}
+
+export async function startCamera(
+  video: HTMLVideoElement,
+  opts: CameraOptions = {},
+): Promise<MediaStream> {
   if (!window.isSecureContext) {
     throw new ScanError(
       'insecure-context',
@@ -39,7 +52,12 @@ export async function startCamera(video: HTMLVideoElement): Promise<MediaStream>
   try {
     stream = await navigator.mediaDevices.getUserMedia({
       // The rear camera is the one pointed at the packet.
-      video: { facingMode: { ideal: 'environment' } },
+      video: {
+        facingMode: { ideal: 'environment' },
+        ...(opts.highResolution
+          ? { width: { ideal: 2560 }, height: { ideal: 1440 } }
+          : {}),
+      },
       audio: false,
     });
   } catch (err) {
@@ -103,4 +121,36 @@ export function detectLoop(
     active = false;
     if (timer !== undefined) window.clearTimeout(timer);
   };
+}
+
+/**
+ * Grab the current frame as a JPEG file, at the camera's native resolution
+ * rather than the size it happens to be displayed at -- the preview is a few
+ * hundred pixels wide and OCR on that would be hopeless.
+ */
+export async function captureFrame(
+  video: HTMLVideoElement,
+  filename = 'label.jpg',
+): Promise<File> {
+  const width = video.videoWidth;
+  const height = video.videoHeight;
+  if (!width || !height) {
+    throw new ScanError('unsupported', 'The camera has not started yet.');
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new ScanError('unsupported', "This browser can't capture a photo.");
+  ctx.drawImage(video, 0, 0, width, height);
+
+  const blob = await new Promise<Blob | null>((resolve) =>
+    // Quality 0.92: JPEG artefacts around small text cost more accuracy than
+    // the bytes are worth saving.
+    canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.92),
+  );
+  if (!blob) throw new ScanError('unsupported', "The photo couldn't be captured.");
+
+  return new File([blob], filename, { type: 'image/jpeg' });
 }

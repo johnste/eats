@@ -2,6 +2,7 @@ import { atwaterAgrees, toDateKey, type OcrResponse } from '@eats/shared';
 import { useMutation } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
+import { CameraSheet } from '../components/CameraSheet.tsx';
 import { Button, Card, ErrorNote, Field } from '../components/ui.tsx';
 import { api, ApiError } from '../lib/api.ts';
 
@@ -34,6 +35,7 @@ export function NewFood() {
   });
   const [flagged, setFlagged] = useState<Set<FieldName>>(new Set());
   const [scan, setScan] = useState<OcrResponse | null>(null);
+  const [cameraOpen, setCameraOpen] = useState(false);
 
   const ocr = useMutation({
     mutationFn: api.scanLabel,
@@ -100,7 +102,6 @@ export function NewFood() {
           ref={fileRef}
           type="file"
           accept="image/*"
-          capture="environment"
           className="sr-only"
           onChange={(e) => {
             const file = e.target.files?.[0];
@@ -112,7 +113,7 @@ export function NewFood() {
           variant="ghost"
           className="w-full"
           disabled={ocr.isPending}
-          onClick={() => fileRef.current?.click()}
+          onClick={() => setCameraOpen(true)}
         >
           {ocr.isPending ? 'Reading the label…' : 'Scan nutrition label'}
         </Button>
@@ -184,7 +185,20 @@ export function NewFood() {
           </p>
         )}
 
-        {barcode && (
+        {cameraOpen && (
+        <CameraSheet
+          title="Scan nutrition label"
+          hint="Fill the frame with the nutrition table, straight on."
+          onClose={() => setCameraOpen(false)}
+          onCapture={(file) => {
+            setCameraOpen(false);
+            ocr.mutate(file);
+          }}
+          onPickFile={() => fileRef.current?.click()}
+        />
+      )}
+
+      {barcode && (
           <p className="text-faint nums text-xs">Barcode {barcode} will be attached.</p>
         )}
 
