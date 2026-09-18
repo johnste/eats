@@ -30,6 +30,8 @@ export function Settings() {
         <GoalsCard />
         <ProfileCard />
 
+        <ExportCard />
+
         <VersionCard />
 
         <Card>
@@ -58,6 +60,45 @@ export function Settings() {
  * can sit on a stale service worker for days, and "is the fix live for me yet"
  * is otherwise unanswerable from the app itself.
  */
+/** Your log is the whole point of the app; you should be able to take it away. */
+function ExportCard() {
+  const download = useMutation({
+    mutationFn: api.exportData,
+    onSuccess: ({ blob, filename }) => {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.click();
+      // Revoking immediately can cancel the download on some browsers.
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    },
+  });
+
+  return (
+    <Card>
+      <h2 className="text-ink mb-1 text-[15px] font-semibold">Your data</h2>
+      <p className="text-muted mb-4 text-[13px]">
+        Everything you have logged, as a JSON file: your foods, entries,
+        weights, goals and profile.
+      </p>
+      {download.error instanceof ApiError && (
+        <p className="mb-3">
+          <ErrorNote>{download.error.message}</ErrorNote>
+        </p>
+      )}
+      <Button
+        variant="ghost"
+        className="w-full"
+        disabled={download.isPending}
+        onClick={() => download.mutate()}
+      >
+        {download.isPending ? 'Preparing…' : 'Download my data'}
+      </Button>
+    </Card>
+  );
+}
+
 function VersionCard() {
   const built = new Date(__BUILD_TIME__);
   const valid = !Number.isNaN(built.getTime());

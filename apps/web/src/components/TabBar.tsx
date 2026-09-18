@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router';
+import { NavLink, useLocation, useNavigate } from 'react-router';
 
 const TABS = [
   { to: '/', label: 'Today', icon: 'M3 11l9-8 9 8v9a2 2 0 0 1-2 2h-4v-6H9v6H5a2 2 0 0 1-2-2z' },
@@ -8,6 +8,9 @@ const TABS = [
 ] as const;
 
 export function TabBar() {
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+
   return (
     <nav
       aria-label="Main"
@@ -20,6 +23,15 @@ export function TabBar() {
             <NavLink
               to={to}
               end={to === '/'}
+              onClick={(e) => {
+                // Tapping Add while already on it should put the cursor in the
+                // search field rather than doing nothing. A changing value is
+                // what makes the add screen notice a repeat tap at all.
+                if (to === '/add' && pathname === '/add') {
+                  e.preventDefault();
+                  navigate(`/add?focus=${Date.now()}`, { replace: true });
+                }
+              }}
               className={({ isActive }) =>
                 `flex min-h-14 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors ${
                   isActive ? 'text-accent' : 'text-faint'

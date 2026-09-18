@@ -153,7 +153,11 @@ export function Today() {
                       <button
                         type="button"
                         aria-label={`Add to ${MEAL_LABELS[meal]}`}
-                        onClick={() => navigate(`/add?meal=${meal}&date=${date}`)}
+                        // focus tells the add screen to open the keyboard:
+                        // tapping + means you already know what you want.
+                        onClick={() =>
+                          navigate(`/add?meal=${meal}&date=${date}&focus=${Date.now()}`)
+                        }
                         className="text-accent bg-accent-soft grid size-7 place-items-center rounded-full text-base leading-none"
                       >
                         +

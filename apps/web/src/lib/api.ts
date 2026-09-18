@@ -89,6 +89,23 @@ export const api = {
   createFood: (body: CreateFoodBody) => send<FoodResponse>('POST', '/foods', body),
   brands: () => get<string[]>('/foods/brands'),
 
+  /**
+   * Fetched as a blob rather than linked to directly, so a failure surfaces in
+   * the UI instead of replacing the app with a JSON error page.
+   */
+  exportData: async (): Promise<{ blob: Blob; filename: string }> => {
+    const res = await fetch('/api/export', { credentials: 'same-origin' });
+    if (!res.ok) {
+      throw new ApiError('Could not prepare your export.', res.status);
+    }
+    const disposition = res.headers.get('content-disposition') ?? '';
+    const match = disposition.match(/filename="([^"]+)"/);
+    return {
+      blob: await res.blob(),
+      filename: match?.[1] ?? 'eats-export.json',
+    };
+  },
+
   scanLabel: (file: File) => {
     const form = new FormData();
     form.append('image', file);

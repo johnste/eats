@@ -15,9 +15,17 @@ export function Add() {
   const date = params.get('date') ?? toDateKey();
   const initialMeal = (params.get('meal') as Meal | null) ?? guessMeal();
 
+  const searchRef = useRef<HTMLInputElement>(null);
+  const focusToken = params.get('focus');
   const [query, setQuery] = useState('');
   const [scanning, setScanning] = useState(false);
   const [picked, setPicked] = useState<FoodResponse | null>(null);
+
+  // Runs again on every repeat tap, because the token changes each time.
+  useEffect(() => {
+    if (!focusToken) return;
+    searchRef.current?.focus();
+  }, [focusToken]);
 
   const recent = useRecentFoods();
   const debounced = useDebounced(query, 300);
@@ -83,6 +91,7 @@ export function Add() {
       <BottomBar>
         <div className="flex gap-2">
           <input
+            ref={searchRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search foods…"
