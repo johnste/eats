@@ -1,7 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { Sheet } from './Sheet.tsx';
 import { Button, ErrorNote } from './ui.tsx';
-import { captureFrame, ScanError, startCamera, stopCamera } from '../lib/scanner.ts';
+import {
+  allowRotation,
+  captureFrame,
+  GUIDE,
+  ScanError,
+  startCamera,
+  stopCamera,
+} from '../lib/scanner.ts';
 
 /**
  * A live camera with a shutter button. Used for label photos, where the point
@@ -34,6 +41,11 @@ export function CameraSheet({
     if (!video) return;
     let cancelled = false;
 
+    // A wide nutrition table is much easier to photograph in landscape, but
+    // the app itself has no business rotating, so the unlock lasts only as
+    // long as the camera is open.
+    const restoreOrientation = allowRotation();
+
     void (async () => {
       try {
         const stream = await startCamera(video, { highResolution: true });
@@ -54,6 +66,7 @@ export function CameraSheet({
       cancelled = true;
       stopCamera(streamRef.current);
       streamRef.current = null;
+      restoreOrientation();
     };
   }, []);
 
@@ -100,17 +113,44 @@ export function CameraSheet({
               ref={videoRef}
               playsInline
               muted
-              className="aspect-[3/4] w-full object-cover"
+              // Portrait gets a tall frame; rotate the phone and it goes wide,
+              // which is the point of allowing rotation here.
+              className="max-h-[55dvh] w-full object-contain landscape:max-h-[45dvh]"
             />
-            {/* A guide rather than a crop: the whole frame is sent, but the
-                table should sit roughly inside it and fill the width. */}
-            <div
-              aria-hidden
-              className="pointer-events-none absolute inset-x-5 top-1/2 h-48 -translate-y-1/2 rounded-lg border-2 border-white/70"
-            />
+
+            {/* Everything outside the guide is dimmed because everything
+                outside the guide is discarded -- the capture is cropped to
+                exactly this rectangle. */}
+            <div aria-hidden className="pointer-events-none absolute inset-0">
+              <div
+                className="absolute inset-0 bg-black/45"
+                style={{
+                  clipPath: `polygon(
+                    0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%,
+                    ${GUIDE.x * 100}% ${GUIDE.y * 100}%,
+                    ${GUIDE.x * 100}% ${(GUIDE.y + GUIDE.height) * 100}%,
+                    ${(GUIDE.x + GUIDE.width) * 100}% ${(GUIDE.y + GUIDE.height) * 100}%,
+                    ${(GUIDE.x + GUIDE.width) * 100}% ${GUIDE.y * 100}%,
+                    ${GUIDE.x * 100}% ${GUIDE.y * 100}%
+                  )`,
+                }}
+              />
+              <div
+                className="absolute rounded-lg border-2 border-white/80"
+                style={{
+                  left: `${GUIDE.x * 100}%`,
+                  top: `${GUIDE.y * 100}%`,
+                  width: `${GUIDE.width * 100}%`,
+                  height: `${GUIDE.height * 100}%`,
+                }}
+              />
+            </div>
           </div>
 
-          <p className="text-faint text-center text-[13px]">{hint}</p>
+          <p className="text-faint text-center text-[13px]">
+            {hint} Only what is inside the box is read — turn the phone
+            sideways for a wide table.
+          </p>
 
           <Button className="w-full" disabled={!ready || busy} onClick={() => void shoot()}>
             {busy ? 'Reading the label…' : ready ? 'Take photo' : 'Starting camera…'}

@@ -124,9 +124,18 @@ export function detectLoop(
 }
 
 /**
- * Grab the current frame as a JPEG file, at the camera's native resolution
- * rather than the size it happens to be displayed at -- the preview is a few
- * hundred pixels wide and OCR on that would be hopeless.
+ * The framing guide, as fractions of the frame. The overlay and the crop are
+ * driven by these same numbers, so what the rectangle shows is exactly what
+ * gets read -- previously the rectangle was decorative and the whole frame was
+ * sent, which meant it happily read text you had deliberately framed out.
+ */
+export const GUIDE = { x: 0.04, y: 0.08, width: 0.92, height: 0.84 } as const;
+
+/**
+ * Grab the current frame as a JPEG file, cropped to the guide and taken at the
+ * camera's native resolution rather than the size it happens to be displayed
+ * at -- the preview is a few hundred pixels wide and OCR on that would be
+ * hopeless.
  */
 export async function captureFrame(
   video: HTMLVideoElement,
@@ -138,12 +147,17 @@ export async function captureFrame(
     throw new ScanError('unsupported', 'The camera has not started yet.');
   }
 
+  const sx = Math.round(width * GUIDE.x);
+  const sy = Math.round(height * GUIDE.y);
+  const sw = Math.round(width * GUIDE.width);
+  const sh = Math.round(height * GUIDE.height);
+
   const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
+  canvas.width = sw;
+  canvas.height = sh;
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new ScanError('unsupported', "This browser can't capture a photo.");
-  ctx.drawImage(video, 0, 0, width, height);
+  ctx.drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh);
 
   const blob = await new Promise<Blob | null>((resolve) =>
     // Quality 0.92: JPEG artefacts around small text cost more accuracy than
@@ -153,4 +167,34 @@ export async function captureFrame(
   if (!blob) throw new ScanError('unsupported', "The photo couldn't be captured.");
 
   return new File([blob], filename, { type: 'image/jpeg' });
+}
+
+/**
+ * Let the device rotate while the camera is open, then put it back.
+ *
+ * The app is portrait-locked in the manifest, which is right for a food log
+ * but wrong for photographing a wide nutrition table. Both calls are
+ * best-effort: the Screen Orientation API is unsupported on iOS and rejects
+ * outside fullscreen elsewhere, and in both cases the camera still works --
+ * the phone just will not rotate.
+ */
+export function allowRotation(): () => void {
+  const orientation = screen.orientation as ScreenOrientation & {
+    unlock?: () => void;
+    lock?: (o: string) => Promise<void>;
+  };
+
+  try {
+    orientation.unlock?.();
+  } catch {
+    // Not supported here; the camera works regardless.
+  }
+
+  return () => {
+    try {
+      void orientation.lock?.('portrait').catch(() => {});
+    } catch {
+      // Same: nothing to restore if locking was never possible.
+    }
+  };
 }
