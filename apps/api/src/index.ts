@@ -7,6 +7,7 @@ import { createDb, type Database } from './db/client.ts';
 import { invites, users } from './db/schema.ts';
 import { runMigrations } from './db/migrate.ts';
 import { loadEnv } from './env.ts';
+import { createOffClient } from './lib/off.ts';
 import { purgeExpiredSessions } from './lib/auth.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -46,7 +47,9 @@ const webDist =
     ? defaultWebDist
     : undefined);
 
-const app = await buildApp({ db, env: { ...env, WEB_DIST: webDist } });
+const off = createOffClient({ userAgent: env.OFF_USER_AGENT });
+
+const app = await buildApp({ db, off, env: { ...env, WEB_DIST: webDist } });
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => {

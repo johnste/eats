@@ -15,7 +15,11 @@ import { join } from 'node:path';
 import type { Database } from './db/client.ts';
 import type { Env } from './env.ts';
 import { resolveSession, SESSION_COOKIE, type SessionUser } from './lib/auth.ts';
+import type { OffClient } from './lib/off.ts';
 import { authRoutes } from './routes/auth.ts';
+import { foodRoutes } from './routes/foods.ts';
+import { logRoutes } from './routes/log.ts';
+import { meRoutes } from './routes/me.ts';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -27,6 +31,7 @@ declare module 'fastify' {
 export interface AppDeps {
   db: Database;
   env: Env;
+  off: OffClient;
 }
 
 /** 401 unless a valid session cookie resolved to a user. */
@@ -81,6 +86,9 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   app.get('/api/health', async () => ({ ok: true }));
 
   await app.register(authRoutes, { prefix: '/api/auth', ...deps });
+  await app.register(foodRoutes, { prefix: '/api/foods', ...deps });
+  await app.register(logRoutes, { prefix: '/api/log', ...deps });
+  await app.register(meRoutes, { prefix: '/api', ...deps });
 
   // In production the same process serves the built SPA. Unknown non-API paths
   // fall through to index.html so client-side routes survive a hard refresh.

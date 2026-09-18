@@ -87,6 +87,44 @@ export const foodResponse = macrosPer100g.extend({
   servings: z.array(servingInput.extend({ id: z.string() })),
 });
 
+/**
+ * A search hit from Open Food Facts. The search index carries names and
+ * barcodes but no nutriments, so a candidate is not yet a food -- picking one
+ * resolves its macros through the barcode endpoint.
+ */
+export const offCandidate = z.object({
+  barcode: z.string(),
+  name: z.string(),
+  brand: z.string().nullable(),
+});
+
+export const foodSearchResponse = z.object({
+  /** Your own foods and anything already cached locally. */
+  local: z.array(foodResponse),
+  off: z.array(offCandidate),
+  /** True when Open Food Facts could not be reached; local results still stand. */
+  offUnavailable: z.boolean(),
+});
+
+/**
+ * Looking up a barcode has three outcomes, and the client routes on them:
+ * a usable food, a product whose nutrition data is unusable (whose name still
+ * prefills manual entry), or nothing at all.
+ */
+export const barcodeLookupResponse = z.discriminatedUnion('status', [
+  z.object({ status: z.literal('ok'), food: foodResponse }),
+  z.object({
+    status: z.literal('incomplete'),
+    prefill: z.object({
+      barcode: z.string(),
+      name: z.string(),
+      brand: z.string().nullable(),
+      servingG: z.number().nullable(),
+      missing: z.array(z.string()),
+    }),
+  }),
+]);
+
 export const foodSearchQuery = z.object({
   q: z.string().min(1).max(100),
   limit: z.coerce.number().int().min(1).max(50).default(20),
@@ -194,3 +232,6 @@ export type CreateWeightBody = z.infer<typeof createWeightBody>;
 export type OcrResponse = z.infer<typeof ocrResponse>;
 export type OcrField = z.infer<typeof ocrField>;
 export type ErrorResponse = z.infer<typeof errorResponse>;
+export type OffCandidate = z.infer<typeof offCandidate>;
+export type FoodSearchResponse = z.infer<typeof foodSearchResponse>;
+export type BarcodeLookupResponse = z.infer<typeof barcodeLookupResponse>;
