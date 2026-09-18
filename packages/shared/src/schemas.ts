@@ -78,9 +78,12 @@ export const createFoodBody = macrosPer100g.extend({
 
 export const updateFoodBody = createFoodBody.partial();
 
+/** 'slv' is Livsmedelsverket, the Swedish Food Agency's food database. */
+export const foodSource = z.enum(['off', 'custom', 'slv']);
+
 export const foodResponse = macrosPer100g.extend({
   id: z.string(),
-  source: z.enum(['off', 'custom']),
+  source: foodSource,
   name: z.string(),
   brand: z.string().nullable(),
   barcode: z.string().nullable(),

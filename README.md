@@ -46,6 +46,28 @@ days keep the numbers they always had.
 Goals are **append-only** with an `effective_from` date: changing your target in
 March doesn't retroactively rewrite how January looked.
 
+## Food data
+
+Three sources, searched together and ranked in that order:
+
+1. **Your own foods** -- anything you created or scanned a label for.
+2. **Livsmedelsverket** -- the Swedish Food Agency's food database, seeded
+   locally by `apps/api/scripts/seed-slv.ts`. Generic Swedish staples that have
+   no barcode. Licensed CC BY 4.0; the attribution is in Settings.
+3. **Open Food Facts** -- branded packaged products, fetched by barcode on
+   demand and cached.
+
+Livsmedelsverket outranks Open Food Facts because it is compiled and analysed
+rather than crowd-sourced, and covers the generic foods OFF has only as
+somebody's photographed packet.
+
+```bash
+node --env-file=.env apps/api/scripts/seed-slv.ts --dry   # preview
+node --env-file=.env apps/api/scripts/seed-slv.ts         # import
+```
+
+Re-running updates rather than duplicates.
+
 ## Deployment
 
 Self-hosted on Coolify as a single container. See **[DEPLOY.md](DEPLOY.md)** for

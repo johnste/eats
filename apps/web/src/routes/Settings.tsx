@@ -35,6 +35,32 @@ export function Settings() {
         <VersionCard />
 
         <Card>
+          {/* CC BY 4.0 requires naming the source. */}
+          <h2 className="text-ink mb-1 text-[15px] font-semibold">Data sources</h2>
+          <p className="text-muted text-[13px]">
+            Swedish foods from{' '}
+            <a
+              href="https://www.livsmedelsverket.se/en/about-us/open-data/"
+              target="_blank"
+              rel="noreferrer noopener"
+              className="text-accent underline underline-offset-4"
+            >
+              Livsmedelsverket
+            </a>
+            , the Swedish Food Agency (CC BY 4.0). Branded products from{' '}
+            <a
+              href="https://world.openfoodfacts.org/"
+              target="_blank"
+              rel="noreferrer noopener"
+              className="text-accent underline underline-offset-4"
+            >
+              Open Food Facts
+            </a>
+            .
+          </p>
+        </Card>
+
+        <Card>
           <p className="text-muted mb-3 text-[13px]">
             Signed in as <span className="text-ink">{me.data?.email}</span>
           </p>

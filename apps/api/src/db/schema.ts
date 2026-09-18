@@ -13,7 +13,13 @@ import {
 } from 'drizzle-orm/pg-core';
 
 export const mealEnum = pgEnum('meal', ['breakfast', 'lunch', 'dinner', 'snack']);
-export const foodSourceEnum = pgEnum('food_source', ['off', 'custom']);
+/**
+ * 'slv' is Livsmedelsverket, the Swedish Food Agency's food composition
+ * database: generic Swedish staples that have no barcode and that Open Food
+ * Facts covers badly. Seeded locally rather than queried live, since its API
+ * offers neither bulk fetch nor name search.
+ */
+export const foodSourceEnum = pgEnum('food_source', ['off', 'custom', 'slv']);
 export const sexEnum = pgEnum('sex', ['male', 'female']);
 export const activityLevelEnum = pgEnum('activity_level', [
   'sedentary',

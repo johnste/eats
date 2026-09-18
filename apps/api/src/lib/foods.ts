@@ -119,7 +119,14 @@ export async function upsertOffFood(
 }
 
 /**
- * Local search: the user's own foods plus anything already pulled from OFF.
+ * Local search: the user's own foods, Livsmedelsverket's Swedish staples, and
+ * anything already pulled from Open Food Facts.
+ *
+ * Ordered by source: your own foods first, then Livsmedelsverket, then OFF.
+ * Livsmedelsverket outranks OFF because it is compiled and analysed rather
+ * than crowd-sourced, and because it covers generic foods -- potatis, ägg,
+ * havregryn -- that OFF only has as somebody's photographed packet.
+ *
  * Matches name or brand; ILIKE is fine at this table size and avoids needing
  * the pg_trgm extension.
  */
@@ -136,11 +143,25 @@ export async function searchLocal(
     .where(
       and(
         or(ilike(foods.name, pattern), ilike(foods.brand, pattern)),
-        // Your custom foods, or any cached OFF product.
-        or(eq(foods.source, 'off'), eq(foods.createdBy, userId)),
+        // Shared sources, plus your own foods -- but not another user's.
+        or(
+          eq(foods.source, 'off'),
+          eq(foods.source, 'slv'),
+          eq(foods.createdBy, userId),
+        ),
       ),
     )
-    .orderBy(desc(foods.source), foods.name)
+    .orderBy(
+      sql`case ${foods.source}
+            when 'custom' then 0
+            when 'slv' then 1
+            else 2
+          end`,
+      // A name that begins with the query beats one that merely contains it:
+      // searching "ägg" should reach "Ägg kokt" before "Majonnäs äggfri".
+      sql`case when ${foods.name} ilike ${`${query.replace(/[%_]/g, (c) => `\\${c}`)}%`} then 0 else 1 end`,
+      foods.name,
+    )
     .limit(limit);
 }
 
