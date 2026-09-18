@@ -67,12 +67,17 @@ export function Today() {
     <div {...handlers} className="relative">
       {/* An edge glow rather than a moving page: the view barely travels, so
           the glow is what carries direction and how close you are. It turns
-          accent at the point releasing would actually change the day. */}
+          accent at the point releasing would actually change the day.
+
+          It sits behind the cards (z-0 against the content's z-10) and bleeds
+          past the page gutter with -inset-y-4 / -left-4, so it reads as light
+          coming in from the edge of the screen rather than as a panel laid over
+          the day. */}
       {swipe.dragging && swipe.direction && swipe.progress > 0 && (
         <div
           aria-hidden
-          className={`pointer-events-none absolute inset-y-0 z-10 w-28 ${
-            swipe.direction === 'right' ? 'left-0' : 'right-0'
+          className={`pointer-events-none absolute -inset-y-4 z-0 w-32 ${
+            swipe.direction === 'right' ? '-left-4' : '-right-4'
           }`}
           style={{
             opacity: swipe.progress,
@@ -93,7 +98,7 @@ export function Today() {
         <div
           aria-hidden
           className={`pointer-events-none absolute top-1 z-20 ${
-            swipe.direction === 'right' ? 'left-1' : 'right-1'
+            swipe.direction === 'right' ? 'left-0' : 'right-0'
           }`}
           style={{ opacity: swipe.progress }}
         >
@@ -109,7 +114,9 @@ export function Today() {
 
       <div
         style={{ transform: `translateX(${swipe.offset}px)` }}
-        className={swipe.dragging ? undefined : 'transition-transform duration-200'}
+        className={`relative z-10 ${
+          swipe.dragging ? '' : 'transition-transform duration-200'
+        }`}
       >
       <header className="mb-3 flex items-center justify-between">
         <StepButton label="Previous day" onClick={() => go(-1)} d="M15 18l-6-6 6-6" />
