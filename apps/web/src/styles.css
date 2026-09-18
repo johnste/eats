@@ -77,9 +77,20 @@ html {
 body {
   margin: 0;
   font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  /* Stop the whole page rubber-banding on iOS while sheets scroll. */
-  overscroll-behavior-y: none;
+  /* Stop the whole page rubber-banding on iOS while sheets scroll, and stop
+     horizontal overscroll from becoming a browser back/forward gesture --
+     which drags the entire page, fixed tab bar included. */
+  overscroll-behavior: none;
   -webkit-font-smoothing: antialiased;
+}
+
+/**
+ * Areas with their own horizontal gesture. Declaring pan-y tells the browser
+ * this element scrolls vertically only, so it stops treating a sideways drag
+ * as page navigation and leaves the gesture to us.
+ */
+.swipe-area {
+  touch-action: pan-y;
 }
 
 /* Headings are set tighter than body text; at these sizes the default

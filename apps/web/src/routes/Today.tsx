@@ -67,7 +67,7 @@ export function Today() {
   const peekDate = swipe.direction === 'right' ? addDays(date, -1) : addDays(date, 1);
 
   return (
-    <div {...handlers} className="relative">
+    <div {...handlers} className="swipe-area relative">
       {/* Which day you would land on, held still while the glow does the work. */}
       {swipe.dragging && swipe.direction && swipe.progress > 0.15 && (
         <div
