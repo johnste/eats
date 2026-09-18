@@ -17,6 +17,11 @@ RUN npm ci
 COPY packages/shared packages/shared
 COPY apps/api apps/api
 COPY apps/web apps/web
+
+# Coolify passes the commit it is building; without it the app still works and
+# simply reports an unknown version.
+ARG SOURCE_COMMIT=""
+ENV SOURCE_COMMIT=$SOURCE_COMMIT
 RUN npm run build --workspace @eats/web
 
 # Re-resolve with dev dependencies dropped, for copying into the runtime image.

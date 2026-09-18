@@ -1,4 +1,23 @@
+import { execSync } from 'node:child_process';
 import { defineConfig } from 'vite';
+
+/**
+ * Identify the build so the app can say which version it is running -- useful
+ * when a phone has been holding a stale service worker and you need to know
+ * whether a fix has actually reached it.
+ *
+ * Inside the Docker image there is no .git directory, so the commit arrives as
+ * a build argument instead; git is only consulted for local builds.
+ */
+function commitSha(): string {
+  const fromEnv = process.env.SOURCE_COMMIT ?? process.env.GIT_COMMIT;
+  if (fromEnv) return fromEnv.slice(0, 7);
+  try {
+    return execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim();
+  } catch {
+    return 'unknown';
+  }
+}
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
@@ -54,6 +73,10 @@ export default defineConfig({
     proxy: {
       '/api': { target: 'http://localhost:3000', changeOrigin: true },
     },
+  },
+  define: {
+    __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+    __COMMIT_SHA__: JSON.stringify(commitSha()),
   },
   build: { outDir: 'dist', sourcemap: true },
 });

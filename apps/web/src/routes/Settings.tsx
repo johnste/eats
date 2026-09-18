@@ -30,6 +30,8 @@ export function Settings() {
         <GoalsCard />
         <ProfileCard />
 
+        <VersionCard />
+
         <Card>
           <p className="text-muted mb-3 text-[13px]">
             Signed in as <span className="text-ink">{me.data?.email}</span>
@@ -49,6 +51,71 @@ export function Settings() {
       </div>
     </>
   );
+}
+
+/**
+ * Which build this device is actually running. Worth showing because a phone
+ * can sit on a stale service worker for days, and "is the fix live for me yet"
+ * is otherwise unanswerable from the app itself.
+ */
+function VersionCard() {
+  const built = new Date(__BUILD_TIME__);
+  const valid = !Number.isNaN(built.getTime());
+
+  return (
+    <Card>
+      <h2 className="text-ink mb-1 text-[15px] font-semibold">Version</h2>
+      <dl className="mt-3 space-y-1.5 text-[13px]">
+        <div className="flex justify-between gap-3">
+          <dt className="text-muted">Deployed</dt>
+          <dd className="text-ink nums text-right">
+            {valid ? (
+              <>
+                {relativeTime(built)}
+                <span className="text-faint block text-xs">
+                  {built.toLocaleString(undefined, {
+                    dateStyle: 'medium',
+                    timeStyle: 'short',
+                  })}
+                </span>
+              </>
+            ) : (
+              'unknown'
+            )}
+          </dd>
+        </div>
+        <div className="flex justify-between gap-3">
+          <dt className="text-muted">Build</dt>
+          <dd className="text-ink nums">{__COMMIT_SHA__}</dd>
+        </div>
+      </dl>
+    </Card>
+  );
+}
+
+function relativeTime(then: Date): string {
+  const seconds = Math.round((Date.now() - then.getTime()) / 1000);
+  const units: [Intl.RelativeTimeFormatUnit, number][] = [
+    ['second', 60],
+    ['minute', 60],
+    ['hour', 24],
+    ['day', 7],
+    ['week', 4.35],
+    ['month', 12],
+    ['year', Number.POSITIVE_INFINITY],
+  ];
+
+  let value = seconds;
+  for (const [unit, size] of units) {
+    if (Math.abs(value) < size) {
+      return new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' }).format(
+        -Math.round(value),
+        unit,
+      );
+    }
+    value /= size;
+  }
+  return then.toLocaleDateString();
 }
 
 function GoalsCard() {
