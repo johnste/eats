@@ -2,12 +2,8 @@ import { errorResponse, ocrResponse } from '@eats/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { type AppDeps, requireUser } from '../app.ts';
-import { parseNutritionText } from '../lib/ocr/parse.ts';
-import {
-  imageToText,
-  OcrFailedError,
-  OcrUnavailableError,
-} from '../lib/ocr/tesseract.ts';
+import { scanLabel } from '../lib/ocr/scan.ts';
+import { OcrFailedError, OcrUnavailableError } from '../lib/ocr/tesseract.ts';
 
 /** Phone photos are a few MB; anything much larger is not a label. */
 const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
@@ -44,8 +40,7 @@ export const ocrRoutes: FastifyPluginAsync<AppDeps> = async (app) => {
       try {
         // The image is never written to disk: it goes straight to Tesseract's
         // stdin and is dropped once the text comes back.
-        const text = await imageToText(buffer);
-        const result = parseNutritionText(text);
+        const result = await scanLabel(buffer);
 
         // Logged so a scan that "didn't work" can be diagnosed from the
         // container logs alone, without reproducing it.
@@ -53,7 +48,9 @@ export const ocrRoutes: FastifyPluginAsync<AppDeps> = async (app) => {
           {
             ms: Date.now() - started,
             bytes: buffer.length,
-            chars: text.trim().length,
+            chars: result.rawText.trim().length,
+            psm: result.psm,
+            attempts: result.attempts,
             found: [
               result.kcal100g,
               result.protein100g,

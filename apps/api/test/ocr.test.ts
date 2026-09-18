@@ -284,6 +284,72 @@ describe('parseNutritionText', () => {
     });
   });
 
+  /**
+   * Reg. 1169/2011 Article 34 permits a linear declaration -- a sentence
+   * rather than a table -- where there is no room for one. Bottles and small
+   * packets use it constantly, and a line-based parser reads only the first
+   * nutrient and drops the rest.
+   */
+  describe('linear declarations', () => {
+    it('reads a Swedish run-on declaration', () => {
+      const r = parseNutritionText(
+        'Näringsvärde per 100 g: energi 1554 kJ/371 kcal, fett 6,2 g varav ' +
+          'mättat fett 1,1 g, kolhydrat 66 g varav sockerarter 8,5 g, ' +
+          'fiber 9,8 g, protein 11 g, salt 0,01 g',
+      );
+      assert.equal(r.kcal100g.value, 371);
+      assert.equal(r.fat100g.value, 6.2);
+      assert.equal(r.carbs100g.value, 66);
+      assert.equal(r.protein100g.value, 11);
+      assert.equal(r.atwaterOk, true);
+    });
+
+    it('reads an English run-on declaration', () => {
+      const r = parseNutritionText(
+        'Typical values per 100g: Energy 1554kJ/371kcal, Fat 6.2g of which ' +
+          'saturates 1.1g, Carbohydrate 66g of which sugars 8.5g, ' +
+          'Protein 11g, Salt 0.01g',
+      );
+      assert.equal(r.kcal100g.value, 371);
+      assert.equal(r.fat100g.value, 6.2);
+      assert.equal(r.carbs100g.value, 66);
+      assert.equal(r.protein100g.value, 11);
+    });
+
+    it('does not let a run-on sub-nutrient capture its parent', () => {
+      // The whole risk of linear format: "fett 6,2 g varav mättat fett 1,1 g"
+      // on one line must not put 1,1 in the fat slot, nor 8,5 in carbs.
+      const r = parseNutritionText(
+        'per 100 g: energi 371 kcal, fett 6,2 g varav mättat fett 1,1 g, ' +
+          'kolhydrat 66 g varav sockerarter 8,5 g, protein 11 g',
+      );
+      assert.equal(r.fat100g.value, 6.2);
+      assert.notEqual(r.fat100g.value, 1.1);
+      assert.equal(r.carbs100g.value, 66);
+      assert.notEqual(r.carbs100g.value, 8.5);
+    });
+
+    it('handles a declaration wrapped across several lines', () => {
+      // OCR of a curved bottle rarely gives clean line breaks.
+      const r = parseNutritionText(
+        'Näringsvärde per 100 ml: energi 180 kJ/\n43 kcal, fett 0 g,\n' +
+          'kolhydrat 10,6 g varav\nsockerarter 10,6 g, protein 0,5 g',
+      );
+      assert.equal(r.kcal100g.value, 43);
+      assert.equal(r.fat100g.value, 0);
+      assert.equal(r.carbs100g.value, 10.6);
+      assert.equal(r.protein100g.value, 0.5);
+    });
+
+    it('stops a value running on into unrelated trailing text', () => {
+      const r = parseNutritionText(
+        'per 100 g: energi 371 kcal, fett 6,2 g, kolhydrat 66 g, protein 11 g. ' +
+          'Ingredienser: havregryn 100%. Nettovikt 500 g.',
+      );
+      assert.equal(r.protein100g.value, 11);
+    });
+  });
+
   it('reports missing fields as null rather than zero', () => {
     const r = parseNutritionText('Ingredienser: havre, vatten, salt');
     assert.equal(r.kcal100g.value, null);

@@ -128,6 +128,73 @@ export interface Match {
   quality: 'exact' | 'fuzzy';
 }
 
+/** A nutrient keyword found at a known position in the text. */
+export interface NutrientHit {
+  key: NutrientKey;
+  isSub: boolean;
+  quality: 'exact' | 'fuzzy';
+  start: number;
+  end: number;
+}
+
+/** How far past a keyword to look for its value, when no other keyword follows. */
+const SEGMENT_LIMIT = 60;
+
+const SUB_PREFIX = /(varav|d[äa]rav|of\s+which)\s*$/;
+
+/**
+ * Locate every nutrient keyword in the whole text, with positions.
+ *
+ * Reg. 1169/2011 Article 34 allows the declaration to run as a sentence rather
+ * than a table when there is no room for one -- common on bottles and small
+ * packets. A line-based parser reads only the first nutrient on such a label
+ * and silently drops the rest, so matching is positional instead: find each
+ * keyword, then take its value from the text up to the next keyword. Tabular
+ * labels fall out of the same rule, since there the next keyword is simply on
+ * the next line.
+ */
+export function findNutrientHits(text: string): NutrientHit[] {
+  const hits: NutrientHit[] = [];
+
+  for (const spec of NUTRIENTS) {
+    for (const re of spec.patterns) {
+      const global = new RegExp(re.source, re.flags.includes('g') ? re.flags : `${re.flags}g`);
+      for (const m of text.matchAll(global)) {
+        if (m.index === undefined) continue;
+        hits.push({
+          key: spec.key,
+          isSub: spec.isSub,
+          quality: 'exact',
+          start: m.index,
+          end: m.index + m[0].length,
+        });
+      }
+    }
+  }
+
+  // "varav mättat fett" also matches "fett" on its own. Keep the longer span,
+  // or the sub-nutrient would hand its value to its parent.
+  const kept = hits.filter(
+    (h) =>
+      !hits.some(
+        (other) =>
+          other !== h &&
+          other.start <= h.start &&
+          other.end >= h.end &&
+          other.end - other.start > h.end - h.start,
+      ),
+  );
+
+  // A keyword preceded by "varav" / "of which" is a sub-nutrient whatever it is.
+  for (const hit of kept) {
+    if (SUB_PREFIX.test(text.slice(Math.max(0, hit.start - 20), hit.start))) {
+      hit.isSub = true;
+    }
+  }
+
+  return kept.sort((a, b) => a.start - b.start);
+}
+
 export function matchNutrient(line: string): Match | null {
   const label = labelPart(line);
   if (!label) return null;
@@ -329,23 +396,26 @@ export function parseNutritionText(rawText: string): ParseResult {
   /** Second-guess readings for values whose unit went missing. */
   const alternatives = new Map<NutrientKey, number | null>();
 
-  for (const line of lines) {
-    if (line === layout.headerLine) continue;
-    const match = matchNutrient(line);
-    if (!match) continue;
+  // Keywords are located across the whole text rather than line by line, so a
+  // linear declaration and a table are read the same way.
+  const hits = findNutrientHits(joined);
 
-    // The rule that matters: a sub-nutrient row never fills its parent's slot.
-    const key = match.key;
-    if (found.has(key)) continue;
+  for (const [i, hit] of hits.entries()) {
+    // Sub-nutrients are skipped as values but still matter as boundaries: the
+    // "varav sockerarter" that follows "kolhydrat" is what stops the carb
+    // value from running on into the sugar figure.
+    if (hit.isSub || found.has(hit.key)) continue;
 
-    const nums = extractNumbers(line);
+    const next = hits[i + 1];
+    const stop = Math.min(next?.start ?? joined.length, hit.end + SEGMENT_LIMIT);
+    const segment = joined.slice(hit.end, stop);
+
+    const nums = extractNumbers(segment);
     if (nums.length === 0) continue;
 
-    const chosen = key === 'energy' ? null : pickNumber(nums, layout.index);
+    const chosen = hit.key === 'energy' ? null : pickNumber(nums, layout.index);
     const value =
-      key === 'energy'
-        ? energyKcal(nums, layout.index)
-        : (chosen?.value ?? null);
+      hit.key === 'energy' ? energyKcal(nums, layout.index) : (chosen?.value ?? null);
     if (value === null) continue;
 
     // Energy is stated in kcal or kJ, never grams, so it is not subject to the
@@ -355,11 +425,11 @@ export function parseNutritionText(rawText: string): ParseResult {
     // Where the rounding rule is decisive, take the repaired reading up front
     // and leave the literal one as the fallback for the Atwater arbitration.
     const swap = preferByRounding(value, alternative);
-    alternatives.set(key, swap ? value : alternative);
-    found.set(key, {
+    alternatives.set(hit.key, swap ? value : alternative);
+    found.set(hit.key, {
       value: swap ? (alternative as number) : value,
-      confidence: swap ? REPAIRED_CONFIDENCE : CONFIDENCE[match.quality],
-      sourceLine: line,
+      confidence: swap ? REPAIRED_CONFIDENCE : CONFIDENCE[hit.quality],
+      sourceLine: `${joined.slice(hit.start, hit.end)}${segment}`.trim(),
     });
   }
 
