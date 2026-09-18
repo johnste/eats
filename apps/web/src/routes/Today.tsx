@@ -1,4 +1,5 @@
 import { addDays, round, toDateKey, type Meal } from '@eats/shared';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { DaySummary } from '../components/Macros.tsx';
 import { Card, Empty, ErrorNote, Spinner } from '../components/ui.tsx';
@@ -31,6 +32,18 @@ export function Today() {
   const date = params.date ?? toDateKey();
   const day = useDay(date);
   const { remove } = useLogMutations(date);
+
+  // Deleting is one tap away from a list you scroll with your thumb, so the
+  // first tap only arms it. Nothing is removed until the second.
+  const [confirming, setConfirming] = useState<string | null>(null);
+
+  // Disarm on its own, so a stray tap does not leave a live delete button
+  // sitting under your finger.
+  useEffect(() => {
+    if (!confirming) return;
+    const timer = setTimeout(() => setConfirming(null), 4000);
+    return () => clearTimeout(timer);
+  }, [confirming]);
 
   const go = (delta: number) => {
     // Nothing to log in the future, so forward stops at today.
@@ -151,27 +164,56 @@ export function Today() {
                             </p>
                           </div>
                           <div className="flex shrink-0 items-center gap-1">
-                            <span className="nums text-muted text-[13px]">
-                              {Math.round(entry.kcal)}
-                            </span>
-                            <button
-                              type="button"
-                              aria-label={`Remove ${entry.food.name}`}
-                              onClick={() => remove.mutate(entry.id)}
-                              className="text-faint active:text-danger grid size-7 place-items-center rounded-full"
-                            >
-                              <svg
-                                viewBox="0 0 24 24"
-                                className="size-3.5"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                aria-hidden
-                              >
-                                <path d="M18 6L6 18M6 6l12 12" />
-                              </svg>
-                            </button>
+                            {confirming === entry.id ? (
+                              <>
+                                <button
+                                  type="button"
+                                  aria-label={`Cancel removing ${entry.food.name}`}
+                                  onClick={() => setConfirming(null)}
+                                  className="text-muted px-2 py-1 text-[13px]"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  type="button"
+                                  // autoFocus so the confirm is what a keyboard
+                                  // or screen reader lands on next.
+                                  autoFocus
+                                  aria-label={`Confirm removing ${entry.food.name}`}
+                                  onClick={() => {
+                                    setConfirming(null);
+                                    remove.mutate(entry.id);
+                                  }}
+                                  className="bg-danger text-surface rounded-full px-3 py-1 text-[13px] font-medium"
+                                >
+                                  Remove
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <span className="nums text-muted text-[13px]">
+                                  {Math.round(entry.kcal)}
+                                </span>
+                                <button
+                                  type="button"
+                                  aria-label={`Remove ${entry.food.name}`}
+                                  onClick={() => setConfirming(entry.id)}
+                                  className="text-faint active:text-danger grid size-7 place-items-center rounded-full"
+                                >
+                                  <svg
+                                    viewBox="0 0 24 24"
+                                    className="size-3.5"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    aria-hidden
+                                  >
+                                    <path d="M18 6L6 18M6 6l12 12" />
+                                  </svg>
+                                </button>
+                              </>
+                            )}
                           </div>
                         </li>
                       ))}
