@@ -87,6 +87,7 @@ export const api = {
   recentFoods: () => get<FoodResponse[]>('/foods/recent'),
   barcode: (code: string) => get<BarcodeLookupResponse>(`/foods/barcode/${code}`),
   createFood: (body: CreateFoodBody) => send<FoodResponse>('POST', '/foods', body),
+  brands: () => get<string[]>('/foods/brands'),
 
   scanLabel: (file: File) => {
     const form = new FormData();

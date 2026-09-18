@@ -27,6 +27,7 @@ export const keys = {
   me: ['me'] as const,
   day: (date: string) => ['day', date] as const,
   recent: ['recent'] as const,
+  brands: ['brands'] as const,
   search: (q: string) => ['search', q] as const,
   goals: ['goals'] as const,
   profile: ['profile'] as const,
@@ -57,6 +58,10 @@ export const useDay = (date: string) =>
 
 export const useRecentFoods = () =>
   useQuery({ queryKey: keys.recent, queryFn: api.recentFoods });
+
+/** Brands change only when a food is added, so this can sit cached a long while. */
+export const useBrands = () =>
+  useQuery({ queryKey: keys.brands, queryFn: api.brands, staleTime: 10 * 60_000 });
 
 export const useGoals = () =>
   useQuery({ queryKey: keys.goals, queryFn: api.goals });

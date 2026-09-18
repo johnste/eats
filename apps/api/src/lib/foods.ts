@@ -192,6 +192,24 @@ export async function recentFoods(
   return rows.map((r) => r.food);
 }
 
+/**
+ * Brands already known to this database, most-used first.
+ *
+ * Returned whole rather than filtered server-side: the list is small, a
+ * datalist filters locally as you type, and one cached request beats a
+ * round trip per keystroke on a phone.
+ */
+export async function knownBrands(db: Database, limit = 200): Promise<string[]> {
+  const rows = await db
+    .select({ brand: foods.brand, uses: sql<number>`count(*)::int`.as('uses') })
+    .from(foods)
+    .where(sql`${foods.brand} is not null and length(trim(${foods.brand})) > 0`)
+    .groupBy(foods.brand)
+    .orderBy(desc(sql`count(*)`), foods.brand)
+    .limit(limit);
+  return rows.flatMap((r) => (r.brand ? [r.brand] : []));
+}
+
 export async function insertCustomFood(
   tx: Executor,
   userId: string,

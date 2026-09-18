@@ -17,6 +17,7 @@ import {
   findByBarcode,
   insertCustomFood,
   isStale,
+  knownBrands,
   recentFoods,
   recordFoodView,
   searchLocal,
@@ -67,6 +68,15 @@ export const foodRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
     async (req) => {
       const user = await requireUser(req);
       return withServings(db, await recentFoods(db, user.id, 30));
+    },
+  );
+
+  r.get(
+    '/brands',
+    { schema: { response: { 200: z.array(z.string()) } } },
+    async (req) => {
+      await requireUser(req);
+      return knownBrands(db);
     },
   );
 

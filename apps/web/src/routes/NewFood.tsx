@@ -5,6 +5,7 @@ import { useNavigate, useSearchParams } from 'react-router';
 import { CameraSheet } from '../components/CameraSheet.tsx';
 import { Button, Card, ErrorNote, Field } from '../components/ui.tsx';
 import { api, ApiError } from '../lib/api.ts';
+import { useBrands } from '../lib/queries.ts';
 
 type FieldName = 'kcal100g' | 'protein100g' | 'carbs100g' | 'fat100g';
 
@@ -77,6 +78,7 @@ export function NewFood() {
   const [flagged, setFlagged] = useState<Set<FieldName>>(new Set());
   const [scan, setScan] = useState<OcrResponse | null>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const brands = useBrands();
 
   const ocr = useMutation({
     mutationFn: api.scanLabel,
@@ -182,12 +184,27 @@ export function NewFood() {
           placeholder="Havregryn"
           required
         />
+        {/* A datalist rather than a custom dropdown: it autocompletes as you
+            type, still accepts a brand nobody has entered before, and uses the
+            platform's own picker on a phone. */}
         <Field
           label="Brand"
           value={brand}
           onChange={(e) => setBrand(e.target.value)}
           placeholder="Optional"
+          list="known-brands"
+          autoComplete="off"
+          hint={
+            brands.data && brands.data.length > 0
+              ? 'Start typing to pick one you have used before.'
+              : undefined
+          }
         />
+        <datalist id="known-brands">
+          {(brands.data ?? []).map((b) => (
+            <option key={b} value={b} />
+          ))}
+        </datalist>
 
         <div className="grid grid-cols-2 gap-3">
           {NUMERIC.map(({ name: key, label, suffix }) => (
