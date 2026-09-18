@@ -18,6 +18,7 @@ import {
   insertCustomFood,
   isStale,
   recentFoods,
+  recordFoodView,
   searchLocal,
   toFoodResponse,
   upsertOffFood,
@@ -78,7 +79,7 @@ export const foodRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
       },
     },
     async (req, reply) => {
-      await requireUser(req);
+      const user = await requireUser(req);
       const { code } = req.params;
 
       // Serve from our own table unless the cached copy has aged out.
@@ -88,6 +89,7 @@ export const foodRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
           .select()
           .from(foodServings)
           .where(eq(foodServings.foodId, cached.id));
+        await recordFoodView(db, user.id, cached.id);
         return { status: 'ok' as const, food: toFoodResponse(cached, servings) };
       }
 
@@ -102,6 +104,7 @@ export const foodRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
             .select()
             .from(foodServings)
             .where(eq(foodServings.foodId, cached.id));
+          await recordFoodView(db, user.id, cached.id);
           return { status: 'ok' as const, food: toFoodResponse(cached, servings) };
         }
         return reply.status(503).send({ error: err.message });
@@ -122,7 +125,9 @@ export const foodRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
           },
         };
       }
-      return { status: 'ok' as const, food: await upsertOffFood(db, product) };
+      const food = await upsertOffFood(db, product);
+      await recordFoodView(db, user.id, food.id);
+      return { status: 'ok' as const, food };
     },
   );
 
@@ -134,6 +139,7 @@ export const foodRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
       const body = req.body;
       return db.transaction(async (tx) => {
         const row = await insertCustomFood(tx, user.id, body);
+        await recordFoodView(tx, user.id, row.id);
         return toFoodResponse(row, body.servings
           ? await tx.select().from(foodServings).where(eq(foodServings.foodId, row.id))
           : []);

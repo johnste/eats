@@ -1,7 +1,7 @@
 import type { FoodResponse } from '@eats/shared';
 import { and, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm';
 import type { Database, Executor } from '../db/client.ts';
-import { foods, foodServings, logEntries } from '../db/schema.ts';
+import { foods, foodServings, foodViews, logEntries } from '../db/schema.ts';
 import type { OffProduct } from './off.ts';
 
 /** Re-pull a cached Open Food Facts product after this long. */
@@ -144,28 +144,50 @@ export async function searchLocal(
     .limit(limit);
 }
 
-/** Most-logged foods first: the list you actually tap on the add screen. */
+/** Note that a user touched a food, whether or not they end up eating it. */
+export async function recordFoodView(
+  tx: Executor,
+  userId: string,
+  foodId: string,
+): Promise<void> {
+  await tx
+    .insert(foodViews)
+    .values({ userId, foodId })
+    .onConflictDoUpdate({
+      target: [foodViews.userId, foodViews.foodId],
+      set: { viewedAt: new Date() },
+    });
+}
+
+/**
+ * The list you actually tap on the add screen.
+ *
+ * Ranked by most recent contact across both logging and merely looking: a food
+ * you scanned a minute ago is what you are about to reach for, and ranking by
+ * frequency alone kept anything new off the list entirely.
+ */
 export async function recentFoods(
   db: Database,
   userId: string,
   limit: number,
 ): Promise<FoodRow[]> {
-  const counts = db
-    .select({
-      foodId: logEntries.foodId,
-      uses: sql<number>`count(*)::int`.as('uses'),
-      lastUsed: sql<Date>`max(${logEntries.createdAt})`.as('last_used'),
-    })
-    .from(logEntries)
-    .where(eq(logEntries.userId, userId))
-    .groupBy(logEntries.foodId)
-    .as('counts');
-
   const rows = await db
     .select({ food: foods })
-    .from(counts)
-    .innerJoin(foods, eq(foods.id, counts.foodId))
-    .orderBy(desc(counts.uses), desc(counts.lastUsed))
+    .from(foods)
+    .innerJoin(
+      sql`(
+        select food_id, max(at) as last_at from (
+          select food_id, created_at as at
+            from log_entries where user_id = ${userId}
+          union all
+          select food_id, viewed_at as at
+            from food_views where user_id = ${userId}
+        ) touches
+        group by food_id
+      ) recent`,
+      sql`recent.food_id = ${foods.id}`,
+    )
+    .orderBy(sql`recent.last_at desc`)
     .limit(limit);
   return rows.map((r) => r.food);
 }

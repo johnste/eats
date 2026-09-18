@@ -4,6 +4,7 @@ import {
   integer,
   pgEnum,
   pgTable,
+  primaryKey,
   real,
   text,
   timestamp,
@@ -155,6 +156,32 @@ export const logEntries = pgTable(
   (t) => [
     index('log_entries_user_date_idx').on(t.userId, t.loggedOn),
     index('log_entries_user_food_idx').on(t.userId, t.foodId),
+  ],
+);
+
+/**
+ * Foods you have touched without necessarily eating them: scanned a barcode
+ * for, or created by hand. Logging is a strong signal but a narrow one -- a
+ * food you looked up two minutes ago is exactly what you are about to reach
+ * for, and before this it was nowhere to be found.
+ *
+ * One row per user and food, rewritten on each interaction rather than
+ * appended, since only the most recent contact matters.
+ */
+export const foodViews = pgTable(
+  'food_views',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    foodId: uuid('food_id')
+      .notNull()
+      .references(() => foods.id, { onDelete: 'cascade' }),
+    viewedAt: timestamp('viewed_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.foodId] }),
+    index('food_views_user_time_idx').on(t.userId, t.viewedAt),
   ],
 );
 

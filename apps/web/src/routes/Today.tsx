@@ -87,13 +87,14 @@ export function Today() {
       <div
         style={{
           transform: `translateX(${swipe.offset}px)`,
-          // Spread the glow away from the edge being pulled in, and fade it up
-          // with the drag. color-mix carries the strength so the hue stays a
-          // single token rather than being duplicated per opacity step.
+          // The glow sits on the side the incoming day comes from: pulling
+          // right reveals yesterday on the left, so the left edge lights.
+          // color-mix carries the strength so the hue stays a single token
+          // rather than being duplicated per opacity step.
           ...(swipe.dragging && swipe.progress > 0
             ? {
                 ['--swipe-glow' as string]: `${
-                  swipe.direction === 'right' ? 18 : -18
+                  swipe.direction === 'right' ? -18 : 18
                 }px 0 28px -10px color-mix(in oklch, ${
                   swipe.willCommit ? 'var(--color-accent)' : 'var(--color-faint)'
                 } ${Math.round(swipe.progress * 85)}%, transparent)`,
