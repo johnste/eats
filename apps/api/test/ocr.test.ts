@@ -222,6 +222,68 @@ describe('parseNutritionText', () => {
     assert.ok(r.carbs100g.confidence < 0.6, 'confidence should be penalised');
   });
 
+  /**
+   * Tesseract welds a value's unit onto its number, and it is the nastiest
+   * failure mode here because the result still looks like a number. These are
+   * real outputs observed from the binary, not invented ones.
+   */
+  describe('welded units', () => {
+    const WELDED = `
+      Näringsvärde per 100 g
+      Energi 1554 kJ / 371 kcal
+      Fett 6,29
+      varav mättat fett 1,19
+      Kolhydrat 66 g
+      varav sockerarter 8,59g
+      Protein 119g
+      Salt 0,01 g
+    `;
+
+    it('recovers the real values from welded units', () => {
+      const r = parseNutritionText(WELDED);
+      assert.equal(r.fat100g.value, 6.2, '6,29 is 6,2 g');
+      assert.equal(r.protein100g.value, 11, '119g is 11 g');
+      assert.equal(r.carbs100g.value, 66);
+      assert.equal(r.kcal100g.value, 371);
+      assert.equal(r.atwaterOk, true);
+    });
+
+    it('marks repaired values as lower confidence than clean ones', () => {
+      const r = parseNutritionText(WELDED);
+      assert.ok(
+        r.protein100g.confidence < r.carbs100g.confidence,
+        'a repaired value must not look as trustworthy as a clean one',
+      );
+    });
+
+    it('leaves a legitimate value ending in 9 alone', () => {
+      // 49 g of carbs reconciles as-is, so nothing should be "repaired" to 4.
+      const r = parseNutritionText(`
+        per 100 g
+        Energi 300 kcal
+        Fett 5 g
+        Kolhydrat 49 g
+        Protein 12 g
+      `);
+      assert.equal(r.carbs100g.value, 49);
+      assert.equal(r.atwaterOk, true);
+    });
+
+    it('does not repair a two-decimal value when no unit was welded', () => {
+      // Salt-style precision on a macro is odd but must not be silently edited
+      // when the arithmetic already works.
+      const r = parseNutritionText(`
+        per 100 g
+        Energi 100 kcal
+        Fett 1 g
+        Kolhydrat 20 g
+        Protein 3 g
+      `);
+      assert.equal(r.fat100g.value, 1);
+      assert.equal(r.carbs100g.value, 20);
+    });
+  });
+
   it('reports missing fields as null rather than zero', () => {
     const r = parseNutritionText('Ingredienser: havre, vatten, salt');
     assert.equal(r.kcal100g.value, null);

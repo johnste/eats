@@ -239,6 +239,78 @@ export function detectLanguage(text: string): Language {
 }
 
 const CONFIDENCE = { exact: 0.95, fuzzy: 0.7 } as const;
+/** Applied to a value only kept because the Atwater check preferred it. */
+const REPAIRED_CONFIDENCE = 0.6;
+
+/**
+ * Tesseract routinely welds a value's unit onto its number: "6,2 g" comes back
+ * as "6,29" and "11 g" as "119". That is worse than an outright failure,
+ * because the result still looks like a number.
+ *
+ * It takes two forms: the unit replaces itself with a digit ("6,2 g" ->
+ * "6,29"), or it duplicates itself ("11 g" -> "119g"), so the presence of a
+ * unit is no guarantee the number is clean.
+ *
+ * It cannot be fixed by resolution alone -- it comes and goes with layout --
+ * and it cannot be repaired blindly, because 6.29 and 119 are values a label
+ * could genuinely carry. So this only ever proposes an alternative reading;
+ * which one is correct gets settled below, by arithmetic.
+ */
+function unitWeldedAlternative(token: NumberToken): number | null {
+  const text = String(token.value);
+  if (!text.endsWith('9')) return null;
+  const stripped = text.slice(0, -1).replace(/[.,]$/, '');
+  if (stripped === '') return null;
+  const value = Number.parseFloat(stripped);
+  return Number.isFinite(value) ? value : null;
+}
+
+const decimals = (n: number): number => (String(n).split('.')[1] ?? '').length;
+
+/**
+ * Reg. 1169/2011 Annex XIV fixes how declared values are rounded: at or above
+ * 10 g to the nearest gram, below that to one decimal place. So a macro with
+ * two decimals is not a number any label carries, and when dropping a welded
+ * unit turns 6.29 into 6.2, that is decisive on its own.
+ *
+ * This matters because arithmetic cannot settle this case -- 6.2 and 6.29 both
+ * satisfy the Atwater check comfortably. Only the rounding rule separates them.
+ */
+function preferByRounding(primary: number, alternative: number | null): boolean {
+  return alternative !== null && decimals(primary) > 1 && decimals(alternative) <= 1;
+}
+
+/** Every combination of primary/alternative readings, primaries first. */
+function* readings<K extends string>(
+  options: ReadonlyArray<readonly [K, number, number | null]>,
+): Generator<Map<K, { value: number; repaired: boolean }>> {
+  const count = 2 ** options.length;
+  // Ordered so that the all-primary reading is tried first, then those with
+  // progressively more repairs.
+  const order = Array.from({ length: count }, (_, i) => i).sort(
+    (a, b) => popcount(a) - popcount(b),
+  );
+  for (const mask of order) {
+    const out = new Map<K, { value: number; repaired: boolean }>();
+    let usable = true;
+    for (const [i, entry] of options.entries()) {
+      const [key, primary, alternative] = entry;
+      const useAlt = (mask & (1 << i)) !== 0;
+      if (useAlt && alternative === null) { usable = false; break; }
+      out.set(key, {
+        value: useAlt ? (alternative as number) : primary,
+        repaired: useAlt,
+      });
+    }
+    if (usable) yield out;
+  }
+}
+
+const popcount = (n: number): number => {
+  let c = 0;
+  for (let v = n; v > 0; v >>= 1) c += v & 1;
+  return c;
+};
 
 /**
  * Turn recognised text into per-100g macros. Pure: the same text always gives
@@ -254,6 +326,8 @@ export function parseNutritionText(rawText: string): ParseResult {
   const joined = lines.join('\n');
 
   const found = new Map<NutrientKey, Field>();
+  /** Second-guess readings for values whose unit went missing. */
+  const alternatives = new Map<NutrientKey, number | null>();
 
   for (const line of lines) {
     if (line === layout.headerLine) continue;
@@ -267,15 +341,24 @@ export function parseNutritionText(rawText: string): ParseResult {
     const nums = extractNumbers(line);
     if (nums.length === 0) continue;
 
+    const chosen = key === 'energy' ? null : pickNumber(nums, layout.index);
     const value =
       key === 'energy'
         ? energyKcal(nums, layout.index)
-        : (pickNumber(nums, layout.index)?.value ?? null);
+        : (chosen?.value ?? null);
     if (value === null) continue;
 
+    // Energy is stated in kcal or kJ, never grams, so it is not subject to the
+    // welded-unit problem.
+    const alternative = chosen ? unitWeldedAlternative(chosen) : null;
+
+    // Where the rounding rule is decisive, take the repaired reading up front
+    // and leave the literal one as the fallback for the Atwater arbitration.
+    const swap = preferByRounding(value, alternative);
+    alternatives.set(key, swap ? value : alternative);
     found.set(key, {
-      value,
-      confidence: CONFIDENCE[match.quality],
+      value: swap ? (alternative as number) : value,
+      confidence: swap ? REPAIRED_CONFIDENCE : CONFIDENCE[match.quality],
       sourceLine: line,
     });
   }
@@ -286,30 +369,69 @@ export function parseNutritionText(rawText: string): ParseResult {
   const carbs = field('carbs');
   const fat = field('fat');
 
-  const macros: Macros = {
-    kcal: energy.value ?? 0,
-    proteinG: protein.value ?? 0,
-    carbsG: carbs.value ?? 0,
-    fatG: fat.value ?? 0,
-  };
   const complete =
     energy.value !== null &&
     protein.value !== null &&
     carbs.value !== null &&
     fat.value !== null;
-  const atwaterOk = complete && atwaterAgrees(macros);
 
-  // A failed cross-check means one of these four numbers is wrong, but not
-  // which. Lower all of them so the review form flags the whole set.
+  /**
+   * With all four numbers present the label is over-determined: the calories
+   * should follow from the macros. That redundancy is what decides between a
+   * value and its welded-unit alternative -- we take the reading that
+   * reconciles, rather than guessing at the character level.
+   */
+  let repaired = new Set<NutrientKey>();
+  let atwaterOk = false;
+  let values = {
+    kcal: energy.value ?? 0,
+    proteinG: protein.value ?? 0,
+    carbsG: carbs.value ?? 0,
+    fatG: fat.value ?? 0,
+  };
+
+  if (complete) {
+    const candidates = [
+      ['protein', protein.value as number, alternatives.get('protein') ?? null],
+      ['carbs', carbs.value as number, alternatives.get('carbs') ?? null],
+      ['fat', fat.value as number, alternatives.get('fat') ?? null],
+    ] as const;
+
+    for (const reading of readings(candidates)) {
+      const trial = {
+        kcal: energy.value as number,
+        proteinG: reading.get('protein')!.value,
+        carbsG: reading.get('carbs')!.value,
+        fatG: reading.get('fat')!.value,
+      };
+      if (!atwaterAgrees(trial)) continue;
+      values = trial;
+      atwaterOk = true;
+      repaired = new Set(
+        [...reading.entries()]
+          .filter(([, v]) => v.repaired)
+          .map(([k]) => k as NutrientKey),
+      );
+      break;
+    }
+  }
+
+  // Nothing reconciled: keep the literal reading and flag the whole set, since
+  // we know one of the four is wrong but not which.
   const penalty = complete && !atwaterOk ? 0.5 : 1;
-  const scale = (f: Field): Field =>
-    f.value === null ? f : { ...f, confidence: round(f.confidence * penalty, 2) };
+  const finalise = (k: NutrientKey, f: Field, value: number): Field => {
+    if (f.value === null) return f;
+    const confidence = repaired.has(k)
+      ? REPAIRED_CONFIDENCE
+      : round(f.confidence * penalty, 2);
+    return { ...f, value, confidence };
+  };
 
   return {
-    kcal100g: scale(energy),
-    protein100g: scale(protein),
-    carbs100g: scale(carbs),
-    fat100g: scale(fat),
+    kcal100g: finalise('energy', energy, values.kcal),
+    protein100g: finalise('protein', protein, values.proteinG),
+    carbs100g: finalise('carbs', carbs, values.carbsG),
+    fat100g: finalise('fat', fat, values.fatG),
     servingG:
       layout.servingG === null
         ? EMPTY
