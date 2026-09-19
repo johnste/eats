@@ -1,6 +1,13 @@
-import { addDays, round, toDateKey, type Meal } from '@eats/shared';
+import {
+  addDays,
+  round,
+  toDateKey,
+  type LogEntryResponse,
+  type Meal,
+} from '@eats/shared';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
+import { EntrySheet } from '../components/EntrySheet.tsx';
 import { DaySummary } from '../components/Macros.tsx';
 import { Card, Empty, ErrorNote, Spinner } from '../components/ui.tsx';
 import { useDay, useLogMutations, usePrefetchAdjacentDays } from '../lib/queries.ts';
@@ -39,6 +46,7 @@ export function Today() {
   // Deleting is one tap away from a list you scroll with your thumb, so the
   // first tap only arms it. Nothing is removed until the second.
   const [confirming, setConfirming] = useState<string | null>(null);
+  const [editing, setEditing] = useState<LogEntryResponse | null>(null);
 
   // Disarm on its own, so a stray tap does not leave a live delete button
   // sitting under your finger.
@@ -172,15 +180,19 @@ export function Today() {
                           key={entry.id}
                           className="group flex items-center justify-between gap-3 py-1"
                         >
-                          <div className="min-w-0">
-                            <p className="text-ink truncate text-[13px] leading-tight">
+                          <button
+                            type="button"
+                            onClick={() => setEditing(entry)}
+                            className="min-w-0 flex-1 text-left"
+                          >
+                            <span className="text-ink block truncate text-[13px] leading-tight">
                               {entry.food.name}
-                            </p>
-                            <p className="text-faint nums text-[11px]">
+                            </span>
+                            <span className="text-faint nums block text-[11px]">
                               {round(entry.grams)} g
                               {entry.food.brand && ` · ${entry.food.brand}`}
-                            </p>
-                          </div>
+                            </span>
+                          </button>
                           <div className="flex shrink-0 items-center gap-1">
                             {confirming === entry.id ? (
                               <>
@@ -254,6 +266,14 @@ export function Today() {
         </div>
       )}
       </div>
+
+      {editing && (
+        <EntrySheet
+          entry={editing}
+          date={date}
+          onClose={() => setEditing(null)}
+        />
+      )}
     </div>
   );
 }

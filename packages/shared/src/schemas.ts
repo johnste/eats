@@ -145,6 +145,8 @@ export const createLogBody = z.object({
 export const updateLogBody = z.object({
   grams: z.number().min(0.1).max(5000).optional(),
   meal: mealSchema.optional(),
+  /** Changing this moves the entry to another day. */
+  loggedOn: dateKey.optional(),
 });
 
 export const macrosResponse = z.object({

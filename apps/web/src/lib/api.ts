@@ -78,8 +78,10 @@ export const api = {
       `/log/summary?from=${from}&to=${to}`,
     ),
   addEntry: (body: CreateLogBody) => send<LogEntryResponse>('POST', '/log', body),
-  updateEntry: (id: string, body: { grams?: number; meal?: string }) =>
-    send<LogEntryResponse>('PATCH', `/log/${id}`, body),
+  updateEntry: (
+    id: string,
+    body: { grams?: number; meal?: string; loggedOn?: string },
+  ) => send<LogEntryResponse>('PATCH', `/log/${id}`, body),
   deleteEntry: (id: string) => send<{ ok: boolean }>('DELETE', `/log/${id}`),
 
   searchFoods: (q: string) =>

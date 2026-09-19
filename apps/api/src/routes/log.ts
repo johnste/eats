@@ -144,6 +144,7 @@ export const logRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
 
       const grams = req.body.grams ?? existing.entry.grams;
       const meal = req.body.meal ?? existing.entry.meal;
+      const loggedOn = req.body.loggedOn ?? existing.entry.loggedOn;
       // Changing the amount re-snapshots against the food as it is now. That is
       // the one case where a correction upstream can reach an existing entry,
       // and it only happens because the user deliberately edited it.
@@ -154,6 +155,7 @@ export const logRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
         .set({
           grams,
           meal,
+          loggedOn,
           kcal: macros.kcal,
           proteinG: macros.proteinG,
           carbsG: macros.carbsG,

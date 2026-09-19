@@ -124,6 +124,36 @@ export function useLogMutations(date: string) {
 
   const add = useMutation({ mutationFn: api.addEntry, onSuccess: settle });
 
+  /**
+   * Editing can move an entry to another day, so both the day it left and the
+   * day it arrived on have to be refetched -- invalidating only the current
+   * one leaves the destination showing stale totals until something else
+   * happens to refresh it.
+   */
+  const update = useMutation({
+    mutationFn: (vars: {
+      id: string;
+      grams?: number;
+      meal?: string;
+      loggedOn?: string;
+    }) => api.updateEntry(vars.id, vars),
+    onSuccess: (_entry, vars) => {
+      settle();
+      if (vars.loggedOn) {
+        void qc.invalidateQueries({ queryKey: keys.day(vars.loggedOn) });
+      }
+    },
+  });
+
+  /** Log the same food again elsewhere, leaving the original alone. */
+  const copy = useMutation({
+    mutationFn: api.addEntry,
+    onSuccess: (entry) => {
+      settle();
+      void qc.invalidateQueries({ queryKey: keys.day(entry.loggedOn) });
+    },
+  });
+
   const remove = useMutation({
     mutationFn: api.deleteEntry,
     // Removing an entry should feel instant; the totals recompute from the
@@ -162,5 +192,5 @@ export function useLogMutations(date: string) {
     onSettled: settle,
   });
 
-  return { add, remove };
+  return { add, update, copy, remove };
 }
