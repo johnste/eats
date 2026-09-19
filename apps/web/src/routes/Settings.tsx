@@ -99,17 +99,24 @@ export function Settings() {
 function AgentAccessCard() {
   const qc = useQueryClient();
   const [name, setName] = useState("");
-  const [fresh, setFresh] = useState<string | null>(null);
+  const [secret, setSecret] = useState("");
+  const [saved, setSaved] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   const tokens = useQuery({ queryKey: ["tokens"], queryFn: api.tokens });
 
+  // A phrase to start from, so the blank field is never the hard part.
+  const suggest = useMutation({
+    mutationFn: api.tokenSuggestion,
+    onSuccess: ({ secret: s }) => setSecret(s),
+  });
+
   const create = useMutation({
-    mutationFn: () => api.createToken(name.trim() || "Agent"),
-    onSuccess: ({ token }) => {
-      // Shown once: only its hash is stored, so it cannot be shown again.
-      setFresh(token);
+    mutationFn: () => api.createToken(name.trim() || "Agent", secret.trim()),
+    onSuccess: ({ secret: s }) => {
+      setSaved(s);
       setName("");
+      setSecret("");
       void qc.invalidateQueries({ queryKey: ["tokens"] });
     },
   });
@@ -125,37 +132,41 @@ function AgentAccessCard() {
     <Card>
       <h2 className="text-ink mb-1 text-[15px] font-semibold">Agent access</h2>
       <p className="text-muted mb-4 text-[13px]">
-        Let an AI assistant search foods, log a meal, and read back today. It
-        cannot see your history or weights, and cannot delete anything.
+        Give an AI assistant the address below and a secret phrase, and it can
+        search foods, log a meal, and read back your day. It cannot see your
+        history or weights, and cannot delete anything.
       </p>
 
       <div className="bg-surface border-line mb-4 rounded-xl border p-3">
-        <p className="text-muted mb-1 text-[11px] font-medium">Connector URL</p>
+        <p className="text-muted mb-1 text-[11px] font-medium">Address</p>
         <p className="text-ink nums text-[13px] break-all">{mcpUrl}</p>
       </div>
 
-      {fresh && (
+      {saved && (
         <div className="border-accent/40 bg-accent-soft mb-4 rounded-xl border p-3">
           <p className="text-ink mb-2 text-[13px] font-medium">
-            Copy this now — it is not shown again.
+            Saved. Write it down if you won't remember it — it isn't shown
+            again.
           </p>
-          <p className="text-ink nums mb-3 text-[11px] break-all">{fresh}</p>
+          <p className="text-ink mb-3 text-[15px] font-semibold break-all">
+            {saved}
+          </p>
           <div className="flex gap-2">
             <Button
               type="button"
               className="flex-1"
               onClick={() => {
-                void navigator.clipboard.writeText(fresh);
+                void navigator.clipboard.writeText(saved);
                 setCopied(true);
               }}
             >
-              {copied ? "Copied" : "Copy token"}
+              {copied ? "Copied" : "Copy"}
             </Button>
             <Button
               type="button"
               variant="ghost"
               onClick={() => {
-                setFresh(null);
+                setSaved(null);
                 setCopied(false);
               }}
             >
@@ -166,24 +177,43 @@ function AgentAccessCard() {
       )}
 
       <form
-        className="flex items-end gap-2"
+        className="space-y-3"
         onSubmit={(e) => {
           e.preventDefault();
           create.mutate();
         }}
       >
-        <div className="flex-1">
-          <Field
-            label="New token"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Claude"
-            hint="A name so you can tell your tokens apart."
-          />
+        <Field
+          label="Secret phrase"
+          value={secret}
+          onChange={(e) => setSecret(e.target.value)}
+          placeholder="orchard-totem-rust"
+          autoComplete="off"
+          autoCapitalize="none"
+          spellCheck={false}
+          hint="A few words you'll remember. One word on its own is too easy to guess."
+        />
+        <button
+          type="button"
+          onClick={() => suggest.mutate()}
+          className="text-accent text-[13px] underline underline-offset-4"
+        >
+          {suggest.isPending ? "Thinking…" : "Suggest one for me"}
+        </button>
+
+        <div className="flex items-end gap-2">
+          <div className="flex-1">
+            <Field
+              label="Which agent?"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Claude"
+            />
+          </div>
+          <Button type="submit" disabled={create.isPending || !secret.trim()}>
+            {create.isPending ? "Saving…" : "Save"}
+          </Button>
         </div>
-        <Button type="submit" disabled={create.isPending}>
-          {create.isPending ? "Creating…" : "Create"}
-        </Button>
       </form>
 
       {create.error instanceof ApiError && (
@@ -193,14 +223,17 @@ function AgentAccessCard() {
       )}
 
       {(tokens.data?.length ?? 0) > 0 && (
-        <ul className="divide-line mt-3 divide-y">
+        <ul className="divide-line mt-4 divide-y border-t border-line">
           {tokens.data?.map((t) => (
             <li
               key={t.id}
               className="flex items-center justify-between gap-3 py-2"
             >
               <div className="min-w-0">
-                <p className="text-ink truncate text-[13px]">{t.name}</p>
+                <p className="text-ink truncate text-[13px]">
+                  {t.name}
+                  <span className="text-faint"> · {t.hint}</span>
+                </p>
                 <p className="text-faint nums text-[11px]">
                   {t.lastUsedAt
                     ? `last used ${new Date(t.lastUsedAt).toLocaleDateString()}`

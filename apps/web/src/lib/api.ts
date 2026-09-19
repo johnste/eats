@@ -150,12 +150,14 @@ export const api = {
       {
         id: string;
         name: string;
+        hint: string;
         lastUsedAt: string | null;
         createdAt: string;
       }[]
     >("/tokens"),
-  createToken: (name: string) =>
-    send<{ id: string; token: string }>("POST", "/tokens", { name }),
+  tokenSuggestion: () => get<{ secret: string }>("/tokens/suggestion"),
+  createToken: (name: string, secret: string) =>
+    send<{ id: string; secret: string }>("POST", "/tokens", { name, secret }),
   revokeToken: (id: string) => send<{ ok: boolean }>("DELETE", `/tokens/${id}`),
 
   weights: (from: string, to: string) =>

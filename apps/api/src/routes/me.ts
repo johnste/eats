@@ -22,7 +22,13 @@ import { z } from 'zod';
 import { type AppDeps, requireUser } from '../app.ts';
 import { goals, users, weights } from '../db/schema.ts';
 import { goalOn } from '../lib/log.ts';
-import { createToken, listTokens, revokeToken } from '../lib/tokens.ts';
+import {
+  createToken,
+  generatePassphrase,
+  listTokens,
+  revokeToken,
+  secretProblem,
+} from '../lib/tokens.ts';
 
 const goalShape = z.object({
   calories: z.number(),
@@ -239,6 +245,7 @@ export const meRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
   const tokenShape = z.object({
     id: z.string(),
     name: z.string(),
+    hint: z.string(),
     lastUsedAt: z.string().nullable(),
     createdAt: z.string(),
   });
@@ -252,9 +259,20 @@ export const meRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
       return rows.map((t) => ({
         id: t.id,
         name: t.name,
+        hint: t.hint,
         lastUsedAt: t.lastUsedAt?.toISOString() ?? null,
         createdAt: t.createdAt.toISOString(),
       }));
+    },
+  );
+
+  // A phrase to hand to an agent, for when you would rather not think one up.
+  r.get(
+    '/tokens/suggestion',
+    { schema: { response: { 200: z.object({ secret: z.string() }) } } },
+    async (req) => {
+      await requireUser(req);
+      return { secret: generatePassphrase() };
     },
   );
 
@@ -262,14 +280,26 @@ export const meRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
     '/tokens',
     {
       schema: {
-        body: z.object({ name: z.string().min(1).max(60) }),
-        // The token itself is returned exactly once -- only its hash is kept.
-        response: { 200: z.object({ id: z.string(), token: z.string() }) },
+        body: z.object({
+          name: z.string().min(1).max(60),
+          secret: z.string().min(1).max(200),
+        }),
+        response: {
+          200: z.object({ id: z.string(), secret: z.string() }),
+          400: errorResponse,
+        },
       },
     },
-    async (req) => {
+    async (req, reply) => {
       const user = await requireUser(req);
-      return createToken(db, user.id, req.body.name.trim());
+      const secret = req.body.secret.trim();
+      const problem = secretProblem(secret);
+      if (problem) return reply.status(400).send({ error: problem });
+
+      const { id } = await createToken(db, user.id, req.body.name.trim(), secret);
+      // Echoed back so the UI can show what was saved; the phrase itself is
+      // the user's to keep, and only its argon2 digest is stored.
+      return { id, secret };
     },
   );
 

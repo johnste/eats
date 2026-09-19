@@ -1,33 +1,124 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { AttemptLimiter } from "../src/lib/attempts.ts";
+import { WORD_COUNT } from "../src/lib/passphrase.ts";
 import { logArgs, searchArgs, TOOLS } from "../src/routes/mcp.ts";
-import { generateToken, hashToken, tokenHint } from "../src/lib/tokens.ts";
+import {
+  generatePassphrase,
+  MIN_SECRET_LENGTH,
+  secretHint,
+  secretProblem,
+} from "../src/lib/tokens.ts";
 
-describe("agent tokens", () => {
-  it("issues a recognisable, unique token each time", () => {
-    const tokens = new Set(Array.from({ length: 50 }, generateToken));
-    assert.equal(tokens.size, 50);
-    for (const t of tokens) {
-      assert.match(t, /^eats_[A-Za-z0-9_-]{43}$/);
+describe("secret phrases", () => {
+  it("suggests something a person can read out loud", () => {
+    for (let i = 0; i < 200; i++) {
+      const phrase = generatePassphrase();
+      assert.match(phrase, /^[a-z]+-[a-z]+-[a-z]+$/);
+      assert.ok(phrase.length >= MIN_SECRET_LENGTH, `${phrase} is too short`);
     }
   });
 
-  it("hashes deterministically, so a presented token can be looked up", () => {
-    const token = generateToken();
-    assert.equal(hashToken(token), hashToken(token));
-    assert.notEqual(hashToken(token), hashToken(generateToken()));
+  it("draws on a list big enough that guessing is hopeless", () => {
+    // Three words from this list, against 100 guesses an hour, is centuries.
+    assert.ok(WORD_COUNT >= 400, `only ${WORD_COUNT} words`);
+    assert.ok(Math.log2(WORD_COUNT ** 3) >= 25);
   });
 
-  it("never lets the raw token survive hashing", () => {
-    const token = generateToken();
-    assert.ok(!hashToken(token).includes(token.slice(5)));
+  it("does not repeat itself", () => {
+    const seen = new Set(
+      Array.from({ length: 200 }, () => generatePassphrase()),
+    );
+    assert.ok(seen.size > 190, `${seen.size} distinct of 200`);
   });
 
-  it("shows enough of a token to recognise it and no more", () => {
-    const token = "eats_abcdefghijklmnop";
-    const hint = tokenHint(token);
-    assert.ok(token.endsWith(hint.slice(-4)));
-    assert.ok(hint.length < token.length);
+  it("accepts a phrase a person chose themselves", () => {
+    assert.equal(secretProblem("horse-lamp-river"), null);
+    assert.equal(secretProblem("min hemliga fras"), null);
+  });
+
+  it("turns away a single word, however memorable", () => {
+    // The whole point of the change: "horse" is what someone would pick, and
+    // it is also inside the first thousand guesses anyone would make.
+    assert.ok(secretProblem("horse"));
+    assert.ok(secretProblem("hus"));
+    assert.ok(secretProblem("   horse   "));
+  });
+
+  it("turns away what everyone tries first", () => {
+    for (const bad of ["password", "letmein", "changeme", "opensesame"]) {
+      assert.ok(secretProblem(bad), `${bad} should be refused`);
+    }
+    assert.ok(secretProblem("aaaaaaaaaaaaaaa"));
+  });
+
+  it("hints at a secret without giving it away", () => {
+    const hint = secretHint("orchard-totem-rust");
+    assert.ok(hint.startsWith("orchard"));
+    assert.ok(!hint.includes("totem"));
+    assert.ok(!hint.includes("rust"));
+  });
+});
+
+describe("failed-attempt limiter", () => {
+  const at = (t: number) => {
+    let now = t;
+    return {
+      limiter: new AttemptLimiter(() => now),
+      set: (v: number) => (now = v),
+    };
+  };
+
+  it("lets an honest mistake through", () => {
+    const { limiter } = at(0);
+    limiter.fail("1.1.1.1");
+    assert.equal(limiter.blocked("1.1.1.1"), false);
+  });
+
+  it("shuts an address down once it is clearly guessing", () => {
+    const { limiter } = at(0);
+    for (let i = 0; i < 10; i++) limiter.fail("1.1.1.1");
+    assert.equal(limiter.blocked("1.1.1.1"), true);
+  });
+
+  it("does not punish an address for someone else guessing", () => {
+    const { limiter } = at(0);
+    for (let i = 0; i < 10; i++) limiter.fail("1.1.1.1");
+    assert.equal(limiter.blocked("2.2.2.2"), false);
+  });
+
+  it("stops a distributed attack that spreads itself thin", () => {
+    // Nine guesses each, under the per-address limit every time, from a
+    // hundred different addresses. Only the global budget catches this.
+    const { limiter } = at(0);
+    for (let host = 0; host < 100; host++) {
+      for (let i = 0; i < 9; i++) limiter.fail(`10.0.0.${host}`);
+    }
+    assert.equal(limiter.blocked("10.0.99.99"), true);
+  });
+
+  it("forgives after an hour", () => {
+    const { limiter, set } = at(0);
+    for (let i = 0; i < 10; i++) limiter.fail("1.1.1.1");
+    assert.equal(limiter.blocked("1.1.1.1"), true);
+    set(60 * 60 * 1000 + 1);
+    assert.equal(limiter.blocked("1.1.1.1"), false);
+  });
+
+  it("says how long to wait, and never says zero", () => {
+    const { limiter, set } = at(1_000_000);
+    for (let i = 0; i < 10; i++) limiter.fail("1.1.1.1");
+    const wait = limiter.retryAfter("1.1.1.1");
+    assert.ok(wait > 0 && wait <= 3600, `got ${wait}`);
+    set(1_000_000 + 59 * 60 * 1000);
+    assert.ok(limiter.retryAfter("1.1.1.1") <= 60);
+  });
+
+  it("does not grow without bound under a flood of new addresses", () => {
+    const { limiter } = at(0);
+    for (let i = 0; i < 20_000; i++) limiter.fail(`10.${i >> 8}.${i & 255}.1`);
+    // The global budget is spent regardless, which is the point.
+    assert.equal(limiter.blocked("9.9.9.9"), true);
   });
 });
 

@@ -12,7 +12,8 @@ import {
   withServings,
 } from "../lib/foods.ts";
 import { entriesForRange, goalOn, snapshotFor, totalsOf } from "../lib/log.ts";
-import { hashToken, resolveToken, type TokenOwner } from "../lib/tokens.ts";
+import { AttemptLimiter } from "../lib/attempts.ts";
+import { resolveToken, type TokenOwner } from "../lib/tokens.ts";
 
 /**
  * A Model Context Protocol server, so an AI assistant can log food for you.
@@ -287,38 +288,41 @@ export const mcpRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
   // pushes, so 405 is the correct answer.
   app.get("/mcp", async (_req, reply) => reply.status(405).send());
 
-  // Bearer tokens are 256-bit, so guessing is not the threat; this just keeps
-  // a misbehaving agent from hammering the food search in a loop. Keyed by
-  // token rather than by IP: behind a reverse proxy every agent in the world
-  // can share one address, and one of them should not lock out the others.
+  // The secret is a memorable phrase, so wrong guesses -- not request volume
+  // -- are the threat. Fastify's limiter keys on the address, which is the
+  // right key for a flood but the wrong one for guessing: behind a reverse
+  // proxy every client shares an address. The guessing budget is enforced
+  // separately, below, and counts only failures.
+  const attempts = new AttemptLimiter();
+
   app.post(
     "/mcp",
-    {
-      config: {
-        rateLimit: {
-          max: 120,
-          timeWindow: "1 minute",
-          keyGenerator: (req: FastifyRequest) => {
-            const header = req.headers.authorization ?? "";
-            return header.startsWith("Bearer ")
-              ? hashToken(header.slice(7).trim())
-              : (req.ip ?? "anonymous");
-          },
-        },
-      },
-    },
+    { config: { rateLimit: { max: 240, timeWindow: "1 minute" } } },
     async (req: FastifyRequest, reply: FastifyReply) => {
       const header = req.headers.authorization ?? "";
       const presented = header.startsWith("Bearer ")
         ? header.slice(7).trim()
         : "";
+
+      // The secret is checked before the limiter, so that a correct phrase is
+      // accepted no matter how much guessing is going on. Checking the other
+      // way round would hand anyone a denial of service: burn the shared
+      // budget with junk and the owner's own agent stops working too.
       const owner = presented ? await resolveToken(db, presented) : null;
 
       if (!owner) {
+        if (attempts.blocked(req.ip)) {
+          return reply
+            .status(429)
+            .header("retry-after", String(attempts.retryAfter(req.ip)))
+            .send({ error: "Too many failed attempts. Try again later." });
+        }
+        attempts.fail(req.ip);
+        req.log.warn({ ip: req.ip }, "mcp auth failed");
         return reply
           .status(401)
           .header("www-authenticate", 'Bearer realm="eats"')
-          .send({ error: "A valid agent token is required." });
+          .send({ error: "A valid secret phrase is required." });
       }
 
       // Absent means the pre-header protocol version, which is still supported.

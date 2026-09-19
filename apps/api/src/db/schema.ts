@@ -182,7 +182,10 @@ export const apiTokens = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     /** Shown in settings so you can tell which agent a token belongs to. */
     name: text('name').notNull(),
-    tokenHash: text('token_hash').notNull().unique(),
+    /** First word of the secret, so a list of them is recognisable. */
+    hint: text('hint').notNull().default(''),
+    /** argon2id: the secret is a memorable phrase, not a random token. */
+    tokenHash: text('token_hash').notNull(),
     lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
     revokedAt: timestamp('revoked_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
