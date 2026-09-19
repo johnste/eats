@@ -21,6 +21,7 @@ import { authRoutes } from './routes/auth.ts';
 import { exportRoutes } from './routes/export.ts';
 import { foodRoutes } from './routes/foods.ts';
 import { logRoutes } from './routes/log.ts';
+import { mcpRoutes } from './routes/mcp.ts';
 import { meRoutes } from './routes/me.ts';
 import { ocrRoutes } from './routes/ocr.ts';
 
@@ -95,6 +96,9 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   await app.register(ocrRoutes, { prefix: '/api/foods', ...deps });
   await app.register(meRoutes, { prefix: '/api', ...deps });
   await app.register(exportRoutes, { prefix: '/api', ...deps });
+  // Not under /api: an MCP endpoint is its own protocol surface, and the URL
+  // is what gets pasted into a connector.
+  await app.register(mcpRoutes, { ...deps });
 
   // In production the same process serves the built SPA. Unknown non-API paths
   // fall through to index.html so client-side routes survive a hard refresh.

@@ -166,6 +166,31 @@ export const logEntries = pgTable(
 );
 
 /**
+ * Long-lived tokens for agents acting on your behalf -- a chat assistant
+ * logging a meal, a shortcut, a script.
+ *
+ * Only the SHA-256 of the token is stored. Unlike a password these are
+ * high-entropy random strings, so a fast hash is the right choice: there is
+ * nothing to brute-force, and the lookup happens on every request.
+ */
+export const apiTokens = pgTable(
+  'api_tokens',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** Shown in settings so you can tell which agent a token belongs to. */
+    name: text('name').notNull(),
+    tokenHash: text('token_hash').notNull().unique(),
+    lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('api_tokens_user_idx').on(t.userId)],
+);
+
+/**
  * Foods you have touched without necessarily eating them: scanned a barcode
  * for, or created by hand. Logging is a strong signal but a narrow one -- a
  * food you looked up two minutes ago is exactly what you are about to reach

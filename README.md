@@ -68,6 +68,34 @@ node --env-file=.env apps/api/scripts/seed-slv.ts         # import
 
 Re-running updates rather than duplicates.
 
+## Agent access (MCP)
+
+Settings → Agent access issues a token for an AI assistant. The token is shown
+once; only its SHA-256 hash is stored, so a lost token is revoked and replaced
+rather than recovered.
+
+The server speaks MCP over Streamable HTTP at `POST /mcp` — for the deployed
+app, `https://eats.example.com/mcp` — authenticated with
+`Authorization: Bearer <token>`. It exposes three tools: `search_foods`,
+`log_food` (by `foodId`, or by name plus per-100g macros for something not in
+the database) and `get_today`. There is no SSE stream, so `GET /mcp` answers
+405; nothing here is server-initiated.
+
+In Claude Code:
+
+```
+claude mcp add --transport http eats https://eats.example.com/mcp \
+  --header "Authorization: Bearer <token>"
+```
+
+Claude.ai custom connectors expect OAuth; a static bearer token needs the
+`static_headers` beta. Without it, use Claude Code or any other client that
+lets you set a header.
+
+An agent can log food but cannot read history or weights, cannot delete
+anything, and cannot touch the account. Revoking a token in Settings takes
+effect on the next request.
+
 ## Deployment
 
 Self-hosted on Coolify as a single container. See **[DEPLOY.md](DEPLOY.md)** for

@@ -22,6 +22,7 @@ import { z } from 'zod';
 import { type AppDeps, requireUser } from '../app.ts';
 import { goals, users, weights } from '../db/schema.ts';
 import { goalOn } from '../lib/log.ts';
+import { createToken, listTokens, revokeToken } from '../lib/tokens.ts';
 
 const goalShape = z.object({
   calories: z.number(),
@@ -230,6 +231,63 @@ export const meRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
           goal,
         }),
       };
+    },
+  );
+
+  /* ------------------------------------------------------ agent tokens --- */
+
+  const tokenShape = z.object({
+    id: z.string(),
+    name: z.string(),
+    lastUsedAt: z.string().nullable(),
+    createdAt: z.string(),
+  });
+
+  r.get(
+    '/tokens',
+    { schema: { response: { 200: z.array(tokenShape) } } },
+    async (req) => {
+      const user = await requireUser(req);
+      const rows = await listTokens(db, user.id);
+      return rows.map((t) => ({
+        id: t.id,
+        name: t.name,
+        lastUsedAt: t.lastUsedAt?.toISOString() ?? null,
+        createdAt: t.createdAt.toISOString(),
+      }));
+    },
+  );
+
+  r.post(
+    '/tokens',
+    {
+      schema: {
+        body: z.object({ name: z.string().min(1).max(60) }),
+        // The token itself is returned exactly once -- only its hash is kept.
+        response: { 200: z.object({ id: z.string(), token: z.string() }) },
+      },
+    },
+    async (req) => {
+      const user = await requireUser(req);
+      return createToken(db, user.id, req.body.name.trim());
+    },
+  );
+
+  r.delete(
+    '/tokens/:id',
+    {
+      schema: {
+        params: z.object({ id: z.uuid() }),
+        response: { 200: z.object({ ok: z.boolean() }), 404: errorResponse },
+      },
+    },
+    async (req, reply) => {
+      const user = await requireUser(req);
+      const revoked = await revokeToken(db, user.id, req.params.id);
+      if (revoked.length === 0) {
+        return reply.status(404).send({ error: 'No such token.' });
+      }
+      return { ok: true };
     },
   );
 
