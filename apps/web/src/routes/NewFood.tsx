@@ -1,12 +1,12 @@
 import { atwaterAgrees, toDateKey, type OcrResponse } from '@eats/shared';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router';
+import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { BarcodeScanner } from '../components/BarcodeScanner.tsx';
 import { CameraSheet } from '../components/CameraSheet.tsx';
 import { Button, Card, ErrorNote, Field } from '../components/ui.tsx';
 import { api, ApiError } from '../lib/api.ts';
-import { useBrands } from '../lib/queries.ts';
+import { keys, useBrands } from '../lib/queries.ts';
 
 type FieldName = 'kcal100g' | 'protein100g' | 'carbs100g' | 'fat100g';
 
@@ -63,7 +63,9 @@ function ScanReport({ scan, flagged }: { scan: OcrResponse; flagged: number }) {
 
 export function NewFood() {
   const [params] = useSearchParams();
+  const { id: editingId } = useParams<{ id?: string }>();
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const date = params.get('date') ?? toDateKey();
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -85,6 +87,30 @@ export function NewFood() {
   const [scan, setScan] = useState<OcrResponse | null>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
   const brands = useBrands();
+
+  // Editing loads the food and fills the same form; there is no second screen.
+  const existing = useQuery({
+    queryKey: ['food', editingId],
+    queryFn: () => api.food(editingId as string),
+    enabled: Boolean(editingId),
+  });
+
+  useEffect(() => {
+    const food = existing.data;
+    if (!food) return;
+    setName(food.name);
+    setBrand(food.brand ?? '');
+    setBarcode(food.barcode ?? '');
+    setValues({
+      kcal100g: String(food.kcal100g),
+      protein100g: String(food.protein100g),
+      carbs100g: String(food.carbs100g),
+      fat100g: String(food.fat100g),
+    });
+    setServings(
+      food.servings.map((s) => ({ label: s.label, grams: String(s.grams) })),
+    );
+  }, [existing.data]);
 
   const ocr = useMutation({
     mutationFn: async (file: File) => {
@@ -135,8 +161,8 @@ export function NewFood() {
     });
 
   const save = useMutation({
-    mutationFn: () =>
-      api.createFood({
+    mutationFn: () => {
+      const body = {
         name: name.trim(),
         brand: brand.trim() || null,
         barcode: barcode || null,
@@ -157,16 +183,39 @@ export function NewFood() {
             ? [{ label: '1 portion', grams: scan.servingG.value }]
             : []),
         ],
-      }),
-    onSuccess: () => navigate(`/add?date=${date}`),
+      };
+      return editingId ? api.updateFood(editingId, body) : api.createFood(body);
+    },
+    onSuccess: () => {
+      // The edited food may be sitting in a search result or the recent list.
+      void qc.invalidateQueries({ queryKey: ['food', editingId] });
+      void qc.invalidateQueries({ queryKey: keys.recent });
+      void qc.invalidateQueries({ queryKey: ['search'] });
+      navigate(`/add?date=${date}`);
+    },
   });
 
   return (
     <>
-      <h1 className="text-ink mb-1 text-lg font-semibold">New food</h1>
+      <h1 className="text-ink mb-1 text-lg font-semibold">
+        {editingId ? 'Edit food' : 'New food'}
+      </h1>
       <p className="text-muted mb-4 text-[13px]">
         Values are per 100 g, the way labels state them.
       </p>
+
+      {existing.isError && (
+        <p className="mb-4">
+          <ErrorNote>Couldn&apos;t load that food.</ErrorNote>
+        </p>
+      )}
+
+      {editingId && (
+        <p className="text-faint mb-4 text-xs">
+          Entries you have already logged keep the values they were logged with;
+          editing only changes this food going forward.
+        </p>
+      )}
 
       <Card className="mb-4">
         <input
@@ -381,7 +430,11 @@ export function NewFood() {
         {save.error instanceof ApiError && <ErrorNote>{save.error.message}</ErrorNote>}
 
         <Button type="submit" className="w-full" disabled={!complete || save.isPending}>
-          {save.isPending ? 'Saving…' : 'Save food'}
+          {save.isPending
+            ? 'Saving…'
+            : editingId
+              ? 'Save changes'
+              : 'Save food'}
         </Button>
       </form>
 

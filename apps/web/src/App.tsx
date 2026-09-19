@@ -68,6 +68,8 @@ function Shell() {
           <Route path="/day/:date" element={<Today />} />
           <Route path="/add" element={<Add />} />
           <Route path="/foods/new" element={<NewFood />} />
+          {/* Same form, populated. */}
+          <Route path="/foods/:id/edit" element={<NewFood />} />
           <Route path="/weight" element={<Weight />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/" replace />} />

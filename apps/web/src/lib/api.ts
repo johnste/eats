@@ -86,7 +86,10 @@ export const api = {
     get<FoodSearchResponse>(`/foods/search?q=${encodeURIComponent(q)}`),
   recentFoods: () => get<FoodResponse[]>('/foods/recent'),
   barcode: (code: string) => get<BarcodeLookupResponse>(`/foods/barcode/${code}`),
+  food: (id: string) => get<FoodResponse>(`/foods/${id}`),
   createFood: (body: CreateFoodBody) => send<FoodResponse>('POST', '/foods', body),
+  updateFood: (id: string, body: CreateFoodBody) =>
+    send<FoodResponse>('PATCH', `/foods/${id}`, body),
   brands: () => get<string[]>('/foods/brands'),
 
   /**

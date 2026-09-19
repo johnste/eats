@@ -141,6 +141,31 @@ export const foodRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
     },
   );
 
+  r.get(
+    '/:id',
+    {
+      schema: {
+        params: idParam,
+        response: { 200: foodResponse, 404: errorResponse },
+      },
+    },
+    async (req, reply) => {
+      await requireUser(req);
+      const [row] = await db
+        .select()
+        .from(foods)
+        .where(eq(foods.id, req.params.id))
+        .limit(1);
+      if (!row) return reply.status(404).send({ error: 'No such food.' });
+
+      const servings = await db
+        .select()
+        .from(foodServings)
+        .where(eq(foodServings.foodId, row.id));
+      return toFoodResponse(row, servings);
+    },
+  );
+
   r.post(
     '/',
     { schema: { body: createFoodBody, response: { 200: foodResponse } } },

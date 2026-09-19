@@ -234,6 +234,7 @@ function QuantitySheet({
   onClose: () => void;
   onDone: () => void;
 }) {
+  const navigate = useNavigate();
   const [grams, setGrams] = useState('100');
   const [meal, setMeal] = useState<Meal>(initialMeal);
   const { add } = useLogMutations(date);
@@ -331,6 +332,18 @@ function QuantitySheet({
         >
           {add.isPending ? 'Adding…' : 'Add to log'}
         </Button>
+
+        {/* Only your own foods are editable: the other sources are shared
+            reference data, and this is where you notice a value is wrong. */}
+        {food.source === 'custom' && (
+          <button
+            type="button"
+            onClick={() => navigate(`/foods/${food.id}/edit?date=${date}`)}
+            className="text-muted w-full text-center text-[13px] underline underline-offset-4"
+          >
+            Edit this food
+          </button>
+        )}
       </div>
     </Sheet>
   );
