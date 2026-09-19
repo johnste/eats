@@ -1,6 +1,7 @@
 import {
   activityLevelSchema,
   ageFrom,
+  bmr,
   createWeightBody,
   dateKey,
   errorResponse,
@@ -9,8 +10,10 @@ import {
   rangeQuery,
   sexSchema,
   suggestMacroSplit,
+  targetCalories,
   tdee,
   toDateKey,
+  WEIGHT_GOALS,
 } from '@eats/shared';
 import { and, asc, between, desc, eq } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
@@ -142,10 +145,23 @@ export const meRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
     '/tdee',
     {
       schema: {
+        // Goal and rate are query parameters rather than stored settings: this
+        // endpoint only ever advises, and what it advises should change as you
+        // move the controls without writing anything down.
+        querystring: z.object({
+          goal: z.enum(WEIGHT_GOALS).default('maintain'),
+          kgPerWeek: z.coerce.number().min(0).max(1).default(0.5),
+        }),
         response: {
           200: z.object({
             tdee: z.number(),
+            bmr: z.number(),
             weightKg: z.number(),
+            /** What to eat for the requested goal. */
+            calories: z.number(),
+            dailyDelta: z.number(),
+            /** True when the rate was clamped to keep intake above resting. */
+            limited: z.boolean(),
             suggested: z.object({
               proteinG: z.number(),
               carbsG: z.number(),
@@ -184,19 +200,34 @@ export const meRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
           .send({ error: `Add ${missing.join(', ')} to estimate your daily energy use.` });
       }
 
-      const value = tdee({
+      const body = {
         sex: profile.sex!,
         weightKg: latestWeight.weightKg,
         heightCm: profile.heightCm!,
         ageYears: ageFrom(profile.birthDate!),
-        activityLevel: profile.activityLevel!,
+      };
+      const maintenance = tdee({ ...body, activityLevel: profile.activityLevel! });
+      const resting = bmr(body);
+
+      const { goal, kgPerWeek } = req.query;
+      const target = targetCalories({
+        tdee: maintenance,
+        goal,
+        kgPerWeek,
+        bmr: resting,
       });
+
       return {
-        tdee: value,
+        tdee: maintenance,
+        bmr: resting,
         weightKg: latestWeight.weightKg,
+        calories: target.calories,
+        dailyDelta: target.dailyDelta,
+        limited: target.limited,
         suggested: suggestMacroSplit({
-          calories: value,
+          calories: target.calories,
           weightKg: latestWeight.weightKg,
+          goal,
         }),
       };
     },

@@ -134,6 +134,60 @@ export function ageFrom(birthDate: string, on: Date = new Date()): number {
 }
 
 /**
+ * Energy in a kilogram of body fat. The textbook 7700 kcal figure: real weight
+ * change is messier than the arithmetic suggests, which is why the rate below
+ * is capped at what is generally considered sustainable.
+ */
+export const KCAL_PER_KG_FAT = 7700;
+
+export const WEIGHT_GOALS = ['lose', 'maintain', 'gain'] as const;
+export type WeightGoal = (typeof WEIGHT_GOALS)[number];
+
+/** Beyond this, weight change comes increasingly from muscle rather than fat. */
+export const MAX_KG_PER_WEEK = 1;
+
+export interface CalorieTargetInput {
+  /** Maintenance, from Mifflin-St Jeor times an activity factor. */
+  tdee: number;
+  goal: WeightGoal;
+  /** Rate of change; ignored when maintaining. */
+  kgPerWeek?: number;
+  /** Resting expenditure, used as a floor. */
+  bmr?: number;
+}
+
+/**
+ * Daily calories for a goal.
+ *
+ * Floored at resting expenditure: eating below what you burn at rest is not a
+ * faster route to the same place, and an app that quietly suggests it is
+ * giving bad advice. A requested rate that would breach the floor produces the
+ * floor instead, and `limited` says so rather than pretending the number was
+ * what you asked for.
+ */
+export function targetCalories(input: CalorieTargetInput): {
+  calories: number;
+  dailyDelta: number;
+  limited: boolean;
+} {
+  const rate = Math.min(Math.abs(input.kgPerWeek ?? 0), MAX_KG_PER_WEEK);
+  const perDay = Math.round((rate * KCAL_PER_KG_FAT) / 7);
+
+  const delta =
+    input.goal === 'maintain' ? 0 : input.goal === 'lose' ? -perDay : perDay;
+
+  const raw = input.tdee + delta;
+  const floor = input.bmr ?? 0;
+  const limited = input.goal === 'lose' && raw < floor;
+
+  return {
+    calories: Math.round(limited ? floor : raw),
+    dailyDelta: delta,
+    limited,
+  };
+}
+
+/**
  * Split a calorie target into grams. Protein is anchored to bodyweight rather
  * than to a percentage, because that is how the target is actually reasoned
  * about; fat takes a share of the remainder and carbs absorb the rest.
@@ -143,8 +197,13 @@ export function suggestMacroSplit(opts: {
   weightKg: number;
   proteinGPerKg?: number;
   fatPercent?: number;
+  /** In a deficit, protein is raised: it is what protects muscle while the
+   *  calories it is competing with are scarce. */
+  goal?: WeightGoal;
 }): Pick<Macros, 'proteinG' | 'carbsG' | 'fatG'> {
-  const proteinG = round(opts.weightKg * (opts.proteinGPerKg ?? 1.8), 0);
+  const perKg =
+    opts.proteinGPerKg ?? (opts.goal === 'lose' ? 2.2 : 1.8);
+  const proteinG = round(opts.weightKg * perKg, 0);
   const fatG = round((opts.calories * (opts.fatPercent ?? 0.28)) / KCAL_PER_G.fat, 0);
   const remaining =
     opts.calories - proteinG * KCAL_PER_G.protein - fatG * KCAL_PER_G.fat;

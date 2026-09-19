@@ -33,7 +33,7 @@ export function Weight() {
     onSuccess: () => {
       setValue('');
       void qc.invalidateQueries({ queryKey: keys.weights(from, today) });
-      void qc.invalidateQueries({ queryKey: keys.tdee });
+      void qc.invalidateQueries({ queryKey: ['tdee'] });
     },
   });
 

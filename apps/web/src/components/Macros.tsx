@@ -1,11 +1,30 @@
 import { round } from '@eats/shared';
 
+/**
+ * Which measure the day is currently being read in terms of. Chosen in the
+ * summary and applied down the whole screen, so "where is my protein coming
+ * from" is answered by the list you are already looking at.
+ */
+export type MacroFocus = 'kcal' | 'proteinG' | 'carbsG' | 'fatG';
+
+export const MACRO_META: Record<
+  MacroFocus,
+  { label: string; color: string; unit: string }
+> = {
+  kcal: { label: 'Calories', color: 'var(--color-accent)', unit: 'kcal' },
+  proteinG: { label: 'Protein', color: 'var(--color-protein)', unit: 'g' },
+  carbsG: { label: 'Carbs', color: 'var(--color-carbs)', unit: 'g' },
+  fatG: { label: 'Fat', color: 'var(--color-fat)', unit: 'g' },
+};
+
 interface Row {
   label: string;
   value: number;
   target: number | null;
   color: string;
   unit?: string;
+  selected?: boolean;
+  onSelect?: () => void;
 }
 
 /**
@@ -13,12 +32,27 @@ interface Row {
  * read as a set rather than four separate widgets, and the whole summary fits
  * above the fold with room for the day's food beneath it.
  */
-function BarRow({ label, value, target, color, unit = 'g' }: Row) {
+function BarRow({
+  label,
+  value,
+  target,
+  color,
+  unit = 'g',
+  selected,
+  onSelect,
+}: Row) {
   const pct = target && target > 0 ? Math.min(value / target, 1) * 100 : 0;
   const over = target !== null && value > target;
 
   return (
-    <div className="flex items-center gap-3">
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-pressed={selected}
+      className={`flex w-full items-center gap-3 rounded-lg px-1 py-0.5 text-left transition-colors ${
+        selected ? 'bg-surface' : ''
+      }`}
+    >
       <span className="text-muted w-14 shrink-0 text-[13px]">{label}</span>
 
       <span className="nums text-ink w-[5.5rem] shrink-0 text-right text-[13px]">
@@ -33,7 +67,7 @@ function BarRow({ label, value, target, color, unit = 'g' }: Row) {
           style={{ width: `${pct}%`, background: over ? 'var(--color-danger)' : color }}
         />
       </span>
-    </div>
+    </button>
   );
 }
 
@@ -46,9 +80,13 @@ function BarRow({ label, value, target, color, unit = 'g' }: Row) {
 export function DaySummary({
   totals,
   goal,
+  focus,
+  onFocus,
 }: {
   totals: { kcal: number; proteinG: number; carbsG: number; fatG: number };
   goal: { calories: number; proteinG: number; carbsG: number; fatG: number } | null;
+  focus: MacroFocus;
+  onFocus: (focus: MacroFocus) => void;
 }) {
   const kcal = Math.round(totals.kcal);
   const target = goal?.calories ?? null;
@@ -76,43 +114,40 @@ export function DaySummary({
         )}
       </div>
 
-      <div
-        className="bg-line h-2 overflow-hidden rounded-full"
-        role="img"
+      <button
+        type="button"
+        onClick={() => onFocus('kcal')}
+        aria-pressed={focus === 'kcal'}
+        className={`bg-line block h-2 w-full overflow-hidden rounded-full ${
+          focus === 'kcal' ? 'ring-accent/40 ring-2 ring-offset-2 ring-offset-transparent' : ''
+        }`}
         aria-label={
           target === null
             ? `${kcal} calories, no goal set`
             : `${kcal} of ${target} calories`
         }
       >
-        <div
-          className="h-full rounded-full transition-[width] duration-500"
+        <span
+          className="block h-full rounded-full transition-[width] duration-500"
           style={{
             width: `${pct}%`,
             background: over ? 'var(--color-danger)' : 'var(--color-accent)',
           }}
         />
-      </div>
+      </button>
 
       <div className="border-line space-y-2 border-t pt-3">
-        <BarRow
-          label="Protein"
-          value={totals.proteinG}
-          target={goal?.proteinG ?? null}
-          color="var(--color-protein)"
-        />
-        <BarRow
-          label="Carbs"
-          value={totals.carbsG}
-          target={goal?.carbsG ?? null}
-          color="var(--color-carbs)"
-        />
-        <BarRow
-          label="Fat"
-          value={totals.fatG}
-          target={goal?.fatG ?? null}
-          color="var(--color-fat)"
-        />
+        {(['proteinG', 'carbsG', 'fatG'] as const).map((key) => (
+          <BarRow
+            key={key}
+            label={MACRO_META[key].label}
+            value={totals[key]}
+            target={goal?.[key] ?? null}
+            color={MACRO_META[key].color}
+            selected={focus === key}
+            onSelect={() => onFocus(key)}
+          />
+        ))}
       </div>
     </div>
   );

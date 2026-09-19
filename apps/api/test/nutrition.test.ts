@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import {
   addDays,
   ageFrom,
+  targetCalories,
   atwaterAgrees,
   bmr,
   kjToKcal,
@@ -130,6 +131,64 @@ describe('suggestMacroSplit', () => {
   it('never returns negative carbs when protein and fat exceed the target', () => {
     const s = suggestMacroSplit({ calories: 800, weightKg: 120 });
     assert.ok(s.carbsG >= 0);
+  });
+});
+
+describe('targetCalories', () => {
+  it('maintains at TDEE', () => {
+    const r = targetCalories({ tdee: 2753, goal: 'maintain', kgPerWeek: 0.5 });
+    assert.equal(r.calories, 2753);
+    assert.equal(r.dailyDelta, 0);
+  });
+
+  it('subtracts the energy in the fat being lost', () => {
+    // 0.5 kg/week * 7700 kcal/kg / 7 days = 550 kcal/day.
+    const r = targetCalories({ tdee: 2753, goal: 'lose', kgPerWeek: 0.5 });
+    assert.equal(r.dailyDelta, -550);
+    assert.equal(r.calories, 2203);
+    assert.equal(r.limited, false);
+  });
+
+  it('adds for a surplus', () => {
+    const r = targetCalories({ tdee: 2000, goal: 'gain', kgPerWeek: 0.25 });
+    assert.equal(r.dailyDelta, 275);
+    assert.equal(r.calories, 2275);
+  });
+
+  it('never suggests eating below resting expenditure', () => {
+    // A 1 kg/week deficit on a small maintenance would land under BMR.
+    const r = targetCalories({ tdee: 1800, goal: 'lose', kgPerWeek: 1, bmr: 1500 });
+    assert.equal(r.calories, 1500, 'floored at BMR');
+    assert.equal(r.limited, true, 'and says the rate was not honoured');
+  });
+
+  it('caps an unreasonable rate rather than obeying it', () => {
+    const fast = targetCalories({ tdee: 3000, goal: 'lose', kgPerWeek: 5 });
+    const capped = targetCalories({ tdee: 3000, goal: 'lose', kgPerWeek: 1 });
+    assert.equal(fast.calories, capped.calories);
+  });
+
+  it('treats a negative rate as its magnitude', () => {
+    const r = targetCalories({ tdee: 2500, goal: 'lose', kgPerWeek: -0.5 });
+    assert.equal(r.dailyDelta, -550);
+  });
+});
+
+describe('suggestMacroSplit in a deficit', () => {
+  it('raises protein per kg when cutting', () => {
+    const maintain = suggestMacroSplit({ calories: 2200, weightKg: 82 });
+    const cutting = suggestMacroSplit({ calories: 2200, weightKg: 82, goal: 'lose' });
+    assert.ok(
+      cutting.proteinG > maintain.proteinG,
+      'protein protects muscle when calories are scarce',
+    );
+    assert.equal(cutting.proteinG, 180); // 82 * 2.2
+  });
+
+  it('still accounts for roughly the target', () => {
+    const s = suggestMacroSplit({ calories: 2200, weightKg: 82, goal: 'lose' });
+    const kcal = s.proteinG * 4 + s.carbsG * 4 + s.fatG * 9;
+    assert.ok(Math.abs(kcal - 2200) <= 5, `got ${kcal}`);
   });
 });
 

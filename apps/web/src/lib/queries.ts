@@ -31,7 +31,7 @@ export const keys = {
   search: (q: string) => ['search', q] as const,
   goals: ['goals'] as const,
   profile: ['profile'] as const,
-  tdee: ['tdee'] as const,
+  tdee: (goal: string, kgPerWeek: number) => ['tdee', goal, kgPerWeek] as const,
   weights: (from: string, to: string) => ['weights', from, to] as const,
 };
 

@@ -121,12 +121,16 @@ export const api = {
   saveProfile: (body: ProfileBody) => send<ProfileBody>('PUT', '/profile', body),
   goals: () => get<(GoalBody & { effectiveFrom: string }) | null>('/goals'),
   saveGoals: (body: GoalBody) => send<GoalBody>('PUT', '/goals', body),
-  tdee: () =>
+  tdee: (goal = 'maintain', kgPerWeek = 0.5) =>
     get<{
       tdee: number;
+      bmr: number;
       weightKg: number;
+      calories: number;
+      dailyDelta: number;
+      limited: boolean;
       suggested: { proteinG: number; carbsG: number; fatG: number };
-    }>('/tdee'),
+    }>(`/tdee?goal=${goal}&kgPerWeek=${kgPerWeek}`),
 
   weights: (from: string, to: string) =>
     get<{ measuredOn: string; weightKg: number }[]>(`/weights?from=${from}&to=${to}`),

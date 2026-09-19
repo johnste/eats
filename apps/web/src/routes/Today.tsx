@@ -8,7 +8,7 @@ import {
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { EntrySheet } from '../components/EntrySheet.tsx';
-import { DaySummary } from '../components/Macros.tsx';
+import { DaySummary, MACRO_META, type MacroFocus } from '../components/Macros.tsx';
 import { Card, Empty, ErrorNote, Spinner } from '../components/ui.tsx';
 import { useDay, useLogMutations, usePrefetchAdjacentDays } from '../lib/queries.ts';
 import { useSwipe } from '../lib/useSwipe.ts';
@@ -47,6 +47,9 @@ export function Today() {
   // first tap only arms it. Nothing is removed until the second.
   const [confirming, setConfirming] = useState<string | null>(null);
   const [editing, setEditing] = useState<LogEntryResponse | null>(null);
+  // Which measure the meal sections are reported in. Calories by default,
+  // because that is the question most days.
+  const [focus, setFocus] = useState<MacroFocus>('kcal');
 
   // Disarm on its own, so a stray tap does not leave a live delete button
   // sitting under your finger.
@@ -140,13 +143,24 @@ export function Today() {
       {day.data && (
         <div className="space-y-4">
           <Card>
-            <DaySummary totals={day.data.totals} goal={day.data.goal} />
+            <DaySummary
+              totals={day.data.totals}
+              goal={day.data.goal}
+              focus={focus}
+              onFocus={setFocus}
+            />
           </Card>
 
           <Card className="divide-line divide-y p-0">
             {(Object.keys(MEAL_LABELS) as Meal[]).map((meal) => {
               const entries = day.data.meals[meal] ?? [];
-              const kcal = Math.round(entries.reduce((a, e) => a + e.kcal, 0));
+              const meta = MACRO_META[focus];
+              // Summed from the entries' own snapshots, so a meal total always
+              // equals the numbers listed beneath it.
+              const total = round(
+                entries.reduce((a, e) => a + e[focus], 0),
+                focus === 'kcal' ? 0 : 1,
+              );
 
               return (
                 <section key={meal} className="px-4 py-3">
@@ -156,7 +170,12 @@ export function Today() {
                     </h2>
                     <div className="flex items-center gap-2">
                       {entries.length > 0 && (
-                        <span className="nums text-faint text-xs">{kcal} kcal</span>
+                        <span
+                          className="nums text-xs font-medium"
+                          style={{ color: meta.color }}
+                        >
+                          {total} {meta.unit}
+                        </span>
                       )}
                       <button
                         type="button"
@@ -221,8 +240,20 @@ export function Today() {
                               </>
                             ) : (
                               <>
-                                <span className="nums text-muted text-[13px]">
-                                  {Math.round(entry.kcal)}
+                                <span
+                                  className="nums text-[13px]"
+                                  style={{
+                                    color:
+                                      focus === 'kcal'
+                                        ? 'var(--color-muted)'
+                                        : meta.color,
+                                  }}
+                                >
+                                  {round(entry[focus], focus === 'kcal' ? 0 : 1)}
+                                  <span className="text-faint text-[11px]">
+                                    {' '}
+                                    {meta.unit}
+                                  </span>
                                 </span>
                                 <button
                                   type="button"

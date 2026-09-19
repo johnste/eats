@@ -1,6 +1,8 @@
 import {
   ACTIVITY_LEVEL_KEYS,
   SEXES,
+  WEIGHT_GOALS,
+  type WeightGoal,
   type ActivityLevel,
   type GoalBody,
   type Sex,
@@ -216,10 +218,13 @@ function GoalsCard() {
     });
   }, [goals.data]);
 
+  const [weightGoal, setWeightGoal] = useState<WeightGoal>('lose');
+  const [kgPerWeek, setKgPerWeek] = useState(0.5);
+
   // Advisory only: it prefills the form, it doesn't set the goal.
   const tdee = useQuery({
-    queryKey: keys.tdee,
-    queryFn: api.tdee,
+    queryKey: keys.tdee(weightGoal, kgPerWeek),
+    queryFn: () => api.tdee(weightGoal, kgPerWeek),
     retry: false,
   });
 
@@ -275,21 +280,95 @@ function GoalsCard() {
         </div>
 
         {tdee.data && (
-          <button
-            type="button"
-            onClick={() =>
-              setForm({
-                calories: String(tdee.data.tdee),
-                proteinG: String(tdee.data.suggested.proteinG),
-                carbsG: String(tdee.data.suggested.carbsG),
-                fatG: String(tdee.data.suggested.fatG),
-                effectiveFrom: '',
-              })
-            }
-            className="text-accent text-[13px] underline underline-offset-4"
-          >
-            Use my estimated {tdee.data.tdee} kcal maintenance
-          </button>
+          <div className="border-line space-y-3 rounded-xl border p-3">
+            <div>
+              <span className="text-muted mb-1.5 block text-[13px] font-medium">
+                I want to
+              </span>
+              <div className="grid grid-cols-3 gap-1.5">
+                {WEIGHT_GOALS.map((g) => (
+                  <button
+                    key={g}
+                    type="button"
+                    onClick={() => setWeightGoal(g)}
+                    aria-pressed={weightGoal === g}
+                    className={`min-h-10 rounded-lg border text-xs ${
+                      weightGoal === g
+                        ? 'border-accent bg-accent-soft text-accent font-medium'
+                        : 'border-line text-muted'
+                    }`}
+                  >
+                    {g === 'lose' ? 'Lose' : g === 'gain' ? 'Gain' : 'Maintain'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {weightGoal !== 'maintain' && (
+              <div>
+                <span className="text-muted mb-1.5 block text-[13px] font-medium">
+                  Rate
+                </span>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {[0.25, 0.5, 0.75, 1].map((rate) => (
+                    <button
+                      key={rate}
+                      type="button"
+                      onClick={() => setKgPerWeek(rate)}
+                      aria-pressed={kgPerWeek === rate}
+                      className={`nums min-h-10 rounded-lg border text-xs ${
+                        kgPerWeek === rate
+                          ? 'border-accent bg-accent-soft text-accent font-medium'
+                          : 'border-line text-muted'
+                      }`}
+                    >
+                      {rate} kg
+                    </button>
+                  ))}
+                </div>
+                <p className="text-faint mt-1 text-xs">per week</p>
+              </div>
+            )}
+
+            <dl className="nums space-y-1 text-[13px]">
+              <div className="flex justify-between">
+                <dt className="text-muted">Maintenance</dt>
+                <dd className="text-ink">{tdee.data.tdee} kcal</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-muted">
+                  {weightGoal === 'maintain'
+                    ? 'Target'
+                    : `${weightGoal === 'lose' ? 'Deficit' : 'Surplus'} of ${Math.abs(tdee.data.dailyDelta)} kcal`}
+                </dt>
+                <dd className="text-ink font-medium">{tdee.data.calories} kcal</dd>
+              </div>
+            </dl>
+
+            {tdee.data.limited && (
+              <p className="text-muted text-xs">
+                Capped at your resting burn of {tdee.data.bmr} kcal. Eating below
+                that is not a faster route to the same place.
+              </p>
+            )}
+
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full"
+              onClick={() =>
+                setForm({
+                  calories: String(tdee.data.calories),
+                  proteinG: String(tdee.data.suggested.proteinG),
+                  carbsG: String(tdee.data.suggested.carbsG),
+                  fatG: String(tdee.data.suggested.fatG),
+                  effectiveFrom: '',
+                })
+              }
+            >
+              Use these numbers
+            </Button>
+          </div>
         )}
         {tdee.error instanceof ApiError && tdee.error.status === 409 && (
           <p className="text-faint text-[13px]">{tdee.error.message}</p>
@@ -331,7 +410,7 @@ function ProfileCard() {
       }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: keys.profile });
-      void qc.invalidateQueries({ queryKey: keys.tdee });
+      void qc.invalidateQueries({ queryKey: ['tdee'] });
     },
   });
 
