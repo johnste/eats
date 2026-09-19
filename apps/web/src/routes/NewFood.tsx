@@ -1,7 +1,8 @@
 import { atwaterAgrees, toDateKey, type OcrResponse } from '@eats/shared';
 import { useMutation } from '@tanstack/react-query';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
+import { BarcodeScanner } from '../components/BarcodeScanner.tsx';
 import { CameraSheet } from '../components/CameraSheet.tsx';
 import { Button, Card, ErrorNote, Field } from '../components/ui.tsx';
 import { api, ApiError } from '../lib/api.ts';
@@ -68,7 +69,12 @@ export function NewFood() {
 
   const [name, setName] = useState(params.get('name') ?? '');
   const [brand, setBrand] = useState(params.get('brand') ?? '');
-  const [barcode] = useState(params.get('barcode') ?? '');
+  const [barcode, setBarcode] = useState(params.get('barcode') ?? '');
+  const [scanningBarcode, setScanningBarcode] = useState(false);
+  /** label + grams pairs, e.g. "1 egg" -> 60. */
+  const [servings, setServings] = useState<{ label: string; grams: string }[]>([]);
+  /** The photo the macros came from, kept only to check them against. */
+  const [photo, setPhoto] = useState<string | null>(null);
   const [values, setValues] = useState<Record<FieldName, string>>({
     kcal100g: '',
     protein100g: '',
@@ -81,7 +87,15 @@ export function NewFood() {
   const brands = useBrands();
 
   const ocr = useMutation({
-    mutationFn: api.scanLabel,
+    mutationFn: async (file: File) => {
+      // Held as an object URL rather than a data URL: no base64 inflation, and
+      // it is revoked when the component unmounts.
+      setPhoto((previous) => {
+        if (previous) URL.revokeObjectURL(previous);
+        return URL.createObjectURL(file);
+      });
+      return api.scanLabel(file);
+    },
     onSuccess: (result) => {
       setScan(result);
       // Nothing is saved here -- the numbers land in the fields you were going
@@ -97,6 +111,10 @@ export function NewFood() {
       setFlagged(flags);
     },
   });
+
+  useEffect(() => () => {
+    if (photo) URL.revokeObjectURL(photo);
+  }, [photo]);
 
   const parsed = Object.fromEntries(
     NUMERIC.map(({ name: k }) => [k, Number.parseFloat(values[k].replace(',', '.'))]),
@@ -126,9 +144,19 @@ export function NewFood() {
         protein100g: parsed.protein100g,
         carbs100g: parsed.carbs100g,
         fat100g: parsed.fat100g,
-        ...(scan?.servingG.value
-          ? { servings: [{ label: '1 portion', grams: scan.servingG.value }] }
-          : {}),
+        servings: [
+          ...servings.flatMap((s) => {
+            const grams = Number.parseFloat(s.grams.replace(',', '.'));
+            return s.label.trim() && Number.isFinite(grams) && grams > 0
+              ? [{ label: s.label.trim(), grams }]
+              : [];
+          }),
+          // The label's own declared portion, if the scan found one and you
+          // have not already described the same thing yourself.
+          ...(scan?.servingG.value && servings.length === 0
+            ? [{ label: '1 portion', grams: scan.servingG.value }]
+            : []),
+        ],
       }),
     onSuccess: () => navigate(`/add?date=${date}`),
   });
@@ -165,6 +193,19 @@ export function NewFood() {
           <p className="mt-3">
             <ErrorNote>{ocr.error.message}</ErrorNote>
           </p>
+        )}
+
+        {photo && (
+          <figure className="mt-3">
+            <img
+              src={photo}
+              alt="The label you photographed"
+              className="border-line max-h-56 w-full rounded-xl border object-contain"
+            />
+            <figcaption className="text-faint mt-1 text-center text-[11px]">
+              Check the values below against this.
+            </figcaption>
+          </figure>
         )}
 
         {scan && <ScanReport scan={scan} flagged={flagged.size} />}
@@ -237,7 +278,125 @@ export function NewFood() {
           </p>
         )}
 
-        {cameraOpen && (
+          <div>
+          <span className="text-muted mb-1.5 block text-[13px] font-medium">
+            Barcode
+          </span>
+          {barcode ? (
+            <div className="border-line flex items-center justify-between gap-3 rounded-xl border px-3 py-2">
+              <span className="nums text-ink text-[13px]">{barcode}</span>
+              <button
+                type="button"
+                onClick={() => setBarcode('')}
+                className="text-muted text-[13px] underline underline-offset-4"
+              >
+                Remove
+              </button>
+            </div>
+          ) : (
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full"
+              onClick={() => setScanningBarcode(true)}
+            >
+              Scan a barcode
+            </Button>
+          )}
+          <span className="text-faint mt-1 block text-xs">
+            Optional. Attaching one means scanning this packet finds it next time.
+          </span>
+        </div>
+
+        {/* Portion shortcuts. Grams is still what gets stored -- these only
+            save you working out what a portion weighs every time. */}
+        <fieldset>
+          <legend className="text-muted mb-1.5 text-[13px] font-medium">
+            Portion sizes
+          </legend>
+          <p className="text-faint mb-2 text-xs">
+            Optional. "1 egg" or "1 slice", so you can tap instead of weighing.
+          </p>
+
+          <div className="space-y-2">
+            {servings.map((serving, i) => (
+              <div key={i} className="flex items-end gap-2">
+                <input
+                  aria-label={`Portion ${i + 1} name`}
+                  value={serving.label}
+                  placeholder="1 egg"
+                  onChange={(e) =>
+                    setServings(
+                      servings.map((s, j) =>
+                        j === i ? { ...s, label: e.target.value } : s,
+                      ),
+                    )
+                  }
+                  className="bg-surface border-line text-ink placeholder:text-faint focus:border-accent min-h-11 flex-1 rounded-xl border px-3 focus:outline-none"
+                />
+                <input
+                  aria-label={`Portion ${i + 1} weight in grams`}
+                  value={serving.grams}
+                  placeholder="60"
+                  inputMode="decimal"
+                  onChange={(e) =>
+                    setServings(
+                      servings.map((s, j) =>
+                        j === i ? { ...s, grams: e.target.value } : s,
+                      ),
+                    )
+                  }
+                  className="bg-surface border-line text-ink placeholder:text-faint nums focus:border-accent min-h-11 w-20 rounded-xl border px-3 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  aria-label={`Remove portion ${i + 1}`}
+                  onClick={() => setServings(servings.filter((_, j) => j !== i))}
+                  className="text-faint active:text-danger grid size-11 shrink-0 place-items-center"
+                >
+                  <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+                    <path d="M18 6L6 18M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setServings([...servings, { label: '', grams: '' }])}
+            className="text-accent mt-2 text-[13px] underline underline-offset-4"
+          >
+            {servings.length === 0 ? 'Add a portion size' : 'Add another'}
+          </button>
+
+          {scan?.servingG.value && servings.length === 0 && (
+            <p className="text-faint mt-2 text-xs">
+              The label declares {scan.servingG.value} g per portion; it will be
+              saved as &quot;1 portion&quot; unless you describe one yourself.
+            </p>
+          )}
+        </fieldset>
+
+        {save.error instanceof ApiError && <ErrorNote>{save.error.message}</ErrorNote>}
+
+        <Button type="submit" className="w-full" disabled={!complete || save.isPending}>
+          {save.isPending ? 'Saving…' : 'Save food'}
+        </Button>
+      </form>
+
+      {scanningBarcode && (
+        <BarcodeScanner
+          hint="Hold the packet's barcode inside the frame."
+          onClose={() => setScanningBarcode(false)}
+          onFound={(code) => {
+            setScanningBarcode(false);
+            setBarcode(code);
+          }}
+        />
+      )}
+
+      {cameraOpen && (
         <CameraSheet
           title="Scan nutrition label"
           hint="Fill the frame with the nutrition table, straight on."
@@ -250,16 +409,6 @@ export function NewFood() {
         />
       )}
 
-      {barcode && (
-          <p className="text-faint nums text-xs">Barcode {barcode} will be attached.</p>
-        )}
-
-        {save.error instanceof ApiError && <ErrorNote>{save.error.message}</ErrorNote>}
-
-        <Button type="submit" className="w-full" disabled={!complete || save.isPending}>
-          {save.isPending ? 'Saving…' : 'Save food'}
-        </Button>
-      </form>
     </>
   );
 }
