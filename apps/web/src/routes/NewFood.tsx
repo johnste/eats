@@ -6,7 +6,7 @@ import { BarcodeScanner } from '../components/BarcodeScanner.tsx';
 import { CameraSheet } from '../components/CameraSheet.tsx';
 import { Button, Card, ErrorNote, Field } from '../components/ui.tsx';
 import { api, ApiError } from '../lib/api.ts';
-import { keys, useBrands } from '../lib/queries.ts';
+import { useBrands } from '../lib/queries.ts';
 
 type FieldName = 'kcal100g' | 'protein100g' | 'carbs100g' | 'fat100g';
 
@@ -189,7 +189,7 @@ export function NewFood() {
     onSuccess: () => {
       // The edited food may be sitting in a search result or the recent list.
       void qc.invalidateQueries({ queryKey: ['food', editingId] });
-      void qc.invalidateQueries({ queryKey: keys.recent });
+      void qc.invalidateQueries({ queryKey: ['recent'] });
       void qc.invalidateQueries({ queryKey: ['search'] });
       navigate(`/add?date=${date}`);
     },

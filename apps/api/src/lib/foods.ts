@@ -1,4 +1,4 @@
-import type { FoodResponse } from '@eats/shared';
+import type { FoodResponse, Meal } from '@eats/shared';
 import { and, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm';
 import type { Database, Executor } from '../db/client.ts';
 import { foods, foodServings, foodViews, logEntries } from '../db/schema.ts';
@@ -191,24 +191,36 @@ export async function recentFoods(
   db: Database,
   userId: string,
   limit: number,
+  meal?: Meal,
 ): Promise<FoodRow[]> {
+  // When a meal is named, what you reach for at breakfast is almost never
+  // what you reach for at dinner, so anything you have logged to that meal
+  // sorts above everything else -- each group still in recency order.
+  const inMeal = meal ? sql`meal = ${meal}` : sql`false`;
+
   const rows = await db
     .select({ food: foods })
     .from(foods)
     .innerJoin(
       sql`(
-        select food_id, max(at) as last_at from (
-          select food_id, created_at as at
+        select
+          food_id,
+          max(at) as last_at,
+          max(at) filter (where in_meal) as last_meal_at
+        from (
+          select food_id, created_at as at, ${inMeal} as in_meal
             from log_entries where user_id = ${userId}
           union all
-          select food_id, viewed_at as at
+          select food_id, viewed_at as at, false
             from food_views where user_id = ${userId}
         ) touches
         group by food_id
       ) recent`,
       sql`recent.food_id = ${foods.id}`,
     )
-    .orderBy(sql`recent.last_at desc`)
+    // nulls last is not the default for desc in Postgres, and without it
+    // every food you have never logged to this meal would sort to the top.
+    .orderBy(sql`recent.last_meal_at desc nulls last, recent.last_at desc`)
     .limit(limit);
   return rows.map((r) => r.food);
 }

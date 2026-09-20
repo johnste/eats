@@ -7,6 +7,7 @@ import type {
   FoodSearchResponse,
   GoalBody,
   LogEntryResponse,
+  Meal,
   OcrResponse,
   ProfileBody,
   UserResponse,
@@ -96,7 +97,8 @@ export const api = {
 
   searchFoods: (q: string) =>
     get<FoodSearchResponse>(`/foods/search?q=${encodeURIComponent(q)}`),
-  recentFoods: () => get<FoodResponse[]>("/foods/recent"),
+  recentFoods: (meal?: Meal) =>
+    get<FoodResponse[]>(`/foods/recent${meal ? `?meal=${meal}` : ""}`),
   barcode: (code: string) =>
     get<BarcodeLookupResponse>(`/foods/barcode/${code}`),
   food: (id: string) => get<FoodResponse>(`/foods/${id}`),

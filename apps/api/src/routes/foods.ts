@@ -5,6 +5,7 @@ import {
   foodResponse,
   foodSearchQuery,
   foodSearchResponse,
+  mealSchema,
   updateFoodBody,
 } from '@eats/shared';
 import { and, eq } from 'drizzle-orm';
@@ -64,10 +65,15 @@ export const foodRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
 
   r.get(
     '/recent',
-    { schema: { response: { 200: z.array(foodResponse) } } },
+    {
+      schema: {
+        querystring: z.object({ meal: mealSchema.optional() }),
+        response: { 200: z.array(foodResponse) },
+      },
+    },
     async (req) => {
       const user = await requireUser(req);
-      return withServings(db, await recentFoods(db, user.id, 30));
+      return withServings(db, await recentFoods(db, user.id, 30, req.query.meal));
     },
   );
 
