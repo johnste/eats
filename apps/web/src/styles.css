@@ -31,7 +31,8 @@
 
   /* A single, quiet elevation. Cards are the only raised surface in the app,
      so one step is enough and more would just add noise. */
-  --shadow-card: 0 1px 2px oklch(0.2 0.02 265 / 0.04), 0 4px 12px oklch(0.2 0.02 265 / 0.05);
+  --shadow-card:
+    0 1px 2px oklch(0.2 0.02 265 / 0.04), 0 4px 12px oklch(0.2 0.02 265 / 0.05);
 }
 
 @layer theme {
@@ -76,7 +77,12 @@ html {
 
 body {
   margin: 0;
-  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
   /* Stop the whole page rubber-banding on iOS while sheets scroll, and stop
      horizontal overscroll from becoming a browser back/forward gesture --
      which drags the entire page, fixed tab bar included. */
@@ -109,6 +115,14 @@ h2 {
  * the drag are known; unset, this collapses to the ordinary card shadow.
  */
 [data-card] {
+  box-shadow: var(--shadow-card);
+}
+
+/* Only while a finger is down. Composing the glow into every card's shadow
+   at all times means each card's shadow depends on an inherited custom
+   property, so the whole list restyles whenever that property changes -- and
+   it buys nothing for the 99% of the time nobody is swiping. */
+[data-swiping] [data-card] {
   box-shadow: var(--shadow-card), var(--swipe-glow, 0 0 transparent);
 }
 

@@ -43,6 +43,14 @@ export interface SwipeState {
  * travelled still moves, but only slightly, so the gesture registers as
  * refused rather than ignored.
  */
+const AT_REST: SwipeState = {
+  offset: 0,
+  dragging: false,
+  direction: null,
+  progress: 0,
+  willCommit: false,
+};
+
 export function useSwipe(handlers: {
   onLeft?: () => void;
   onRight?: () => void;
@@ -52,24 +60,17 @@ export function useSwipe(handlers: {
   const { canLeft = true, canRight = true } = handlers;
   const start = useRef<{ x: number; y: number } | null>(null);
   const axis = useRef<'undecided' | 'horizontal' | 'vertical'>('undecided');
-  const [state, setState] = useState<SwipeState>({
-    offset: 0,
-    dragging: false,
-    direction: null,
-    progress: 0,
-    willCommit: false,
-  });
+  const [state, setState] = useState<SwipeState>(AT_REST);
 
   const reset = () => {
+    const wasDragging = axis.current === 'horizontal';
     axis.current = 'undecided';
     start.current = null;
-    setState({
-      offset: 0,
-      dragging: false,
-      direction: null,
-      progress: 0,
-      willCommit: false,
-    });
+    // Only touch state if a horizontal drag actually moved something. A plain
+    // vertical scroll ends with a touchend too, and re-rendering the whole day
+    // on the lift of every flick is a hitch you feel at the end of each one.
+    if (!wasDragging) return;
+    setState(AT_REST);
   };
 
   return {

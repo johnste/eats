@@ -13,11 +13,11 @@ export function Card({
 }) {
   return (
     <section
+      // The shadow comes from the [data-card] rule in styles.css, which is
+      // unlayered and so beats any utility class anyway. Setting it here too
+      // just built a second box-shadow for the browser to discard.
       data-card=""
-      className={cx(
-        'bg-raised border-line rounded-card border p-4 shadow-[var(--shadow-card)]',
-        className,
-      )}
+      className={cx('bg-raised border-line rounded-card border p-4', className)}
     >
       {children}
     </section>

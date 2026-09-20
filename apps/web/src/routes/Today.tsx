@@ -99,8 +99,12 @@ export function Today() {
       )}
 
       <div
+        data-swiping={swipe.dragging || undefined}
         style={{
-          transform: `translateX(${swipe.offset}px)`,
+          // Omitted entirely when the view is at rest. A transform that is
+          // always present, even as translateX(0px), keeps the whole page in
+          // its own layer for the browser to maintain while you scroll.
+          ...(swipe.offset !== 0 ? { transform: `translateX(${swipe.offset}px)` } : {}),
           // The glow sits on the side the incoming day comes from: pulling
           // right reveals yesterday on the left, so the left edge lights.
           // color-mix carries the strength so the hue stays a single token
@@ -119,191 +123,189 @@ export function Today() {
           swipe.dragging ? '' : 'transition-transform duration-200'
         }`}
       >
-      <header className="mb-3 flex items-center justify-between">
-        <StepButton label="Previous day" onClick={() => go(-1)} d="M15 18l-6-6 6-6" />
-        <div className="text-center">
-          <h1 className="text-ink text-[17px] leading-tight font-semibold">
-            {humanDate(date)}
-          </h1>
-          {humanDate(date) !== date && (
-            <p className="text-faint nums text-[11px]">{date}</p>
-          )}
-        </div>
-        <StepButton
-          label="Next day"
-          onClick={() => go(1)}
-          d="M9 18l6-6-6-6"
-          disabled={date >= toDateKey()}
-        />
-      </header>
+        <header className="mb-3 flex items-center justify-between">
+          <StepButton label="Previous day" onClick={() => go(-1)} d="M15 18l-6-6 6-6" />
+          <div className="text-center">
+            <h1 className="text-ink text-[17px] leading-tight font-semibold">
+              {humanDate(date)}
+            </h1>
+            {humanDate(date) !== date && (
+              <p className="text-faint nums text-[11px]">{date}</p>
+            )}
+          </div>
+          <StepButton
+            label="Next day"
+            onClick={() => go(1)}
+            d="M9 18l6-6-6-6"
+            disabled={date >= toDateKey()}
+          />
+        </header>
 
-      {day.isPending && <Spinner />}
-      {day.isError && <ErrorNote>Couldn't load this day.</ErrorNote>}
+        {day.isPending && <Spinner />}
+        {day.isError && <ErrorNote>Couldn't load this day.</ErrorNote>}
 
-      {day.data && (
-        <div className="space-y-4">
-          <Card>
-            <DaySummary
-              totals={day.data.totals}
-              goal={day.data.goal}
-              focus={focus}
-              onFocus={setFocus}
-            />
-          </Card>
+        {day.data && (
+          <div className="space-y-4">
+            <Card>
+              <DaySummary
+                totals={day.data.totals}
+                goal={day.data.goal}
+                focus={focus}
+                onFocus={setFocus}
+              />
+            </Card>
 
-          <Card className="divide-line divide-y p-0">
-            {(Object.keys(MEAL_LABELS) as Meal[]).map((meal) => {
-              const entries = day.data.meals[meal] ?? [];
-              const meta = MACRO_META[focus];
-              // Summed from the entries' own snapshots, so a meal total always
-              // equals the numbers listed beneath it.
-              const total = round(
-                entries.reduce((a, e) => a + e[focus], 0),
-                focus === 'kcal' ? 0 : 1,
-              );
+            <Card className="divide-line divide-y p-0">
+              {(Object.keys(MEAL_LABELS) as Meal[]).map((meal) => {
+                const entries = day.data.meals[meal] ?? [];
+                const meta = MACRO_META[focus];
+                // Summed from the entries' own snapshots, so a meal total always
+                // equals the numbers listed beneath it.
+                const total = round(
+                  entries.reduce((a, e) => a + e[focus], 0),
+                  focus === 'kcal' ? 0 : 1,
+                );
 
-              return (
-                <section key={meal} className="px-4 py-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <h2 className="text-ink text-sm font-semibold">
-                      {MEAL_LABELS[meal]}
-                    </h2>
-                    <div className="flex items-center gap-2">
-                      {entries.length > 0 && (
-                        <span
-                          className="nums text-xs font-medium"
-                          style={{ color: meta.color }}
-                        >
-                          {total} {meta.unit}
-                        </span>
-                      )}
-                      <button
-                        type="button"
-                        aria-label={`Add to ${MEAL_LABELS[meal]}`}
-                        // focus tells the add screen to open the keyboard:
-                        // tapping + means you already know what you want.
-                        onClick={() =>
-                          navigate(`/add?meal=${meal}&date=${date}&focus=${Date.now()}`)
-                        }
-                        className="text-accent bg-accent-soft grid size-7 place-items-center rounded-full text-base leading-none"
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-
-                  {entries.length > 0 && (
-                    <ul className="mt-1.5 space-y-0.5">
-                      {entries.map((entry) => (
-                        <li
-                          key={entry.id}
-                          className="group flex items-center justify-between gap-3 py-1"
-                        >
-                          <button
-                            type="button"
-                            onClick={() => setEditing(entry)}
-                            className="min-w-0 flex-1 text-left"
+                return (
+                  <section key={meal} className="px-4 py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <h2 className="text-ink text-sm font-semibold">
+                        {MEAL_LABELS[meal]}
+                      </h2>
+                      <div className="flex items-center gap-2">
+                        {entries.length > 0 && (
+                          <span
+                            className="nums text-xs font-medium"
+                            style={{ color: meta.color }}
                           >
-                            <span className="text-ink block truncate text-[13px] leading-tight">
-                              {entry.food.name}
-                            </span>
-                            <span className="text-faint nums block text-[11px]">
-                              {round(entry.grams)} g
-                              {entry.food.brand && ` · ${entry.food.brand}`}
-                            </span>
-                          </button>
-                          <div className="flex shrink-0 items-center gap-1">
-                            {confirming === entry.id ? (
-                              <>
-                                <button
-                                  type="button"
-                                  aria-label={`Cancel removing ${entry.food.name}`}
-                                  onClick={() => setConfirming(null)}
-                                  className="text-muted px-2 py-1 text-[13px]"
-                                >
-                                  Cancel
-                                </button>
-                                <button
-                                  type="button"
-                                  // autoFocus so the confirm is what a keyboard
-                                  // or screen reader lands on next.
-                                  autoFocus
-                                  aria-label={`Confirm removing ${entry.food.name}`}
-                                  onClick={() => {
-                                    setConfirming(null);
-                                    remove.mutate(entry.id);
-                                  }}
-                                  className="bg-danger text-surface rounded-full px-3 py-1 text-[13px] font-medium"
-                                >
-                                  Remove
-                                </button>
-                              </>
-                            ) : (
-                              <>
-                                <span
-                                  className="nums text-[13px]"
-                                  style={{
-                                    color:
-                                      focus === 'kcal'
-                                        ? 'var(--color-muted)'
-                                        : meta.color,
-                                  }}
-                                >
-                                  {round(entry[focus], focus === 'kcal' ? 0 : 1)}
-                                  <span className="text-faint text-[11px]">
-                                    {' '}
-                                    {meta.unit}
-                                  </span>
-                                </span>
-                                <button
-                                  type="button"
-                                  aria-label={`Remove ${entry.food.name}`}
-                                  onClick={() => setConfirming(entry.id)}
-                                  className="text-faint active:text-danger grid size-7 place-items-center rounded-full"
-                                >
-                                  <svg
-                                    viewBox="0 0 24 24"
-                                    className="size-3.5"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                    aria-hidden
+                            {total} {meta.unit}
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          aria-label={`Add to ${MEAL_LABELS[meal]}`}
+                          // focus tells the add screen to open the keyboard:
+                          // tapping + means you already know what you want.
+                          onClick={() =>
+                            navigate(
+                              `/add?meal=${meal}&date=${date}&focus=${Date.now()}`,
+                            )
+                          }
+                          className="text-accent bg-accent-soft grid size-7 place-items-center rounded-full text-base leading-none"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+
+                    {entries.length > 0 && (
+                      <ul className="mt-1.5 space-y-0.5">
+                        {entries.map((entry) => (
+                          <li
+                            key={entry.id}
+                            className="group flex items-center justify-between gap-3 py-1"
+                          >
+                            <button
+                              type="button"
+                              onClick={() => setEditing(entry)}
+                              className="min-w-0 flex-1 text-left"
+                            >
+                              <span className="text-ink block truncate text-[13px] leading-tight">
+                                {entry.food.name}
+                              </span>
+                              <span className="text-faint nums block text-[11px]">
+                                {round(entry.grams)} g
+                                {entry.food.brand && ` · ${entry.food.brand}`}
+                              </span>
+                            </button>
+                            <div className="flex shrink-0 items-center gap-1">
+                              {confirming === entry.id ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    aria-label={`Cancel removing ${entry.food.name}`}
+                                    onClick={() => setConfirming(null)}
+                                    className="text-muted px-2 py-1 text-[13px]"
                                   >
-                                    <path d="M18 6L6 18M6 6l12 12" />
-                                  </svg>
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </section>
-              );
-            })}
-          </Card>
+                                    Cancel
+                                  </button>
+                                  <button
+                                    type="button"
+                                    // autoFocus so the confirm is what a keyboard
+                                    // or screen reader lands on next.
+                                    autoFocus
+                                    aria-label={`Confirm removing ${entry.food.name}`}
+                                    onClick={() => {
+                                      setConfirming(null);
+                                      remove.mutate(entry.id);
+                                    }}
+                                    className="bg-danger text-surface rounded-full px-3 py-1 text-[13px] font-medium"
+                                  >
+                                    Remove
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <span
+                                    className="nums text-[13px]"
+                                    style={{
+                                      color:
+                                        focus === 'kcal'
+                                          ? 'var(--color-muted)'
+                                          : meta.color,
+                                    }}
+                                  >
+                                    {round(entry[focus], focus === 'kcal' ? 0 : 1)}
+                                    <span className="text-faint text-[11px]">
+                                      {' '}
+                                      {meta.unit}
+                                    </span>
+                                  </span>
+                                  <button
+                                    type="button"
+                                    aria-label={`Remove ${entry.food.name}`}
+                                    onClick={() => setConfirming(entry.id)}
+                                    className="text-faint active:text-danger grid size-7 place-items-center rounded-full"
+                                  >
+                                    <svg
+                                      viewBox="0 0 24 24"
+                                      className="size-3.5"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      strokeWidth="2"
+                                      strokeLinecap="round"
+                                      aria-hidden
+                                    >
+                                      <path d="M18 6L6 18M6 6l12 12" />
+                                    </svg>
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </section>
+                );
+              })}
+            </Card>
 
-          {day.data.totals.kcal === 0 && !day.data.goal && (
-            <Empty title="No goal set yet">
-              Set one in Settings to see how the day is tracking.
-            </Empty>
-          )}
+            {day.data.totals.kcal === 0 && !day.data.goal && (
+              <Empty title="No goal set yet">
+                Set one in Settings to see how the day is tracking.
+              </Empty>
+            )}
 
-          <p className="text-faint pt-0.5 text-center text-[11px]">
-            Swipe to change day
-          </p>
-        </div>
-      )}
+            <p className="text-faint pt-0.5 text-center text-[11px]">
+              Swipe to change day
+            </p>
+          </div>
+        )}
       </div>
 
       {editing && (
-        <EntrySheet
-          entry={editing}
-          date={date}
-          onClose={() => setEditing(null)}
-        />
+        <EntrySheet entry={editing} date={date} onClose={() => setEditing(null)} />
       )}
     </div>
   );
