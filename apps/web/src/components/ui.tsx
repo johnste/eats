@@ -47,6 +47,59 @@ export function Button({ variant = 'primary', className, ...props }: ButtonProps
   );
 }
 
+/**
+ * A collapsible card.
+ *
+ * Built on <details>, which brings keyboard operation, the right screen
+ * reader announcement and find-in-page expansion without any of it being
+ * written here -- and without adding state that re-renders the page.
+ *
+ * `hint` is what the section is worth knowing at a glance, so collapsing it
+ * hides the controls rather than the answer.
+ */
+export function Disclosure({
+  title,
+  description,
+  hint,
+  defaultOpen,
+  children,
+}: {
+  title: string;
+  description?: string;
+  hint?: string;
+  defaultOpen?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <details
+      data-card
+      className="bg-raised border-line rounded-card group border"
+      open={defaultOpen}
+    >
+      <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
+        <span className="text-ink flex-1 text-[15px] font-semibold">{title}</span>
+        {hint && <span className="text-muted nums text-[13px]">{hint}</span>}
+        <svg
+          viewBox="0 0 24 24"
+          className="text-faint size-4 shrink-0 transition-transform group-open:rotate-180"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden
+        >
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </summary>
+      <div className="px-4 pt-1 pb-4">
+        {description && <p className="text-muted mb-4 text-[13px]">{description}</p>}
+        {children}
+      </div>
+    </details>
+  );
+}
+
 export function Field({
   label,
   hint,

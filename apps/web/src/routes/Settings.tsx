@@ -9,7 +9,7 @@ import {
 } from '@eats/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useId, useState } from 'react';
-import { Button, Card, ErrorNote, Field, Spinner } from '../components/ui.tsx';
+import { Button, Card, Disclosure, ErrorNote, Field } from '../components/ui.tsx';
 import { api, ApiError } from '../lib/api.ts';
 import { keys, useGoals, useMe, useProfile } from '../lib/queries.ts';
 
@@ -138,13 +138,13 @@ function AgentAccessCard() {
   const mcpUrl = `${window.location.origin}/mcp`;
 
   return (
-    <Card>
-      <h2 className="text-ink mb-1 text-[15px] font-semibold">Agent access</h2>
-      <p className="text-muted mb-4 text-[13px]">
-        Let an AI assistant search foods, log a meal, and read back your day. It cannot
-        see your history or weights, and cannot delete anything.
-      </p>
-
+    <Disclosure
+      title="Agent access"
+      hint={
+        connections.data?.length ? `${connections.data.length} connected` : undefined
+      }
+      description="Let an AI assistant search foods, log a meal, and read back your day. It cannot see your history or weights, and cannot delete anything."
+    >
       <div className="bg-surface border-line mb-4 rounded-xl border p-3">
         <p className="text-muted mb-1 text-[11px] font-medium">Address</p>
         <p className="text-ink nums text-[13px] break-all">{mcpUrl}</p>
@@ -287,7 +287,7 @@ function AgentAccessCard() {
           ))}
         </ul>
       )}
-    </Card>
+    </Disclosure>
   );
 }
 
@@ -307,12 +307,10 @@ function ExportCard() {
   });
 
   return (
-    <Card>
-      <h2 className="text-ink mb-1 text-[15px] font-semibold">Your data</h2>
-      <p className="text-muted mb-4 text-[13px]">
-        Everything you have logged, as a JSON file: your foods, entries, weights, goals
-        and profile.
-      </p>
+    <Disclosure
+      title="Your data"
+      description="Everything you have logged, as a JSON file: your foods, entries, weights, goals and profile."
+    >
       {download.error instanceof ApiError && (
         <p className="mb-3">
           <ErrorNote>{download.error.message}</ErrorNote>
@@ -326,7 +324,7 @@ function ExportCard() {
       >
         {download.isPending ? 'Preparing…' : 'Download my data'}
       </Button>
-    </Card>
+    </Disclosure>
   );
 }
 
@@ -445,13 +443,6 @@ function GoalsCard() {
     },
   });
 
-  if (goals.isPending)
-    return (
-      <Card>
-        <Spinner />
-      </Card>
-    );
-
   const numbers: [keyof typeof form, string, string][] = [
     ['calories', 'Calories', 'kcal'],
     ['proteinG', 'Protein', 'g'],
@@ -463,12 +454,11 @@ function GoalsCard() {
   );
 
   return (
-    <Card>
-      <h2 className="text-ink mb-1 text-[15px] font-semibold">Daily goal</h2>
-      <p className="text-muted mb-4 text-[13px]">
-        Changing this applies from today onward; past days keep the goal they had.
-      </p>
-
+    <Disclosure
+      title="Daily goal"
+      hint={goals.data ? `${Math.round(goals.data.calories)} kcal` : undefined}
+      description="Changing this applies from today onward; past days keep the goal they had."
+    >
       <form
         className="space-y-3"
         onSubmit={(e) => {
@@ -590,7 +580,7 @@ function GoalsCard() {
           {save.isPending ? 'Saving…' : save.isSuccess ? 'Saved' : 'Save goal'}
         </Button>
       </form>
-    </Card>
+    </Disclosure>
   );
 }
 
@@ -624,20 +614,11 @@ function ProfileCard() {
     },
   });
 
-  if (profile.isPending)
-    return (
-      <Card>
-        <Spinner />
-      </Card>
-    );
-
   return (
-    <Card>
-      <h2 className="text-ink mb-1 text-[15px] font-semibold">About you</h2>
-      <p className="text-muted mb-4 text-[13px]">
-        Only used to estimate your daily energy use.
-      </p>
-
+    <Disclosure
+      title="About you"
+      description="Only used to estimate your daily energy use."
+    >
       <form
         className="space-y-3"
         onSubmit={(e) => {
@@ -677,7 +658,7 @@ function ProfileCard() {
           {save.isPending ? 'Saving…' : save.isSuccess ? 'Saved' : 'Save'}
         </Button>
       </form>
-    </Card>
+    </Disclosure>
   );
 }
 
