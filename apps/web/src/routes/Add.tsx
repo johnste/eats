@@ -74,6 +74,7 @@ export function Add() {
           state={search}
           onPickLocal={setPicked}
           onPickOff={(barcode) => resolve.mutate(barcode)}
+          onAddManually={() => navigate(`/foods/new?meal=${initialMeal}&date=${date}`)}
         />
       ) : (
         <section>
@@ -83,20 +84,12 @@ export function Add() {
           {recent.isPending && <Spinner />}
           {recent.data?.length === 0 && (
             <Empty title="Nothing logged yet">
-              Search above, or scan a barcode to get started.
+              Search below, scan a barcode, or add a food yourself.
             </Empty>
           )}
           <FoodList foods={recent.data ?? []} onPick={setPicked} />
         </section>
       )}
-
-      <button
-        type="button"
-        onClick={() => navigate(`/foods/new?meal=${initialMeal}&date=${date}`)}
-        className="text-muted mt-6 w-full text-center text-[13px] underline underline-offset-4"
-      >
-        Can't find it? Add it manually
-      </button>
 
       <BottomBarSpacer />
 
@@ -129,6 +122,24 @@ export function Add() {
                 d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 8v8M11 8v8M15 8v8"
                 strokeLinecap="round"
               />
+            </svg>
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={() => navigate(`/foods/new?meal=${initialMeal}&date=${date}`)}
+            aria-label="Add a food that isn't listed"
+            className="px-3"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              className="size-5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              aria-hidden
+            >
+              <path d="M12 5v14M5 12h14" />
             </svg>
           </Button>
         </div>
@@ -164,10 +175,12 @@ function SearchResults({
   state,
   onPickLocal,
   onPickOff,
+  onAddManually,
 }: {
   state: ReturnType<typeof useQuery<Awaited<ReturnType<typeof api.searchFoods>>>>;
   onPickLocal: (f: FoodResponse) => void;
   onPickOff: (barcode: string) => void;
+  onAddManually: () => void;
 }) {
   if (state.isPending) return <Spinner />;
   if (state.isError) return <ErrorNote>Search failed. Try again.</ErrorNote>;
@@ -176,7 +189,16 @@ function SearchResults({
 
   const nothing = data.local.length === 0 && data.off.length === 0;
   if (nothing)
-    return <Empty title="No matches">Try a shorter search, or add it manually.</Empty>;
+    return (
+      <Empty title="No matches">
+        <p className="mb-3">Try a shorter search, or enter it yourself.</p>
+        {/* Offered here as well as in the bar, because a search that found
+            nothing is exactly when you want it. */}
+        <Button variant="ghost" onClick={onAddManually}>
+          Add a new food
+        </Button>
+      </Empty>
+    );
 
   return (
     <div className="space-y-5">
@@ -195,10 +217,16 @@ function SearchResults({
                 <button
                   type="button"
                   onClick={() => onPickOff(c.barcode)}
-                  className="bg-raised border-line active:bg-surface w-full rounded-xl border px-3 py-2.5 text-left"
+                  className={ROW}
                 >
-                  <p className="text-ink truncate text-sm">{c.name}</p>
-                  {c.brand && <p className="text-faint truncate text-xs">{c.brand}</p>}
+                  <span className="min-w-0">
+                    <span className="text-ink block truncate text-sm">{c.name}</span>
+                    {c.brand && (
+                      <span className="text-faint block truncate text-xs">
+                        {c.brand}
+                      </span>
+                    )}
+                  </span>
                 </button>
               </li>
             ))}
@@ -214,6 +242,14 @@ function SearchResults({
   );
 }
 
+/**
+ * One row of either list. The height is fixed because the second line is
+ * optional -- a food with no brand would otherwise make a row shorter than
+ * the one above it, and a list of mixed heights is hard to scan down.
+ */
+const ROW =
+  'bg-raised border-line active:bg-surface flex min-h-14 w-full items-center justify-between gap-3 rounded-xl border px-3 py-2 text-left';
+
 function FoodList({
   foods,
   onPick,
@@ -225,11 +261,7 @@ function FoodList({
     <ul className="space-y-1.5">
       {foods.map((f) => (
         <li key={f.id}>
-          <button
-            type="button"
-            onClick={() => onPick(f)}
-            className="bg-raised border-line active:bg-surface flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-left"
-          >
+          <button type="button" onClick={() => onPick(f)} className={ROW}>
             <span className="min-w-0">
               <span className="text-ink block truncate text-sm">{f.name}</span>
               {f.brand && (
