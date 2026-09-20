@@ -3,16 +3,16 @@ import {
   useQuery,
   useQueryClient,
   type UseQueryResult,
-} from "@tanstack/react-query";
+} from '@tanstack/react-query';
 import {
   addDays,
   guessMeal,
   toDateKey,
   type Meal,
   type UserResponse,
-} from "@eats/shared";
-import { useEffect } from "react";
-import { api, ApiError } from "./api.ts";
+} from '@eats/shared';
+import { useEffect } from 'react';
+import { api, ApiError } from './api.ts';
 
 /**
  * How far back the weight chart looks. Exported so the prefetch and the page
@@ -23,22 +23,21 @@ export const WEIGHT_WINDOW_DAYS = 90;
 
 /** Respect an explicit request not to spend bandwidth on speculation. */
 function saveDataEnabled(): boolean {
-  const connection = (
-    navigator as Navigator & { connection?: { saveData?: boolean } }
-  ).connection;
+  const connection = (navigator as Navigator & { connection?: { saveData?: boolean } })
+    .connection;
   return connection?.saveData === true;
 }
 
 export const keys = {
-  me: ["me"] as const,
-  day: (date: string) => ["day", date] as const,
-  recent: (meal?: Meal) => ["recent", meal ?? "any"] as const,
-  brands: ["brands"] as const,
-  search: (q: string) => ["search", q] as const,
-  goals: ["goals"] as const,
-  profile: ["profile"] as const,
-  tdee: (goal: string, kgPerWeek: number) => ["tdee", goal, kgPerWeek] as const,
-  weights: (from: string, to: string) => ["weights", from, to] as const,
+  me: ['me'] as const,
+  day: (date: string) => ['day', date] as const,
+  recent: (meal?: Meal) => ['recent', meal ?? 'any'] as const,
+  brands: ['brands'] as const,
+  search: (q: string) => ['search', q] as const,
+  goals: ['goals'] as const,
+  profile: ['profile'] as const,
+  tdee: (goal: string, kgPerWeek: number) => ['tdee', goal, kgPerWeek] as const,
+  weights: (from: string, to: string) => ['weights', from, to] as const,
 };
 
 /** null means "definitely signed out", as opposed to "still loading". */
@@ -76,8 +75,7 @@ export const useBrands = () =>
     staleTime: 10 * 60_000,
   });
 
-export const useGoals = () =>
-  useQuery({ queryKey: keys.goals, queryFn: api.goals });
+export const useGoals = () => useQuery({ queryKey: keys.goals, queryFn: api.goals });
 
 export const useProfile = () =>
   useQuery({ queryKey: keys.profile, queryFn: api.profile });
@@ -137,7 +135,7 @@ export function useLogMutations(date: string) {
   const qc = useQueryClient();
   const settle = () => {
     void qc.invalidateQueries({ queryKey: keys.day(date) });
-    void qc.invalidateQueries({ queryKey: ["recent"] });
+    void qc.invalidateQueries({ queryKey: ['recent'] });
   };
 
   const add = useMutation({ mutationFn: api.addEntry, onSuccess: settle });
@@ -180,7 +178,7 @@ export function useLogMutations(date: string) {
       await qc.cancelQueries({ queryKey: keys.day(date) });
       const previous = qc.getQueryData(keys.day(date));
       qc.setQueryData(keys.day(date), (old: unknown) => {
-        if (!old || typeof old !== "object") return old;
+        if (!old || typeof old !== 'object') return old;
         const day = old as {
           totals: Record<string, number>;
           meals: Record<
@@ -201,16 +199,16 @@ export function useLogMutations(date: string) {
           ]),
         );
         const all = Object.values(meals).flat();
-        const sum = (k: "kcal" | "proteinG" | "carbsG" | "fatG") =>
+        const sum = (k: 'kcal' | 'proteinG' | 'carbsG' | 'fatG') =>
           Math.round(all.reduce((a, e) => a + e[k], 0) * 10) / 10;
         return {
           ...day,
           meals,
           totals: {
-            kcal: Math.round(sum("kcal")),
-            proteinG: sum("proteinG"),
-            carbsG: sum("carbsG"),
-            fatG: sum("fatG"),
+            kcal: Math.round(sum('kcal')),
+            proteinG: sum('proteinG'),
+            carbsG: sum('carbsG'),
+            fatG: sum('fatG'),
           },
         };
       });

@@ -14,6 +14,7 @@
   "dependencies": {
     "@eats/shared": "*",
     "@fastify/cookie": "^11.1.2",
+    "@fastify/formbody": "^9.0.0",
     "@fastify/multipart": "^10.1.1",
     "@fastify/rate-limit": "^11.2.0",
     "@fastify/static": "^10.1.4",

@@ -3,10 +3,10 @@
  * next to an input matches the number the server stores.
  */
 
-export const MEALS = ["breakfast", "lunch", "dinner", "snack"] as const;
+export const MEALS = ['breakfast', 'lunch', 'dinner', 'snack'] as const;
 export type Meal = (typeof MEALS)[number];
 
-export const SEXES = ["male", "female"] as const;
+export const SEXES = ['male', 'female'] as const;
 export type Sex = (typeof SEXES)[number];
 
 /** Mifflin-St Jeor multipliers, from sedentary to athlete. */
@@ -20,11 +20,11 @@ export const ACTIVITY_LEVELS = {
 export type ActivityLevel = keyof typeof ACTIVITY_LEVELS;
 
 export const ACTIVITY_LEVEL_KEYS = [
-  "sedentary",
-  "light",
-  "moderate",
-  "active",
-  "very_active",
+  'sedentary',
+  'light',
+  'moderate',
+  'active',
+  'very_active',
 ] as const satisfies readonly ActivityLevel[];
 
 /** Energy per gram, used for both the goal split and the OCR sanity check. */
@@ -90,7 +90,7 @@ export function sumMacros(entries: readonly Macros[]): Macros {
 
 /** Calories implied by the macros, per the Atwater factors. */
 export function kcalFromMacros(
-  m: Pick<Macros, "proteinG" | "carbsG" | "fatG">,
+  m: Pick<Macros, 'proteinG' | 'carbsG' | 'fatG'>,
 ): number {
   return (
     m.proteinG * KCAL_PER_G.protein +
@@ -119,7 +119,7 @@ export function bmr(input: {
   ageYears: number;
 }): number {
   const base = 10 * input.weightKg + 6.25 * input.heightCm - 5 * input.ageYears;
-  return round(base + (input.sex === "male" ? 5 : -161), 0);
+  return round(base + (input.sex === 'male' ? 5 : -161), 0);
 }
 
 export function tdee(input: {
@@ -136,8 +136,7 @@ export function ageFrom(birthDate: string, on: Date = new Date()): number {
   const b = new Date(birthDate);
   let age = on.getUTCFullYear() - b.getUTCFullYear();
   const monthDiff = on.getUTCMonth() - b.getUTCMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && on.getUTCDate() < b.getUTCDate()))
-    age -= 1;
+  if (monthDiff < 0 || (monthDiff === 0 && on.getUTCDate() < b.getUTCDate())) age -= 1;
   return age;
 }
 
@@ -148,7 +147,7 @@ export function ageFrom(birthDate: string, on: Date = new Date()): number {
  */
 export const KCAL_PER_KG_FAT = 7700;
 
-export const WEIGHT_GOALS = ["lose", "maintain", "gain"] as const;
+export const WEIGHT_GOALS = ['lose', 'maintain', 'gain'] as const;
 export type WeightGoal = (typeof WEIGHT_GOALS)[number];
 
 /** Beyond this, weight change comes increasingly from muscle rather than fat. */
@@ -182,11 +181,11 @@ export function targetCalories(input: CalorieTargetInput): {
   const perDay = Math.round((rate * KCAL_PER_KG_FAT) / 7);
 
   const delta =
-    input.goal === "maintain" ? 0 : input.goal === "lose" ? -perDay : perDay;
+    input.goal === 'maintain' ? 0 : input.goal === 'lose' ? -perDay : perDay;
 
   const raw = input.tdee + delta;
   const floor = input.bmr ?? 0;
-  const limited = input.goal === "lose" && raw < floor;
+  const limited = input.goal === 'lose' && raw < floor;
 
   return {
     calories: Math.round(limited ? floor : raw),
@@ -208,13 +207,10 @@ export function suggestMacroSplit(opts: {
   /** In a deficit, protein is raised: it is what protects muscle while the
    *  calories it is competing with are scarce. */
   goal?: WeightGoal;
-}): Pick<Macros, "proteinG" | "carbsG" | "fatG"> {
-  const perKg = opts.proteinGPerKg ?? (opts.goal === "lose" ? 2.2 : 1.8);
+}): Pick<Macros, 'proteinG' | 'carbsG' | 'fatG'> {
+  const perKg = opts.proteinGPerKg ?? (opts.goal === 'lose' ? 2.2 : 1.8);
   const proteinG = round(opts.weightKg * perKg, 0);
-  const fatG = round(
-    (opts.calories * (opts.fatPercent ?? 0.28)) / KCAL_PER_G.fat,
-    0,
-  );
+  const fatG = round((opts.calories * (opts.fatPercent ?? 0.28)) / KCAL_PER_G.fat, 0);
   const remaining =
     opts.calories - proteinG * KCAL_PER_G.protein - fatG * KCAL_PER_G.fat;
   return {
@@ -226,12 +222,12 @@ export function suggestMacroSplit(opts: {
 
 /** Local calendar date as YYYY-MM-DD. Days are user-local, never UTC. */
 export function toDateKey(d: Date = new Date()): string {
-  const p = (n: number) => String(n).padStart(2, "0");
+  const p = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
 export function addDays(dateKey: string, days: number): string {
-  const [y, m, d] = dateKey.split("-").map(Number) as [number, number, number];
+  const [y, m, d] = dateKey.split('-').map(Number) as [number, number, number];
   const dt = new Date(y, m - 1, d);
   dt.setDate(dt.getDate() + days);
   return toDateKey(dt);
@@ -240,8 +236,8 @@ export function addDays(dateKey: string, days: number): string {
 /** The meal you are most likely reaching for, by the clock. */
 export function guessMeal(now = new Date()): Meal {
   const h = now.getHours();
-  if (h < 10) return "breakfast";
-  if (h < 15) return "lunch";
-  if (h < 21) return "dinner";
-  return "snack";
+  if (h < 10) return 'breakfast';
+  if (h < 15) return 'lunch';
+  if (h < 21) return 'dinner';
+  return 'snack';
 }

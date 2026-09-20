@@ -61,7 +61,17 @@ export default defineConfig({
         // honest "you're offline", and writes need the network regardless.
         globPatterns: ['**/*.{js,css,html,png,woff2}'],
         navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/api\//],
+        // Everything the server, not the SPA, is responsible for. The OAuth
+        // consent screen is the one that bites: it is a real navigation to a
+        // server-rendered page, so without this the installed worker answers
+        // it from cache with the app shell and the sign-in never completes.
+        navigateFallbackDenylist: [
+          /^\/api\//,
+          /^\/oauth\//,
+          /^\/\.well-known\//,
+          /^\/mcp/,
+          /^\/register/,
+        ],
         cleanupOutdatedCaches: true,
         // Take over from the previous worker immediately rather than waiting
         // for all tabs to close.

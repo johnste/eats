@@ -107,9 +107,7 @@ export function NewFood() {
       carbs100g: String(food.carbs100g),
       fat100g: String(food.fat100g),
     });
-    setServings(
-      food.servings.map((s) => ({ label: s.label, grams: String(s.grams) })),
-    );
+    setServings(food.servings.map((s) => ({ label: s.label, grams: String(s.grams) })));
   }, [existing.data]);
 
   const ocr = useMutation({
@@ -138,9 +136,12 @@ export function NewFood() {
     },
   });
 
-  useEffect(() => () => {
-    if (photo) URL.revokeObjectURL(photo);
-  }, [photo]);
+  useEffect(
+    () => () => {
+      if (photo) URL.revokeObjectURL(photo);
+    },
+    [photo],
+  );
 
   const parsed = Object.fromEntries(
     NUMERIC.map(({ name: k }) => [k, Number.parseFloat(values[k].replace(',', '.'))]),
@@ -212,8 +213,8 @@ export function NewFood() {
 
       {editingId && (
         <p className="text-faint mb-4 text-xs">
-          Entries you have already logged keep the values they were logged with;
-          editing only changes this food going forward.
+          Entries you have already logged keep the values they were logged with; editing
+          only changes this food going forward.
         </p>
       )}
 
@@ -322,12 +323,12 @@ export function NewFood() {
 
         {complete && !reconciles && (
           <p className="text-muted text-[13px]">
-            These macros don't add up to the calories. That usually means one
-            number was misread — worth a second look, but you can save anyway.
+            These macros don't add up to the calories. That usually means one number was
+            misread — worth a second look, but you can save anyway.
           </p>
         )}
 
-          <div>
+        <div>
           <span className="text-muted mb-1.5 block text-[13px] font-medium">
             Barcode
           </span>
@@ -403,7 +404,15 @@ export function NewFood() {
                   onClick={() => setServings(servings.filter((_, j) => j !== i))}
                   className="text-faint active:text-danger grid size-11 shrink-0 place-items-center"
                 >
-                  <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="size-4"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    aria-hidden
+                  >
                     <path d="M18 6L6 18M6 6l12 12" />
                   </svg>
                 </button>
@@ -421,8 +430,8 @@ export function NewFood() {
 
           {scan?.servingG.value && servings.length === 0 && (
             <p className="text-faint mt-2 text-xs">
-              The label declares {scan.servingG.value} g per portion; it will be
-              saved as &quot;1 portion&quot; unless you describe one yourself.
+              The label declares {scan.servingG.value} g per portion; it will be saved
+              as &quot;1 portion&quot; unless you describe one yourself.
             </p>
           )}
         </fieldset>
@@ -430,11 +439,7 @@ export function NewFood() {
         {save.error instanceof ApiError && <ErrorNote>{save.error.message}</ErrorNote>}
 
         <Button type="submit" className="w-full" disabled={!complete || save.isPending}>
-          {save.isPending
-            ? 'Saving…'
-            : editingId
-              ? 'Save changes'
-              : 'Save food'}
+          {save.isPending ? 'Saving…' : editingId ? 'Save changes' : 'Save food'}
         </Button>
       </form>
 
@@ -461,7 +466,6 @@ export function NewFood() {
           onPickFile={() => fileRef.current?.click()}
         />
       )}
-
     </>
   );
 }

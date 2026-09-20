@@ -65,8 +65,7 @@ export class AttemptLimiter {
   retryAfter(ip: string): number {
     const cutoff = this.now() - HOUR_MS;
     const mine = (this.byIp.get(ip) ?? []).filter((t) => t > cutoff);
-    const pool =
-      mine.length >= PER_IP ? mine : this.all.filter((t) => t > cutoff);
+    const pool = mine.length >= PER_IP ? mine : this.all.filter((t) => t > cutoff);
     const oldest = pool[0];
     if (oldest === undefined) return 1;
     return Math.max(1, Math.ceil((oldest + HOUR_MS - this.now()) / 1000));

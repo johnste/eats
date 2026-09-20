@@ -37,16 +37,24 @@ The port matters: Coolify proxies to it, and the container listens on 3000.
 
 ## 3. Environment variables
 
-Under **Environment Variables**, add these five. None are build-time — leave
+Under **Environment Variables**, add these six. None are build-time — leave
 "Build Variable" unchecked for all of them.
 
 | Variable | Value |
 |---|---|
 | `DATABASE_URL` | The internal URL from step 1 |
 | `SESSION_SECRET` | A 32+ character random string (see below) |
+| `PUBLIC_URL` | `https://eats.yourdomain.tld` — the domain from step 4, no trailing slash |
 | `INVITE_BOOTSTRAP_CODE` | Your own invite code, used once |
 | `OFF_USER_AGENT` | `Eats/1.0 (john@johnste.se)` |
 | `NODE_ENV` | `production` |
+
+`PUBLIC_URL` is what OAuth clients are told to use, because metadata documents
+have to state absolute URLs and a request's own `Host` header is attacker-
+controlled. Set it to the same domain you configure in step 4. If it is left
+on localhost the container refuses to start, which is deliberate: the
+alternative is an MCP connector that fails with an error naming nothing
+useful. Change the domain later and this has to change with it.
 
 Generate a fresh secret rather than reusing one from chat:
 

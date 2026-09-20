@@ -9,6 +9,7 @@ import { runMigrations } from './db/migrate.ts';
 import { loadEnv } from './env.ts';
 import { createOffClient } from './lib/off.ts';
 import { purgeExpiredSessions } from './lib/auth.ts';
+import { pruneOauth } from './lib/oauth.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -38,12 +39,16 @@ if (env.INVITE_BOOTSTRAP_CODE) {
   await seedBootstrapInvite(db, env.INVITE_BOOTSTRAP_CODE);
 }
 await purgeExpiredSessions(db);
+// Authorization codes live a minute and access tokens an hour, so these rows
+// pile up faster than sessions do. Cleared on boot, then daily below.
+await pruneOauth(db);
 
 // In the production image the SPA is built next to the API; in dev Vite serves
 // it, and leaving WEB_DIST unset keeps this process API-only.
 const defaultWebDist = join(here, '..', '..', 'web', 'dist');
 const webDist =
-  env.WEB_DIST ?? (env.NODE_ENV === 'production' && existsSync(defaultWebDist)
+  env.WEB_DIST ??
+  (env.NODE_ENV === 'production' && existsSync(defaultWebDist)
     ? defaultWebDist
     : undefined);
 
@@ -51,10 +56,21 @@ const off = createOffClient({ userAgent: env.OFF_USER_AGENT });
 
 const app = await buildApp({ db, off, env: { ...env, WEB_DIST: webDist } });
 
+const oauthSweep = setInterval(
+  () =>
+    void pruneOauth(db).catch((err) => app.log.error({ err }, 'oauth prune failed')),
+  24 * 60 * 60_000,
+);
+// Do not hold the process open for a timer that only does housekeeping.
+oauthSweep.unref();
+
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => {
     app.log.info(`${signal} received, shutting down`);
-    void app.close().then(close).then(() => process.exit(0));
+    void app
+      .close()
+      .then(close)
+      .then(() => process.exit(0));
   });
 }
 

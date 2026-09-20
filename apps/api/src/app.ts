@@ -1,6 +1,7 @@
 import cookie from '@fastify/cookie';
 import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
+import formbody from '@fastify/formbody';
 import fastifyStatic from '@fastify/static';
 import Fastify, {
   type FastifyError,
@@ -22,6 +23,7 @@ import { exportRoutes } from './routes/export.ts';
 import { foodRoutes } from './routes/foods.ts';
 import { logRoutes } from './routes/log.ts';
 import { mcpRoutes } from './routes/mcp.ts';
+import { oauthRoutes } from './routes/oauth.ts';
 import { meRoutes } from './routes/me.ts';
 import { ocrRoutes } from './routes/ocr.ts';
 
@@ -64,7 +66,12 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   app.setSerializerCompiler(serializerCompiler);
 
   await app.register(cookie, { secret: env.SESSION_SECRET });
-  await app.register(multipart, { limits: { files: 1, fileSize: 12 * 1024 * 1024 } });
+  await app.register(multipart, {
+    limits: { files: 1, fileSize: 12 * 1024 * 1024 },
+  });
+  // OAuth token requests are form-encoded per RFC 6749; without this the
+  // endpoint answers 415 and Claude reports a failed sign-in.
+  await app.register(formbody);
   await app.register(rateLimit, {
     global: false,
     max: 100,
@@ -99,15 +106,29 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   // Not under /api: an MCP endpoint is its own protocol surface, and the URL
   // is what gets pasted into a connector.
   await app.register(mcpRoutes, { ...deps });
+  // Eats is its own authorization server, so an MCP client can connect with
+  // nothing but the URL. Also not under /api, for the same reason.
+  await app.register(oauthRoutes, { ...deps });
 
   // In production the same process serves the built SPA. Unknown non-API paths
   // fall through to index.html so client-side routes survive a hard refresh.
   if (env.WEB_DIST) {
     await app.register(fastifyStatic, { root: env.WEB_DIST, wildcard: false });
     app.setNotFoundHandler((req, reply) => {
-      if (req.url.startsWith('/api/')) {
-        return reply.status(404).send({ error: 'Not found' });
-      }
+      // Serving index.html for everything made OAuth discovery fail in the
+      // most confusing way available: a client probing /.well-known/... got
+      // 200 text/html instead of 404, so instead of concluding the server
+      // has no OAuth, it tried to parse a web page as metadata.
+      const isData =
+        req.url.startsWith('/api/') ||
+        req.url.startsWith('/.well-known/') ||
+        req.url.startsWith('/oauth/') ||
+        req.url.startsWith('/mcp') ||
+        // Not a page, and the path an OAuth client guesses at when it cannot
+        // find metadata. Answering it with the SPA is what turned a missing
+        // endpoint into "couldn't register with Eats's sign-in service".
+        req.url.startsWith('/register');
+      if (isData) return reply.status(404).send({ error: 'Not found' });
       return reply.sendFile('index.html');
     });
   }

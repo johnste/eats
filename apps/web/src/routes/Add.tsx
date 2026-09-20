@@ -5,33 +5,26 @@ import {
   toDateKey,
   type FoodResponse,
   type Meal,
-} from "@eats/shared";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router";
-import { BarcodeScanner } from "../components/BarcodeScanner.tsx";
-import { BottomBar, BottomBarSpacer } from "../components/BottomBar.tsx";
-import { Sheet } from "../components/Sheet.tsx";
-import {
-  Button,
-  Card,
-  Empty,
-  ErrorNote,
-  Field,
-  Spinner,
-} from "../components/ui.tsx";
-import { api, ApiError } from "../lib/api.ts";
-import { keys, useLogMutations, useRecentFoods } from "../lib/queries.ts";
+} from '@eats/shared';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { useEffect, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router';
+import { BarcodeScanner } from '../components/BarcodeScanner.tsx';
+import { BottomBar, BottomBarSpacer } from '../components/BottomBar.tsx';
+import { Sheet } from '../components/Sheet.tsx';
+import { Button, Card, Empty, ErrorNote, Field, Spinner } from '../components/ui.tsx';
+import { api, ApiError } from '../lib/api.ts';
+import { keys, useLogMutations, useRecentFoods } from '../lib/queries.ts';
 
 export function Add() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
-  const date = params.get("date") ?? toDateKey();
-  const initialMeal = (params.get("meal") as Meal | null) ?? guessMeal();
+  const date = params.get('date') ?? toDateKey();
+  const initialMeal = (params.get('meal') as Meal | null) ?? guessMeal();
 
   const searchRef = useRef<HTMLInputElement>(null);
-  const focusToken = params.get("focus");
-  const [query, setQuery] = useState("");
+  const focusToken = params.get('focus');
+  const [query, setQuery] = useState('');
   const [scanning, setScanning] = useState(false);
   const [picked, setPicked] = useState<FoodResponse | null>(null);
 
@@ -55,11 +48,11 @@ export function Add() {
   const resolve = useMutation({
     mutationFn: async (barcode: string) => {
       const res = await api.barcode(barcode);
-      if (res.status === "ok") return res.food;
+      if (res.status === 'ok') return res.food;
       navigate(
         `/foods/new?barcode=${res.prefill.barcode}` +
           `&name=${encodeURIComponent(res.prefill.name)}` +
-          `&brand=${encodeURIComponent(res.prefill.brand ?? "")}` +
+          `&brand=${encodeURIComponent(res.prefill.brand ?? '')}` +
           `&meal=${initialMeal}&date=${date}`,
       );
       return null;
@@ -159,7 +152,7 @@ export function Add() {
           onClose={() => setPicked(null)}
           onDone={() => {
             setPicked(null);
-            navigate(date === toDateKey() ? "/" : `/day/${date}`);
+            navigate(date === toDateKey() ? '/' : `/day/${date}`);
           }}
         />
       )}
@@ -172,9 +165,7 @@ function SearchResults({
   onPickLocal,
   onPickOff,
 }: {
-  state: ReturnType<
-    typeof useQuery<Awaited<ReturnType<typeof api.searchFoods>>>
-  >;
+  state: ReturnType<typeof useQuery<Awaited<ReturnType<typeof api.searchFoods>>>>;
   onPickLocal: (f: FoodResponse) => void;
   onPickOff: (barcode: string) => void;
 }) {
@@ -185,27 +176,19 @@ function SearchResults({
 
   const nothing = data.local.length === 0 && data.off.length === 0;
   if (nothing)
-    return (
-      <Empty title="No matches">
-        Try a shorter search, or add it manually.
-      </Empty>
-    );
+    return <Empty title="No matches">Try a shorter search, or add it manually.</Empty>;
 
   return (
     <div className="space-y-5">
       {data.local.length > 0 && (
         <section>
-          <h2 className="text-muted mb-2 text-[13px] font-medium">
-            Your foods
-          </h2>
+          <h2 className="text-muted mb-2 text-[13px] font-medium">Your foods</h2>
           <FoodList foods={data.local} onPick={onPickLocal} />
         </section>
       )}
       {data.off.length > 0 && (
         <section>
-          <h2 className="text-muted mb-2 text-[13px] font-medium">
-            Open Food Facts
-          </h2>
+          <h2 className="text-muted mb-2 text-[13px] font-medium">Open Food Facts</h2>
           <ul className="space-y-1.5">
             {data.off.map((c) => (
               <li key={c.barcode}>
@@ -215,9 +198,7 @@ function SearchResults({
                   className="bg-raised border-line active:bg-surface w-full rounded-xl border px-3 py-2.5 text-left"
                 >
                   <p className="text-ink truncate text-sm">{c.name}</p>
-                  {c.brand && (
-                    <p className="text-faint truncate text-xs">{c.brand}</p>
-                  )}
+                  {c.brand && <p className="text-faint truncate text-xs">{c.brand}</p>}
                 </button>
               </li>
             ))}
@@ -252,9 +233,7 @@ function FoodList({
             <span className="min-w-0">
               <span className="text-ink block truncate text-sm">{f.name}</span>
               {f.brand && (
-                <span className="text-faint block truncate text-xs">
-                  {f.brand}
-                </span>
+                <span className="text-faint block truncate text-xs">{f.brand}</span>
               )}
             </span>
             <span className="nums text-faint shrink-0 text-xs">
@@ -281,11 +260,11 @@ function QuantitySheet({
   onDone: () => void;
 }) {
   const navigate = useNavigate();
-  const [grams, setGrams] = useState("100");
+  const [grams, setGrams] = useState('100');
   const [meal, setMeal] = useState<Meal>(initialMeal);
   const { add } = useLogMutations(date);
 
-  const value = Number.parseFloat(grams.replace(",", "."));
+  const value = Number.parseFloat(grams.replace(',', '.'));
   const valid = Number.isFinite(value) && value > 0;
   const factor = valid ? value / 100 : 0;
 
@@ -303,7 +282,7 @@ function QuantitySheet({
           inputMode="decimal"
           suffix="g"
           autoFocus
-          invalid={grams !== "" && !valid}
+          invalid={grams !== '' && !valid}
         />
 
         {food.servings.length > 0 && (
@@ -322,9 +301,7 @@ function QuantitySheet({
         )}
 
         <fieldset>
-          <legend className="text-muted mb-1.5 text-[13px] font-medium">
-            Meal
-          </legend>
+          <legend className="text-muted mb-1.5 text-[13px] font-medium">Meal</legend>
           <div className="grid grid-cols-4 gap-1.5">
             {MEALS.map((m) => (
               <button
@@ -334,8 +311,8 @@ function QuantitySheet({
                 aria-pressed={meal === m}
                 className={`min-h-10 rounded-lg border text-xs capitalize ${
                   meal === m
-                    ? "border-accent bg-accent-soft text-accent font-medium"
-                    : "border-line text-muted"
+                    ? 'border-accent bg-accent-soft text-accent font-medium'
+                    : 'border-line text-muted'
                 }`}
               >
                 {m}
@@ -346,14 +323,14 @@ function QuantitySheet({
 
         <div className="bg-surface space-y-2 rounded-xl p-3">
           <p className="text-muted text-center text-[11px] font-medium">
-            {valid ? `In ${round(value)} g` : "Enter an amount"}
+            {valid ? `In ${round(value)} g` : 'Enter an amount'}
           </p>
           <dl className="nums grid grid-cols-4 gap-2 text-center">
             {[
-              ["kcal", Math.round(food.kcal100g * factor)],
-              ["protein", round(food.protein100g * factor)],
-              ["carbs", round(food.carbs100g * factor)],
-              ["fat", round(food.fat100g * factor)],
+              ['kcal', Math.round(food.kcal100g * factor)],
+              ['protein', round(food.protein100g * factor)],
+              ['carbs', round(food.carbs100g * factor)],
+              ['fat', round(food.fat100g * factor)],
             ].map(([label, v]) => (
               <div key={label}>
                 <dt className="text-faint text-[11px]">{label}</dt>
@@ -365,15 +342,12 @@ function QuantitySheet({
           {/* The basis for the figures above. Without it there is no way to
               tell whether 297 kcal is the food or the portion. */}
           <p className="text-faint nums border-line border-t pt-2 text-center text-[11px]">
-            Per 100 g: {Math.round(food.kcal100g)} kcal ·{" "}
-            {round(food.protein100g)} g protein · {round(food.carbs100g)} g
-            carbs · {round(food.fat100g)} g fat
+            Per 100 g: {Math.round(food.kcal100g)} kcal · {round(food.protein100g)} g
+            protein · {round(food.carbs100g)} g carbs · {round(food.fat100g)} g fat
           </p>
         </div>
 
-        {add.error instanceof ApiError && (
-          <ErrorNote>{add.error.message}</ErrorNote>
-        )}
+        {add.error instanceof ApiError && <ErrorNote>{add.error.message}</ErrorNote>}
 
         <Button
           className="w-full"
@@ -385,12 +359,12 @@ function QuantitySheet({
             )
           }
         >
-          {add.isPending ? "Adding…" : "Add to log"}
+          {add.isPending ? 'Adding…' : 'Add to log'}
         </Button>
 
         {/* Only your own foods are editable: the other sources are shared
             reference data, and this is where you notice a value is wrong. */}
-        {food.source === "custom" && (
+        {food.source === 'custom' && (
           <button
             type="button"
             onClick={() => navigate(`/foods/${food.id}/edit?date=${date}`)}

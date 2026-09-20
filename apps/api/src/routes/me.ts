@@ -22,6 +22,7 @@ import { z } from 'zod';
 import { type AppDeps, requireUser } from '../app.ts';
 import { goals, users, weights } from '../db/schema.ts';
 import { goalOn } from '../lib/log.ts';
+import { listGrants, revokeGrant } from '../lib/oauth.ts';
 import {
   createToken,
   generatePassphrase,
@@ -202,9 +203,9 @@ export const meRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
       if (!profile?.activityLevel) missing.push('activity level');
       if (!latestWeight) missing.push('a weight entry');
       if (missing.length > 0 || !profile || !latestWeight) {
-        return reply
-          .status(409)
-          .send({ error: `Add ${missing.join(', ')} to estimate your daily energy use.` });
+        return reply.status(409).send({
+          error: `Add ${missing.join(', ')} to estimate your daily energy use.`,
+        });
       }
 
       const body = {
@@ -213,7 +214,10 @@ export const meRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
         heightCm: profile.heightCm!,
         ageYears: ageFrom(profile.birthDate!),
       };
-      const maintenance = tdee({ ...body, activityLevel: profile.activityLevel! });
+      const maintenance = tdee({
+        ...body,
+        activityLevel: profile.activityLevel!,
+      });
       const resting = bmr(body);
 
       const { goal, kgPerWeek } = req.query;
@@ -303,6 +307,48 @@ export const meRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
     },
   );
 
+  /* --------------------------------------------------- connected apps --- */
+
+  const grantShape = z.object({
+    clientId: z.string(),
+    clientName: z.string(),
+    connectedAt: z.string().nullable(),
+    lastUsedAt: z.string().nullable(),
+  });
+
+  r.get(
+    '/connections',
+    { schema: { response: { 200: z.array(grantShape) } } },
+    async (req) => {
+      const user = await requireUser(req);
+      const rows = await listGrants(db, user.id);
+      return rows.map((g) => ({
+        clientId: g.clientId,
+        clientName: g.clientName,
+        connectedAt: g.connectedAt?.toISOString() ?? null,
+        lastUsedAt: g.lastUsedAt?.toISOString() ?? null,
+      }));
+    },
+  );
+
+  r.delete(
+    '/connections/:clientId',
+    {
+      schema: {
+        params: z.object({ clientId: z.uuid() }),
+        response: { 200: z.object({ ok: z.boolean() }), 404: errorResponse },
+      },
+    },
+    async (req, reply) => {
+      const user = await requireUser(req);
+      const revoked = await revokeGrant(db, user.id, req.params.clientId);
+      if (revoked === 0) {
+        return reply.status(404).send({ error: 'Not connected.' });
+      }
+      return { ok: true };
+    },
+  );
+
   r.delete(
     '/tokens/:id',
     {
@@ -325,7 +371,12 @@ export const meRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
 
   r.get(
     '/weights',
-    { schema: { querystring: rangeQuery, response: { 200: z.array(weightShape) } } },
+    {
+      schema: {
+        querystring: rangeQuery,
+        response: { 200: z.array(weightShape) },
+      },
+    },
     async (req) => {
       const user = await requireUser(req);
       return db

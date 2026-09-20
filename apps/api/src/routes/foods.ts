@@ -91,7 +91,11 @@ export const foodRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
     {
       schema: {
         params: barcodeParam,
-        response: { 200: barcodeLookupResponse, 404: errorResponse, 503: errorResponse },
+        response: {
+          200: barcodeLookupResponse,
+          404: errorResponse,
+          503: errorResponse,
+        },
       },
     },
     async (req, reply) => {
@@ -181,9 +185,15 @@ export const foodRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
       return db.transaction(async (tx) => {
         const row = await insertCustomFood(tx, user.id, body);
         await recordFoodView(tx, user.id, row.id);
-        return toFoodResponse(row, body.servings
-          ? await tx.select().from(foodServings).where(eq(foodServings.foodId, row.id))
-          : []);
+        return toFoodResponse(
+          row,
+          body.servings
+            ? await tx
+                .select()
+                .from(foodServings)
+                .where(eq(foodServings.foodId, row.id))
+            : [],
+        );
       });
     },
   );

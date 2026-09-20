@@ -232,3 +232,67 @@ export const weights = pgTable(
   },
   (t) => [unique('weights_user_date_uq').on(t.userId, t.measuredOn)],
 );
+
+/*
+ * OAuth 2.1, so Claude and other MCP clients can connect by URL alone.
+ * Eats is both the resource server and its own authorization server; the
+ * consent screen reuses the ordinary session cookie, which is what makes
+ * "paste the URL" work -- you are already signed in when you land on it.
+ */
+
+export const oauthClients = pgTable('oauth_clients', {
+  /** Issued by dynamic client registration; the public `client_id`. */
+  id: uuid('id').primaryKey().defaultRandom(),
+  clientName: text('client_name').notNull(),
+  /** Matched exactly at /authorize, per OAuth 2.1. */
+  redirectUris: text('redirect_uris').array().notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const oauthCodes = pgTable(
+  'oauth_codes',
+  {
+    /** The authorization code itself, hashed. */
+    codeHash: text('code_hash').primaryKey(),
+    clientId: uuid('client_id')
+      .notNull()
+      .references(() => oauthClients.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    redirectUri: text('redirect_uri').notNull(),
+    /** PKCE S256 challenge; plain is not accepted. */
+    codeChallenge: text('code_challenge').notNull(),
+    scope: text('scope').notNull(),
+    /** RFC 8707 audience, bound here and copied onto the token. */
+    resource: text('resource').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    /** Set on first redemption: a replayed code must be refused. */
+    usedAt: timestamp('used_at', { withTimezone: true }),
+  },
+  (t) => [index('oauth_codes_expiry_idx').on(t.expiresAt)],
+);
+
+export const oauthTokens = pgTable(
+  'oauth_tokens',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clientId: uuid('client_id')
+      .notNull()
+      .references(() => oauthClients.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    accessTokenHash: text('access_token_hash').notNull().unique(),
+    /** Rotated on every refresh, so a stolen one is usable at most once. */
+    refreshTokenHash: text('refresh_token_hash').unique(),
+    scope: text('scope').notNull(),
+    resource: text('resource').notNull(),
+    accessExpiresAt: timestamp('access_expires_at', { withTimezone: true }).notNull(),
+    refreshExpiresAt: timestamp('refresh_expires_at', { withTimezone: true }),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+    lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('oauth_tokens_user_idx').on(t.userId)],
+);

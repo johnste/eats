@@ -1,11 +1,24 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '../lib/api.ts';
 import { keys } from '../lib/queries.ts';
 import { Button, ErrorNote, Field } from '../components/ui.tsx';
 
+/**
+ * Only same-origin paths are followed. `next` arrives in a URL anyone can
+ * craft, so allowing an absolute one would turn the sign-in page into an
+ * open redirect -- the classic way a login form gets used for phishing.
+ */
+function safeNext(raw: string | null): string | null {
+  if (!raw || !raw.startsWith('/') || raw.startsWith('//')) return null;
+  return raw;
+}
+
 export function Login() {
   const qc = useQueryClient();
+  const [params] = useSearchParams();
+  const next = safeNext(params.get('next'));
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -20,6 +33,9 @@ export function Login() {
     onSuccess: (user) => {
       qc.setQueryData(keys.me, user);
       void qc.invalidateQueries();
+      // A full navigation, not a router push: `next` points at the OAuth
+      // consent screen, which the server renders rather than the SPA.
+      if (next) window.location.assign(next);
     },
   });
 
@@ -96,7 +112,9 @@ export function Login() {
           submit.reset();
         }}
       >
-        {mode === 'login' ? 'Have an invite code? Register' : 'Already have an account?'}
+        {mode === 'login'
+          ? 'Have an invite code? Register'
+          : 'Already have an account?'}
       </button>
     </main>
   );

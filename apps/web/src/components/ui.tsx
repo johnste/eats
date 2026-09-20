@@ -1,12 +1,8 @@
-import { useEffect, useId, useRef } from "react";
-import type {
-  ButtonHTMLAttributes,
-  InputHTMLAttributes,
-  ReactNode,
-} from "react";
+import { useEffect, useId, useRef } from 'react';
+import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from 'react';
 
 const cx = (...parts: (string | false | null | undefined)[]) =>
-  parts.filter(Boolean).join(" ");
+  parts.filter(Boolean).join(' ');
 
 export function Card({
   children,
@@ -19,7 +15,7 @@ export function Card({
     <section
       data-card=""
       className={cx(
-        "bg-raised border-line rounded-card border p-4 shadow-[var(--shadow-card)]",
+        'bg-raised border-line rounded-card border p-4 shadow-[var(--shadow-card)]',
         className,
       )}
     >
@@ -29,26 +25,22 @@ export function Card({
 }
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: "primary" | "ghost" | "danger";
+  variant?: 'primary' | 'ghost' | 'danger';
 };
 
-export function Button({
-  variant = "primary",
-  className,
-  ...props
-}: ButtonProps) {
+export function Button({ variant = 'primary', className, ...props }: ButtonProps) {
   return (
     <button
       {...props}
       className={cx(
         // 44px minimum: this is a phone app and these are thumb targets.
-        "min-h-11 rounded-xl px-4 text-[15px] font-medium transition-colors",
-        "disabled:opacity-50 disabled:pointer-events-none",
-        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
-        variant === "primary" && "bg-accent text-surface active:brightness-95",
-        variant === "ghost" && "text-ink border-line border active:bg-surface",
-        variant === "danger" &&
-          "text-danger border-danger/40 border active:bg-danger/10",
+        'min-h-11 rounded-xl px-4 text-[15px] font-medium transition-colors',
+        'disabled:opacity-50 disabled:pointer-events-none',
+        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+        variant === 'primary' && 'bg-accent text-surface active:brightness-95',
+        variant === 'ghost' && 'text-ink border-line border active:bg-surface',
+        variant === 'danger' &&
+          'text-danger border-danger/40 border active:bg-danger/10',
         className,
       )}
     />
@@ -90,10 +82,7 @@ export function Field({
 
   return (
     <div className="block">
-      <label
-        htmlFor={id}
-        className="text-muted mb-1.5 block text-[13px] font-medium"
-      >
+      <label htmlFor={id} className="text-muted mb-1.5 block text-[13px] font-medium">
         {label}
       </label>
       <span className="relative block">
@@ -108,10 +97,10 @@ export function Field({
           aria-invalid={invalid || undefined}
           aria-describedby={hint ? hintId : undefined}
           className={cx(
-            "bg-surface border-line text-ink nums min-h-11 w-full rounded-xl border px-3",
-            "placeholder:text-faint focus:border-accent focus:outline-none",
-            invalid && "border-danger",
-            suffix && "pr-12",
+            'bg-surface border-line text-ink nums min-h-11 w-full rounded-xl border px-3',
+            'placeholder:text-faint focus:border-accent focus:outline-none',
+            invalid && 'border-danger',
+            suffix && 'pr-12',
             className,
           )}
         />
@@ -130,7 +119,7 @@ export function Field({
   );
 }
 
-export function Spinner({ label = "Loading" }: { label?: string }) {
+export function Spinner({ label = 'Loading' }: { label?: string }) {
   return (
     <div className="text-faint flex items-center justify-center gap-2 py-10 text-sm">
       <span
@@ -142,19 +131,11 @@ export function Spinner({ label = "Loading" }: { label?: string }) {
   );
 }
 
-export function Empty({
-  title,
-  children,
-}: {
-  title: string;
-  children?: ReactNode;
-}) {
+export function Empty({ title, children }: { title: string; children?: ReactNode }) {
   return (
     <div className="text-center py-10">
       <p className="text-muted text-sm font-medium">{title}</p>
-      {children && (
-        <div className="text-faint mt-1 text-[13px]">{children}</div>
-      )}
+      {children && <div className="text-faint mt-1 text-[13px]">{children}</div>}
     </div>
   );
 }

@@ -6,19 +6,19 @@ import {
   type ActivityLevel,
   type GoalBody,
   type Sex,
-} from "@eats/shared";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useId, useState } from "react";
-import { Button, Card, ErrorNote, Field, Spinner } from "../components/ui.tsx";
-import { api, ApiError } from "../lib/api.ts";
-import { keys, useGoals, useMe, useProfile } from "../lib/queries.ts";
+} from '@eats/shared';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useId, useState } from 'react';
+import { Button, Card, ErrorNote, Field, Spinner } from '../components/ui.tsx';
+import { api, ApiError } from '../lib/api.ts';
+import { keys, useGoals, useMe, useProfile } from '../lib/queries.ts';
 
 const ACTIVITY_LABELS: Record<ActivityLevel, string> = {
-  sedentary: "Sedentary",
-  light: "Lightly active",
-  moderate: "Moderately active",
-  active: "Active",
-  very_active: "Very active",
+  sedentary: 'Sedentary',
+  light: 'Lightly active',
+  moderate: 'Moderately active',
+  active: 'Active',
+  very_active: 'Very active',
 };
 
 export function Settings() {
@@ -40,11 +40,9 @@ export function Settings() {
 
         <Card>
           {/* CC BY 4.0 requires naming the source. */}
-          <h2 className="text-ink mb-1 text-[15px] font-semibold">
-            Data sources
-          </h2>
+          <h2 className="text-ink mb-1 text-[15px] font-semibold">Data sources</h2>
           <p className="text-muted text-[13px]">
-            Swedish foods from{" "}
+            Swedish foods from{' '}
             <a
               href="https://www.livsmedelsverket.se/en/about-us/open-data/"
               target="_blank"
@@ -53,7 +51,7 @@ export function Settings() {
             >
               Livsmedelsverket
             </a>
-            , the Swedish Food Agency (CC BY 4.0). Branded products from{" "}
+            , the Swedish Food Agency (CC BY 4.0). Branded products from{' '}
             <a
               href="https://world.openfoodfacts.org/"
               target="_blank"
@@ -93,17 +91,18 @@ export function Settings() {
  * is otherwise unanswerable from the app itself.
  */
 /**
- * Tokens for AI assistants and scripts. The connector URL and the token are
- * everything an agent needs -- there is nothing else to explain to it.
+ * Two ways for an AI assistant to reach the log. Pasting the address into a
+ * connector is the ordinary one -- it signs in through a browser, so there is
+ * nothing to copy. A secret phrase covers clients that cannot do that.
  */
 function AgentAccessCard() {
   const qc = useQueryClient();
-  const [name, setName] = useState("");
-  const [secret, setSecret] = useState("");
+  const [name, setName] = useState('');
+  const [secret, setSecret] = useState('');
   const [saved, setSaved] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const tokens = useQuery({ queryKey: ["tokens"], queryFn: api.tokens });
+  const tokens = useQuery({ queryKey: ['tokens'], queryFn: api.tokens });
 
   // A phrase to start from, so the blank field is never the hard part.
   const suggest = useMutation({
@@ -112,18 +111,28 @@ function AgentAccessCard() {
   });
 
   const create = useMutation({
-    mutationFn: () => api.createToken(name.trim() || "Agent", secret.trim()),
+    mutationFn: () => api.createToken(name.trim() || 'Agent', secret.trim()),
     onSuccess: ({ secret: s }) => {
       setSaved(s);
-      setName("");
-      setSecret("");
-      void qc.invalidateQueries({ queryKey: ["tokens"] });
+      setName('');
+      setSecret('');
+      void qc.invalidateQueries({ queryKey: ['tokens'] });
     },
   });
 
   const revoke = useMutation({
     mutationFn: api.revokeToken,
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ["tokens"] }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['tokens'] }),
+  });
+
+  const connections = useQuery({
+    queryKey: ['connections'],
+    queryFn: api.connections,
+  });
+
+  const disconnect = useMutation({
+    mutationFn: api.disconnect,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['connections'] }),
   });
 
   const mcpUrl = `${window.location.origin}/mcp`;
@@ -132,25 +141,55 @@ function AgentAccessCard() {
     <Card>
       <h2 className="text-ink mb-1 text-[15px] font-semibold">Agent access</h2>
       <p className="text-muted mb-4 text-[13px]">
-        Give an AI assistant the address below and a secret phrase, and it can
-        search foods, log a meal, and read back your day. It cannot see your
-        history or weights, and cannot delete anything.
+        Let an AI assistant search foods, log a meal, and read back your day. It cannot
+        see your history or weights, and cannot delete anything.
       </p>
 
       <div className="bg-surface border-line mb-4 rounded-xl border p-3">
         <p className="text-muted mb-1 text-[11px] font-medium">Address</p>
         <p className="text-ink nums text-[13px] break-all">{mcpUrl}</p>
+        <p className="text-faint mt-1.5 text-[11px]">
+          Paste this into Claude as a custom connector and approve it in the browser. No
+          phrase needed.
+        </p>
       </div>
+
+      {(connections.data?.length ?? 0) > 0 && (
+        <div className="mb-4">
+          <p className="text-muted mb-1 text-[11px] font-medium">Connected</p>
+          <ul className="divide-line border-line divide-y border-t">
+            {connections.data?.map((c) => (
+              <li
+                key={c.clientId}
+                className="flex items-center justify-between gap-3 py-2"
+              >
+                <div className="min-w-0">
+                  <p className="text-ink truncate text-[13px]">{c.clientName}</p>
+                  <p className="text-faint nums text-[11px]">
+                    {c.lastUsedAt
+                      ? `last used ${new Date(c.lastUsedAt).toLocaleDateString()}`
+                      : 'never used'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => disconnect.mutate(c.clientId)}
+                  className="text-danger shrink-0 text-[13px] underline underline-offset-4"
+                >
+                  Disconnect
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {saved && (
         <div className="border-accent/40 bg-accent-soft mb-4 rounded-xl border p-3">
           <p className="text-ink mb-2 text-[13px] font-medium">
-            Saved. Write it down if you won't remember it — it isn't shown
-            again.
+            Saved. Write it down if you won't remember it — it isn't shown again.
           </p>
-          <p className="text-ink mb-3 text-[15px] font-semibold break-all">
-            {saved}
-          </p>
+          <p className="text-ink mb-3 text-[15px] font-semibold break-all">{saved}</p>
           <div className="flex gap-2">
             <Button
               type="button"
@@ -160,7 +199,7 @@ function AgentAccessCard() {
                 setCopied(true);
               }}
             >
-              {copied ? "Copied" : "Copy"}
+              {copied ? 'Copied' : 'Copy'}
             </Button>
             <Button
               type="button"
@@ -191,14 +230,14 @@ function AgentAccessCard() {
           autoComplete="off"
           autoCapitalize="none"
           spellCheck={false}
-          hint="A few words you'll remember. One word on its own is too easy to guess."
+          hint="For clients that can't sign in through a browser, such as Claude Code. A few words you'll remember; one word on its own is too easy to guess."
         />
         <button
           type="button"
           onClick={() => suggest.mutate()}
           className="text-accent text-[13px] underline underline-offset-4"
         >
-          {suggest.isPending ? "Thinking…" : "Suggest one for me"}
+          {suggest.isPending ? 'Thinking…' : 'Suggest one for me'}
         </button>
 
         <div className="flex items-end gap-2">
@@ -211,7 +250,7 @@ function AgentAccessCard() {
             />
           </div>
           <Button type="submit" disabled={create.isPending || !secret.trim()}>
-            {create.isPending ? "Saving…" : "Save"}
+            {create.isPending ? 'Saving…' : 'Save'}
           </Button>
         </div>
       </form>
@@ -225,10 +264,7 @@ function AgentAccessCard() {
       {(tokens.data?.length ?? 0) > 0 && (
         <ul className="divide-line mt-4 divide-y border-t border-line">
           {tokens.data?.map((t) => (
-            <li
-              key={t.id}
-              className="flex items-center justify-between gap-3 py-2"
-            >
+            <li key={t.id} className="flex items-center justify-between gap-3 py-2">
               <div className="min-w-0">
                 <p className="text-ink truncate text-[13px]">
                   {t.name}
@@ -237,7 +273,7 @@ function AgentAccessCard() {
                 <p className="text-faint nums text-[11px]">
                   {t.lastUsedAt
                     ? `last used ${new Date(t.lastUsedAt).toLocaleDateString()}`
-                    : "never used"}
+                    : 'never used'}
                 </p>
               </div>
               <button
@@ -261,7 +297,7 @@ function ExportCard() {
     mutationFn: api.exportData,
     onSuccess: ({ blob, filename }) => {
       const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
+      const link = document.createElement('a');
       link.href = url;
       link.download = filename;
       link.click();
@@ -274,8 +310,8 @@ function ExportCard() {
     <Card>
       <h2 className="text-ink mb-1 text-[15px] font-semibold">Your data</h2>
       <p className="text-muted mb-4 text-[13px]">
-        Everything you have logged, as a JSON file: your foods, entries,
-        weights, goals and profile.
+        Everything you have logged, as a JSON file: your foods, entries, weights, goals
+        and profile.
       </p>
       {download.error instanceof ApiError && (
         <p className="mb-3">
@@ -288,7 +324,7 @@ function ExportCard() {
         disabled={download.isPending}
         onClick={() => download.mutate()}
       >
-        {download.isPending ? "Preparing…" : "Download my data"}
+        {download.isPending ? 'Preparing…' : 'Download my data'}
       </Button>
     </Card>
   );
@@ -300,7 +336,7 @@ function VersionCard() {
   // Coolify does not pass the commit to the build, so outside a local build
   // there is nothing useful to show. A row reading "unknown" is worse than no
   // row: the build time already identifies the deploy.
-  const commit = __COMMIT_SHA__ === "unknown" ? null : __COMMIT_SHA__;
+  const commit = __COMMIT_SHA__ === 'unknown' ? null : __COMMIT_SHA__;
 
   // Nothing identifiable at all -- drop the card rather than show a shell.
   if (!valid && !commit) return null;
@@ -317,13 +353,13 @@ function VersionCard() {
                 {relativeTime(built)}
                 <span className="text-faint block text-xs">
                   {built.toLocaleString(undefined, {
-                    dateStyle: "medium",
-                    timeStyle: "short",
+                    dateStyle: 'medium',
+                    timeStyle: 'short',
                   })}
                 </span>
               </>
             ) : (
-              "unknown"
+              'unknown'
             )}
           </dd>
         </div>
@@ -341,19 +377,19 @@ function VersionCard() {
 function relativeTime(then: Date): string {
   const seconds = Math.round((Date.now() - then.getTime()) / 1000);
   const units: [Intl.RelativeTimeFormatUnit, number][] = [
-    ["second", 60],
-    ["minute", 60],
-    ["hour", 24],
-    ["day", 7],
-    ["week", 4.35],
-    ["month", 12],
-    ["year", Number.POSITIVE_INFINITY],
+    ['second', 60],
+    ['minute', 60],
+    ['hour', 24],
+    ['day', 7],
+    ['week', 4.35],
+    ['month', 12],
+    ['year', Number.POSITIVE_INFINITY],
   ];
 
   let value = seconds;
   for (const [unit, size] of units) {
     if (Math.abs(value) < size) {
-      return new Intl.RelativeTimeFormat(undefined, { numeric: "auto" }).format(
+      return new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' }).format(
         -Math.round(value),
         unit,
       );
@@ -367,11 +403,11 @@ function GoalsCard() {
   const qc = useQueryClient();
   const goals = useGoals();
   const [form, setForm] = useState<Record<keyof GoalBody & string, string>>({
-    calories: "",
-    proteinG: "",
-    carbsG: "",
-    fatG: "",
-    effectiveFrom: "",
+    calories: '',
+    proteinG: '',
+    carbsG: '',
+    fatG: '',
+    effectiveFrom: '',
   });
 
   useEffect(() => {
@@ -381,11 +417,11 @@ function GoalsCard() {
       proteinG: String(goals.data.proteinG),
       carbsG: String(goals.data.carbsG),
       fatG: String(goals.data.fatG),
-      effectiveFrom: "",
+      effectiveFrom: '',
     });
   }, [goals.data]);
 
-  const [weightGoal, setWeightGoal] = useState<WeightGoal>("lose");
+  const [weightGoal, setWeightGoal] = useState<WeightGoal>('lose');
   const [kgPerWeek, setKgPerWeek] = useState(0.5);
 
   // Advisory only: it prefills the form, it doesn't set the goal.
@@ -405,7 +441,7 @@ function GoalsCard() {
       }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: keys.goals });
-      void qc.invalidateQueries({ queryKey: ["day"] });
+      void qc.invalidateQueries({ queryKey: ['day'] });
     },
   });
 
@@ -417,21 +453,20 @@ function GoalsCard() {
     );
 
   const numbers: [keyof typeof form, string, string][] = [
-    ["calories", "Calories", "kcal"],
-    ["proteinG", "Protein", "g"],
-    ["carbsG", "Carbs", "g"],
-    ["fatG", "Fat", "g"],
+    ['calories', 'Calories', 'kcal'],
+    ['proteinG', 'Protein', 'g'],
+    ['carbsG', 'Carbs', 'g'],
+    ['fatG', 'Fat', 'g'],
   ];
   const complete = numbers.every(
-    ([k]) => Number.isFinite(Number(form[k])) && form[k] !== "",
+    ([k]) => Number.isFinite(Number(form[k])) && form[k] !== '',
   );
 
   return (
     <Card>
       <h2 className="text-ink mb-1 text-[15px] font-semibold">Daily goal</h2>
       <p className="text-muted mb-4 text-[13px]">
-        Changing this applies from today onward; past days keep the goal they
-        had.
+        Changing this applies from today onward; past days keep the goal they had.
       </p>
 
       <form
@@ -469,17 +504,17 @@ function GoalsCard() {
                     aria-pressed={weightGoal === g}
                     className={`min-h-10 rounded-lg border text-xs ${
                       weightGoal === g
-                        ? "border-accent bg-accent-soft text-accent font-medium"
-                        : "border-line text-muted"
+                        ? 'border-accent bg-accent-soft text-accent font-medium'
+                        : 'border-line text-muted'
                     }`}
                   >
-                    {g === "lose" ? "Lose" : g === "gain" ? "Gain" : "Maintain"}
+                    {g === 'lose' ? 'Lose' : g === 'gain' ? 'Gain' : 'Maintain'}
                   </button>
                 ))}
               </div>
             </div>
 
-            {weightGoal !== "maintain" && (
+            {weightGoal !== 'maintain' && (
               <div>
                 <span className="text-muted mb-1.5 block text-[13px] font-medium">
                   Rate
@@ -493,8 +528,8 @@ function GoalsCard() {
                       aria-pressed={kgPerWeek === rate}
                       className={`nums min-h-10 rounded-lg border text-xs ${
                         kgPerWeek === rate
-                          ? "border-accent bg-accent-soft text-accent font-medium"
-                          : "border-line text-muted"
+                          ? 'border-accent bg-accent-soft text-accent font-medium'
+                          : 'border-line text-muted'
                       }`}
                     >
                       {rate} kg
@@ -512,20 +547,18 @@ function GoalsCard() {
               </div>
               <div className="flex justify-between">
                 <dt className="text-muted">
-                  {weightGoal === "maintain"
-                    ? "Target"
-                    : `${weightGoal === "lose" ? "Deficit" : "Surplus"} of ${Math.abs(tdee.data.dailyDelta)} kcal`}
+                  {weightGoal === 'maintain'
+                    ? 'Target'
+                    : `${weightGoal === 'lose' ? 'Deficit' : 'Surplus'} of ${Math.abs(tdee.data.dailyDelta)} kcal`}
                 </dt>
-                <dd className="text-ink font-medium">
-                  {tdee.data.calories} kcal
-                </dd>
+                <dd className="text-ink font-medium">{tdee.data.calories} kcal</dd>
               </div>
             </dl>
 
             {tdee.data.limited && (
               <p className="text-muted text-xs">
-                Capped at your resting burn of {tdee.data.bmr} kcal. Eating
-                below that is not a faster route to the same place.
+                Capped at your resting burn of {tdee.data.bmr} kcal. Eating below that
+                is not a faster route to the same place.
               </p>
             )}
 
@@ -539,7 +572,7 @@ function GoalsCard() {
                   proteinG: String(tdee.data.suggested.proteinG),
                   carbsG: String(tdee.data.suggested.carbsG),
                   fatG: String(tdee.data.suggested.fatG),
-                  effectiveFrom: "",
+                  effectiveFrom: '',
                 })
               }
             >
@@ -551,16 +584,10 @@ function GoalsCard() {
           <p className="text-faint text-[13px]">{tdee.error.message}</p>
         )}
 
-        {save.error instanceof ApiError && (
-          <ErrorNote>{save.error.message}</ErrorNote>
-        )}
+        {save.error instanceof ApiError && <ErrorNote>{save.error.message}</ErrorNote>}
 
-        <Button
-          type="submit"
-          className="w-full"
-          disabled={!complete || save.isPending}
-        >
-          {save.isPending ? "Saving…" : save.isSuccess ? "Saved" : "Save goal"}
+        <Button type="submit" className="w-full" disabled={!complete || save.isPending}>
+          {save.isPending ? 'Saving…' : save.isSuccess ? 'Saved' : 'Save goal'}
         </Button>
       </form>
     </Card>
@@ -570,32 +597,30 @@ function GoalsCard() {
 function ProfileCard() {
   const qc = useQueryClient();
   const profile = useProfile();
-  const [sex, setSex] = useState<Sex | "">("");
-  const [birthDate, setBirthDate] = useState("");
-  const [heightCm, setHeightCm] = useState("");
-  const [activityLevel, setActivityLevel] = useState<ActivityLevel | "">("");
+  const [sex, setSex] = useState<Sex | ''>('');
+  const [birthDate, setBirthDate] = useState('');
+  const [heightCm, setHeightCm] = useState('');
+  const [activityLevel, setActivityLevel] = useState<ActivityLevel | ''>('');
 
   useEffect(() => {
     if (!profile.data) return;
-    setSex(profile.data.sex ?? "");
-    setBirthDate(profile.data.birthDate ?? "");
-    setHeightCm(
-      profile.data.heightCm === null ? "" : String(profile.data.heightCm),
-    );
-    setActivityLevel(profile.data.activityLevel ?? "");
+    setSex(profile.data.sex ?? '');
+    setBirthDate(profile.data.birthDate ?? '');
+    setHeightCm(profile.data.heightCm === null ? '' : String(profile.data.heightCm));
+    setActivityLevel(profile.data.activityLevel ?? '');
   }, [profile.data]);
 
   const save = useMutation({
     mutationFn: () =>
       api.saveProfile({
-        sex: sex === "" ? null : sex,
-        birthDate: birthDate === "" ? null : birthDate,
-        heightCm: heightCm === "" ? null : Number(heightCm),
-        activityLevel: activityLevel === "" ? null : activityLevel,
+        sex: sex === '' ? null : sex,
+        birthDate: birthDate === '' ? null : birthDate,
+        heightCm: heightCm === '' ? null : Number(heightCm),
+        activityLevel: activityLevel === '' ? null : activityLevel,
       }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: keys.profile });
-      void qc.invalidateQueries({ queryKey: ["tdee"] });
+      void qc.invalidateQueries({ queryKey: ['tdee'] });
     },
   });
 
@@ -623,8 +648,8 @@ function ProfileCard() {
         <Select
           label="Sex"
           value={sex}
-          onChange={(v) => setSex(v as Sex | "")}
-          options={SEXES.map((s) => [s, s === "male" ? "Male" : "Female"])}
+          onChange={(v) => setSex(v as Sex | '')}
+          options={SEXES.map((s) => [s, s === 'male' ? 'Male' : 'Female'])}
         />
         <Field
           label="Date of birth"
@@ -642,16 +667,14 @@ function ProfileCard() {
         <Select
           label="Activity level"
           value={activityLevel}
-          onChange={(v) => setActivityLevel(v as ActivityLevel | "")}
+          onChange={(v) => setActivityLevel(v as ActivityLevel | '')}
           options={ACTIVITY_LEVEL_KEYS.map((k) => [k, ACTIVITY_LABELS[k]])}
         />
 
-        {save.error instanceof ApiError && (
-          <ErrorNote>{save.error.message}</ErrorNote>
-        )}
+        {save.error instanceof ApiError && <ErrorNote>{save.error.message}</ErrorNote>}
 
         <Button type="submit" className="w-full" disabled={save.isPending}>
-          {save.isPending ? "Saving…" : save.isSuccess ? "Saved" : "Save"}
+          {save.isPending ? 'Saving…' : save.isSuccess ? 'Saved' : 'Save'}
         </Button>
       </form>
     </Card>
@@ -672,10 +695,7 @@ function Select({
   const id = useId();
   return (
     <div className="block">
-      <label
-        htmlFor={id}
-        className="text-muted mb-1.5 block text-[13px] font-medium"
-      >
+      <label htmlFor={id} className="text-muted mb-1.5 block text-[13px] font-medium">
         {label}
       </label>
       <select
