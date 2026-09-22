@@ -8,7 +8,12 @@ import {
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { EntrySheet } from '../components/EntrySheet.tsx';
-import { DaySummary, MACRO_META, type MacroFocus } from '../components/Macros.tsx';
+import {
+  DaySummary,
+  MACRO_META,
+  MacroSplit,
+  type MacroFocus,
+} from '../components/Macros.tsx';
 import { Card, Empty, ErrorNote, Spinner } from '../components/ui.tsx';
 import { useDay, useLogMutations, usePrefetchAdjacentDays } from '../lib/queries.ts';
 import { useSwipe } from '../lib/useSwipe.ts';
@@ -165,14 +170,22 @@ export function Today() {
                   entries.reduce((a, e) => a + e[focus], 0),
                   focus === 'kcal' ? 0 : 1,
                 );
+                const split = {
+                  proteinG: entries.reduce((a, e) => a + e.proteinG, 0),
+                  carbsG: entries.reduce((a, e) => a + e.carbsG, 0),
+                  fatG: entries.reduce((a, e) => a + e.fatG, 0),
+                };
 
                 return (
                   <section key={meal} className="px-4 py-3">
                     <div className="flex items-center justify-between gap-3">
-                      <h2 className="text-ink text-sm font-semibold">
+                      <h2 className="text-ink shrink-0 text-sm font-semibold">
                         {MEAL_LABELS[meal]}
                       </h2>
-                      <div className="flex items-center gap-2">
+                      {entries.length > 0 && (
+                        <MacroSplit {...split} className="w-14 shrink-0" />
+                      )}
+                      <div className="ml-auto flex items-center gap-2">
                         {entries.length > 0 && (
                           <span
                             className="nums text-xs font-medium"
@@ -213,9 +226,17 @@ export function Today() {
                               <span className="text-ink block truncate text-[13px] leading-tight">
                                 {entry.food.name}
                               </span>
-                              <span className="text-faint nums block text-[11px]">
-                                {round(entry.grams)} g
-                                {entry.food.brand && ` · ${entry.food.brand}`}
+                              <span className="flex items-center gap-2">
+                                <span className="text-faint nums flex-1 truncate text-[11px]">
+                                  {round(entry.grams)} g
+                                  {entry.food.brand && ` · ${entry.food.brand}`}
+                                </span>
+                                <MacroSplit
+                                  proteinG={entry.proteinG}
+                                  carbsG={entry.carbsG}
+                                  fatG={entry.fatG}
+                                  className="w-11 shrink-0"
+                                />
                               </span>
                             </button>
                             <div className="flex shrink-0 items-center gap-1">

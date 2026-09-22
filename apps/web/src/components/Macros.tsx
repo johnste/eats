@@ -17,12 +17,73 @@ export const MACRO_META: Record<
   fatG: { label: 'Fat', color: 'var(--color-fat)', unit: 'g' },
 };
 
+/**
+ * Where a food's energy comes from, as one small strip.
+ *
+ * Split by calories rather than by grams: a gram of fat carries nine and a
+ * gram of carbohydrate four, so grams would draw an oat as mostly carbohydrate
+ * and an olive oil as mostly nothing.
+ *
+ * There is no legend here because the summary at the top of the same screen
+ * is one -- it names all three in these colours. The label carries the
+ * numbers for anyone who cannot use the colours.
+ */
+export function MacroSplit({
+  proteinG,
+  carbsG,
+  fatG,
+  className = '',
+}: {
+  proteinG: number;
+  carbsG: number;
+  fatG: number;
+  className?: string;
+}) {
+  const parts = [
+    { key: 'proteinG' as const, kcal: proteinG * 4 },
+    { key: 'carbsG' as const, kcal: carbsG * 4 },
+    { key: 'fatG' as const, kcal: fatG * 9 },
+  ];
+  const total = parts.reduce((a, p) => a + p.kcal, 0);
+  if (total <= 0) return null;
+
+  const shares = parts.map((p) => ({ ...p, pct: Math.round((p.kcal / total) * 100) }));
+
+  return (
+    <span
+      role="img"
+      aria-label={shares
+        .map((p) => `${p.pct}% ${MACRO_META[p.key].label.toLowerCase()}`)
+        .join(', ')}
+      // gap-0.5 is the 2px of surface between segments that keeps two
+      // adjacent fills from reading as one.
+      className={`flex h-1 gap-0.5 overflow-hidden ${className}`}
+    >
+      {shares
+        .filter((p) => p.pct > 0)
+        .map((p) => (
+          <span
+            key={p.key}
+            className="block rounded-full"
+            style={{ flexGrow: p.pct, background: MACRO_META[p.key].color }}
+          />
+        ))}
+    </span>
+  );
+}
+
 interface Row {
   label: string;
   value: number;
   target: number | null;
   color: string;
   unit?: string;
+  /**
+   * Whether passing the target is worth flagging. Calories, carbs and fat
+   * are budgets; protein is a floor, and going past it is the point rather
+   * than a problem, so it keeps its own colour all the way up.
+   */
+  warnOver?: boolean;
   selected?: boolean;
   onSelect?: () => void;
 }
@@ -38,11 +99,12 @@ function BarRow({
   target,
   color,
   unit = 'g',
+  warnOver = true,
   selected,
   onSelect,
 }: Row) {
   const pct = target && target > 0 ? Math.min(value / target, 1) * 100 : 0;
-  const over = target !== null && value > target;
+  const over = warnOver && target !== null && value > target;
 
   return (
     <button
@@ -119,7 +181,9 @@ export function DaySummary({
         onClick={() => onFocus('kcal')}
         aria-pressed={focus === 'kcal'}
         className={`bg-line block h-2 w-full overflow-hidden rounded-full ${
-          focus === 'kcal' ? 'ring-accent/40 ring-2 ring-offset-2 ring-offset-transparent' : ''
+          focus === 'kcal'
+            ? 'ring-accent/40 ring-2 ring-offset-2 ring-offset-transparent'
+            : ''
         }`}
         aria-label={
           target === null
@@ -144,6 +208,7 @@ export function DaySummary({
             value={totals[key]}
             target={goal?.[key] ?? null}
             color={MACRO_META[key].color}
+            warnOver={key !== 'proteinG'}
             selected={focus === key}
             onSelect={() => onFocus(key)}
           />
