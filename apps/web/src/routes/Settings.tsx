@@ -607,6 +607,10 @@ function ProfileCard() {
         birthDate: birthDate === '' ? null : birthDate,
         heightCm: heightCm === '' ? null : Number(heightCm),
         activityLevel: activityLevel === '' ? null : activityLevel,
+        // Carried through untouched. The goal weight is set on the weight
+        // screen, and a PUT of the whole profile would otherwise clear it
+        // every time this form is saved.
+        targetWeightKg: profile.data?.targetWeightKg ?? null,
       }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: keys.profile });

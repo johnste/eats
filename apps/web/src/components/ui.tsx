@@ -34,13 +34,15 @@ export function Button({ variant = 'primary', className, ...props }: ButtonProps
       {...props}
       className={cx(
         // 44px minimum: this is a phone app and these are thumb targets.
-        'min-h-11 rounded-xl px-4 text-[15px] font-medium transition-colors',
+        'min-h-11 rounded-xl px-4 text-[15px] font-semibold transition-colors',
         'disabled:opacity-50 disabled:pointer-events-none',
         'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
         variant === 'primary' && 'bg-accent text-surface active:brightness-95',
-        variant === 'ghost' && 'text-ink border-line border active:bg-surface',
+        // Two pixels, not one: at this palette's contrast a hairline outline
+        // disappears against the cream.
+        variant === 'ghost' && 'text-ink border-line border-2 active:bg-surface',
         variant === 'danger' &&
-          'text-danger border-danger/40 border active:bg-danger/10',
+          'text-danger border-danger/50 border-2 active:bg-danger/10',
         className,
       )}
     />

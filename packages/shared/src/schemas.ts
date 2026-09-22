@@ -2,9 +2,7 @@ import { z } from 'zod';
 import { ACTIVITY_LEVEL_KEYS, MEALS, SEXES } from './nutrition.ts';
 
 /** YYYY-MM-DD, the form every date crosses the wire in. */
-export const dateKey = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, 'expected YYYY-MM-DD');
+export const dateKey = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'expected YYYY-MM-DD');
 
 export const mealSchema = z.enum(MEALS);
 export const sexSchema = z.enum(SEXES);
@@ -40,6 +38,7 @@ export const profileBody = z.object({
   birthDate: dateKey.nullable(),
   heightCm: z.number().min(50).max(260).nullable(),
   activityLevel: activityLevelSchema.nullable(),
+  targetWeightKg: z.number().min(20).max(400).nullable(),
 });
 
 export const goalBody = z.object({
@@ -72,7 +71,11 @@ export const servingInput = z.object({
 export const createFoodBody = macrosPer100g.extend({
   name: z.string().min(1).max(200),
   brand: z.string().max(120).nullable().optional(),
-  barcode: z.string().regex(/^\d{6,14}$/).nullable().optional(),
+  barcode: z
+    .string()
+    .regex(/^\d{6,14}$/)
+    .nullable()
+    .optional(),
   servings: z.array(servingInput).max(10).optional(),
 });
 

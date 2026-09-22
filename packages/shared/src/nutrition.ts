@@ -241,3 +241,139 @@ export function guessMeal(now = new Date()): Meal {
   if (h < 21) return 'dinner';
   return 'snack';
 }
+
+/* ------------------------------------------------------- weight projection --- */
+
+export interface WeightPoint {
+  measuredOn: string;
+  weightKg: number;
+}
+
+export type ProjectionStatus =
+  /** Close enough to the target that a date would be noise. */
+  | 'reached'
+  /** Moving the right way with a usable rate. */
+  | 'on-track'
+  /** Moving, but away from the target. */
+  | 'wrong-way'
+  /** Measuring, but the trend is too flat to divide by. */
+  | 'flat'
+  /** Not enough readings, or too short a span, to fit a line to. */
+  | 'insufficient';
+
+export interface WeightProjection {
+  status: ProjectionStatus;
+  /** Signed observed rate. Negative is losing. */
+  kgPerWeek: number;
+  /** The trend line's value today, not the last reading. */
+  currentKg: number;
+  daysToTarget: number | null;
+  reachedOn: string | null;
+}
+
+/** Below this the line is noise and dividing by it invents a date. */
+const FLAT_KG_PER_WEEK = 0.05;
+/** Within this of the target, call it arrived. */
+const ARRIVED_KG = 0.25;
+/** A line needs both enough readings and enough time to mean anything. */
+const MIN_POINTS = 4;
+const MIN_SPAN_DAYS = 14;
+
+const dayNumber = (dateKey: string): number => {
+  const [y, m, d] = dateKey.split('-').map(Number) as [number, number, number];
+  return Math.round(Date.UTC(y, m - 1, d) / 86_400_000);
+};
+
+/**
+ * When a target weight is likely to be reached, from the trend in the
+ * readings rather than from whatever the plan says.
+ *
+ * A least-squares line over the window, extended forward. Daily weight is
+ * mostly water, so the projection runs off the fitted line -- taking the last
+ * reading would swing the date by weeks on a salty dinner.
+ *
+ * Every way this can be meaningless has its own status, because a date is a
+ * confident thing to show and it should only appear when it means something.
+ */
+export function projectWeight(
+  points: WeightPoint[],
+  targetKg: number,
+  today = toDateKey(),
+): WeightProjection {
+  const sorted = [...points].sort((a, b) => a.measuredOn.localeCompare(b.measuredOn));
+  const none: WeightProjection = {
+    status: 'insufficient',
+    kgPerWeek: 0,
+    currentKg: sorted.at(-1)?.weightKg ?? 0,
+    daysToTarget: null,
+    reachedOn: null,
+  };
+  if (sorted.length < MIN_POINTS) return none;
+
+  const first = sorted[0] as WeightPoint;
+  const last = sorted.at(-1) as WeightPoint;
+  const span = dayNumber(last.measuredOn) - dayNumber(first.measuredOn);
+  if (span < MIN_SPAN_DAYS) return none;
+
+  // x in days from the first reading, so the numbers stay small.
+  const base = dayNumber(first.measuredOn);
+  const xs = sorted.map((p) => dayNumber(p.measuredOn) - base);
+  const ys = sorted.map((p) => p.weightKg);
+  const n = xs.length;
+  const meanX = xs.reduce((a, b) => a + b, 0) / n;
+  const meanY = ys.reduce((a, b) => a + b, 0) / n;
+  let num = 0;
+  let den = 0;
+  for (let i = 0; i < n; i++) {
+    const dx = (xs[i] as number) - meanX;
+    num += dx * ((ys[i] as number) - meanY);
+    den += dx * dx;
+  }
+  // den is only zero when every reading is on one day, which the span check
+  // has already excluded.
+  const slope = den === 0 ? 0 : num / den;
+  const intercept = meanY - slope * meanX;
+
+  // Read the line at today rather than at the last entry, so a gap in logging
+  // does not freeze the estimate at an old value.
+  const currentKg = intercept + slope * (dayNumber(today) - base);
+  const kgPerWeek = slope * 7;
+  const gap = targetKg - currentKg;
+
+  if (Math.abs(gap) <= ARRIVED_KG) {
+    return {
+      status: 'reached',
+      kgPerWeek,
+      currentKg,
+      daysToTarget: 0,
+      reachedOn: today,
+    };
+  }
+  if (Math.abs(kgPerWeek) < FLAT_KG_PER_WEEK) {
+    return {
+      status: 'flat',
+      kgPerWeek,
+      currentKg,
+      daysToTarget: null,
+      reachedOn: null,
+    };
+  }
+  if (Math.sign(gap) !== Math.sign(slope)) {
+    return {
+      status: 'wrong-way',
+      kgPerWeek,
+      currentKg,
+      daysToTarget: null,
+      reachedOn: null,
+    };
+  }
+
+  const days = Math.ceil(gap / slope);
+  return {
+    status: 'on-track',
+    kgPerWeek,
+    currentKg,
+    daysToTarget: days,
+    reachedOn: addDays(today, days),
+  };
+}

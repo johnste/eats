@@ -1,10 +1,11 @@
-import { addDays, round, toDateKey } from '@eats/shared';
+import { addDays, projectWeight, round, toDateKey } from '@eats/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import {
   CartesianGrid,
   Line,
   LineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -13,7 +14,7 @@ import {
 import { BottomBar, BottomBarSpacer } from '../components/BottomBar.tsx';
 import { Button, Card, Empty, ErrorNote, Field, Spinner } from '../components/ui.tsx';
 import { api, ApiError } from '../lib/api.ts';
-import { keys, WEIGHT_WINDOW_DAYS } from '../lib/queries.ts';
+import { keys, useProfile, WEIGHT_WINDOW_DAYS } from '../lib/queries.ts';
 
 const AVERAGE_DAYS = 7;
 
@@ -37,7 +38,17 @@ export function Weight() {
     },
   });
 
+  const profile = useProfile();
+  const target = profile.data?.targetWeightKg ?? null;
+
   const series = useMemo(() => withTrend(weights.data ?? []), [weights.data]);
+
+  // Straight off the readings rather than the plan: what the scale is
+  // actually doing is the only thing that can date a goal.
+  const projection = useMemo(
+    () => (target === null ? null : projectWeight(weights.data ?? [], target, today)),
+    [weights.data, target, today],
+  );
   const parsed = Number.parseFloat(value.replace(',', '.'));
   const valid = Number.isFinite(parsed) && parsed >= 20 && parsed <= 400;
 
@@ -88,7 +99,10 @@ export function Weight() {
               so it is the emphasised mark and the raw points recede. */}
           <div className="h-56 -ml-2">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={series} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+              <LineChart
+                data={series}
+                margin={{ top: 4, right: 8, bottom: 0, left: 0 }}
+              >
                 <CartesianGrid stroke="var(--color-line)" vertical={false} />
                 <XAxis
                   dataKey="measuredOn"
@@ -99,7 +113,16 @@ export function Weight() {
                   minTickGap={28}
                 />
                 <YAxis
-                  domain={['dataMin - 0.5', 'dataMax + 0.5']}
+                  // Widened to include the goal, so its line is never drawn
+                  // off the top or bottom of the plot.
+                  domain={
+                    target === null
+                      ? ['dataMin - 0.5', 'dataMax + 0.5']
+                      : [
+                          (min: number) => Math.min(min, target) - 0.5,
+                          (max: number) => Math.max(max, target) + 0.5,
+                        ]
+                  }
                   tick={{ fill: 'var(--color-faint)', fontSize: 11 }}
                   axisLine={false}
                   tickLine={false}
@@ -120,6 +143,14 @@ export function Weight() {
                     name === 'trend' ? '7-day average' : 'Measured',
                   ]}
                 />
+                {target !== null && (
+                  <ReferenceLine
+                    y={target}
+                    stroke="var(--color-accent)"
+                    strokeDasharray="5 4"
+                    strokeWidth={2}
+                  />
+                )}
                 <Line
                   type="monotone"
                   dataKey="weightKg"
@@ -150,8 +181,27 @@ export function Weight() {
               <span className="bg-faint inline-block h-px w-4" aria-hidden />
               Measured
             </span>
+            {target !== null && (
+              <span className="flex items-center gap-1.5">
+                <span
+                  className="border-accent inline-block w-4 border-t-2 border-dashed"
+                  aria-hidden
+                />
+                Goal
+              </span>
+            )}
           </div>
         </Card>
+      )}
+
+      {weights.data && (
+        <div className="mt-4">
+          <GoalCard
+            target={target}
+            projection={projection}
+            entries={weights.data.length}
+          />
+        </div>
       )}
 
       <BottomBarSpacer />
@@ -187,6 +237,172 @@ export function Weight() {
       </BottomBar>
     </>
   );
+}
+
+/**
+ * The goal, and when the readings say it arrives.
+ *
+ * Every outcome gets a sentence. A projection that cannot be made is more
+ * useful said plainly than hidden -- "you are holding steady" is the answer
+ * to "when do I get there" when the trend is flat.
+ */
+function GoalCard({
+  target,
+  projection,
+  entries,
+}: {
+  target: number | null;
+  projection: ReturnType<typeof projectWeight> | null;
+  entries: number;
+}) {
+  const qc = useQueryClient();
+  const profile = useProfile();
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState('');
+
+  const parsed = Number.parseFloat(value.replace(',', '.'));
+  const valid = Number.isFinite(parsed) && parsed >= 20 && parsed <= 400;
+
+  const save = useMutation({
+    mutationFn: (targetWeightKg: number | null) => {
+      const p = profile.data;
+      if (!p) throw new Error('profile not loaded');
+      return api.saveProfile({ ...p, targetWeightKg });
+    },
+    onSuccess: () => {
+      setEditing(false);
+      setValue('');
+      void qc.invalidateQueries({ queryKey: keys.profile });
+    },
+  });
+
+  if (target === null || editing) {
+    return (
+      <Card>
+        <h2 className="text-ink mb-1 text-[15px]">Goal weight</h2>
+        <p className="text-muted mb-4 text-[13px]">
+          Set one and the chart will show it, with an estimate of when your current
+          trend gets there.
+        </p>
+        <form
+          className="flex items-end gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (valid) save.mutate(parsed);
+          }}
+        >
+          <div className="flex-1">
+            <Field
+              label="Target"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              inputMode="decimal"
+              suffix="kg"
+              placeholder={target === null ? '—' : String(round(target))}
+              autoFocus={editing}
+              autoSelect
+              invalid={value !== '' && !valid}
+            />
+          </div>
+          <Button type="submit" disabled={!valid || save.isPending}>
+            {save.isPending ? 'Saving…' : 'Set'}
+          </Button>
+          {editing && (
+            <Button type="button" variant="ghost" onClick={() => setEditing(false)}>
+              Cancel
+            </Button>
+          )}
+        </form>
+        {save.error instanceof ApiError && (
+          <p className="mt-2">
+            <ErrorNote>{save.error.message}</ErrorNote>
+          </p>
+        )}
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <div className="flex items-baseline justify-between gap-3">
+        <div>
+          <p className="nums text-ink text-2xl font-semibold">
+            {round(target)}
+            <span className="text-muted ml-1 text-sm font-normal">kg</span>
+          </p>
+          <p className="text-faint text-xs">Goal</p>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant="ghost"
+            className="min-h-9 px-3 text-[13px]"
+            onClick={() => {
+              setValue(String(round(target)));
+              setEditing(true);
+            }}
+          >
+            Change
+          </Button>
+          <Button
+            variant="ghost"
+            className="min-h-9 px-3 text-[13px]"
+            onClick={() => save.mutate(null)}
+            disabled={save.isPending}
+          >
+            Clear
+          </Button>
+        </div>
+      </div>
+      <p className="text-muted mt-3 text-[13px] leading-relaxed">
+        {projectionSentence(projection, target, entries)}
+      </p>
+    </Card>
+  );
+}
+
+function projectionSentence(
+  p: ReturnType<typeof projectWeight> | null,
+  target: number,
+  entries: number,
+): string {
+  if (!p || p.status === 'insufficient') {
+    return entries === 0
+      ? 'Log a few weights and an estimate will appear here.'
+      : 'Keep logging — an estimate needs a fortnight of readings to be worth anything.';
+  }
+
+  const rate = `${Math.abs(round(p.kgPerWeek, 2))} kg a week`;
+
+  if (p.status === 'reached')
+    return `You are there. Holding around ${round(target)} kg.`;
+  if (p.status === 'flat') {
+    return `Holding steady near ${round(p.currentKg, 1)} kg, so there is no date to give yet.`;
+  }
+  if (p.status === 'wrong-way') {
+    const way = p.kgPerWeek > 0 ? 'gaining' : 'losing';
+    return `The trend is ${way} ${rate}, which is away from ${round(target)} kg.`;
+  }
+
+  const days = p.daysToTarget ?? 0;
+  if (days > 730) {
+    return `At ${rate} this is more than two years off — worth a bigger change than the scale will show.`;
+  }
+  return `At ${rate}, around ${longDate(p.reachedOn as string)} — about ${humanSpan(days)} away.`;
+}
+
+function humanSpan(days: number): string {
+  if (days < 14) return `${days} days`;
+  if (days < 70) return `${Math.round(days / 7)} weeks`;
+  return `${Math.round(days / 30.4)} months`;
+}
+
+function longDate(date: string): string {
+  const [y, m, d] = date.split('-').map(Number) as [number, number, number];
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
 }
 
 /** Trailing mean over the last `AVERAGE_DAYS` entries, once enough exist. */

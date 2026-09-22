@@ -9,6 +9,7 @@ import {
   guessMeal,
   kjToKcal,
   MEALS,
+  projectWeight,
   scaleMacros,
   suggestMacroSplit,
   sumMacros,
@@ -255,6 +256,127 @@ describe('guessMeal', () => {
   it('covers every hour of the day', () => {
     for (let h = 0; h < 24; h++) {
       assert.ok(MEALS.includes(guessMeal(at(h))), `hour ${h}`);
+    }
+  });
+});
+
+describe('projectWeight', () => {
+  /** A clean run of readings losing `perWeek` kg a week from `start`. */
+  const run = (start: number, perWeek: number, days: number, every = 1) => {
+    const pts = [];
+    for (let d = 0; d <= days; d += every) {
+      pts.push({
+        measuredOn: addDays('2026-01-01', d),
+        weightKg: start + (perWeek / 7) * d,
+      });
+    }
+    return pts;
+  };
+  const on = (d: number) => addDays('2026-01-01', d);
+
+  it('reads the rate off the trend, not off the last two readings', () => {
+    const p = projectWeight(run(85, -0.5, 56), 80, on(56));
+    assert.equal(p.status, 'on-track');
+    assert.ok(Math.abs(p.kgPerWeek - -0.5) < 0.01, `got ${p.kgPerWeek}`);
+    assert.ok(Math.abs(p.currentKg - 81) < 0.01, `got ${p.currentKg}`);
+  });
+
+  it('dates the target from where the line is today', () => {
+    // 81 kg today, losing 0.5/week, 1 kg to go -> about a fortnight.
+    const p = projectWeight(run(85, -0.5, 56), 80, on(56));
+    assert.equal(p.daysToTarget, 14);
+    assert.equal(p.reachedOn, addDays(on(56), 14));
+  });
+
+  it('ignores a single noisy reading', () => {
+    // A salty dinner on the last day would swing a two-point estimate wildly.
+    const pts = run(85, -0.5, 56);
+    (pts.at(-1) as { weightKg: number }).weightKg += 1.5;
+    const p = projectWeight(pts, 80, on(56));
+    assert.equal(p.status, 'on-track');
+    assert.ok(Math.abs(p.kgPerWeek - -0.5) < 0.06, `got ${p.kgPerWeek}`);
+  });
+
+  it('projects gaining as readily as losing', () => {
+    const p = projectWeight(run(60, 0.25, 56), 63, on(56));
+    assert.equal(p.status, 'on-track');
+    assert.ok(p.kgPerWeek > 0);
+    assert.ok((p.daysToTarget as number) > 0);
+  });
+
+  it('refuses to date a target it is moving away from', () => {
+    const p = projectWeight(run(85, 0.4, 56), 80, on(56));
+    assert.equal(p.status, 'wrong-way');
+    assert.equal(p.reachedOn, null);
+    assert.ok(p.kgPerWeek > 0);
+  });
+
+  it('refuses to divide by a flat trend', () => {
+    // Holding steady: the honest answer is "no date", not one in the year 3000.
+    const p = projectWeight(run(85, 0, 56), 80, on(56));
+    assert.equal(p.status, 'flat');
+    assert.equal(p.daysToTarget, null);
+  });
+
+  it('says so when the target is already met', () => {
+    // 80.8 kg losing 0.1/week for eight weeks lands the line on 80.0.
+    const p = projectWeight(run(80.8, -0.1, 56), 80, on(56));
+    assert.equal(p.status, 'reached');
+  });
+
+  it('counts sailing past the target as moving away from it', () => {
+    // Below the goal and still dropping is not "reached" -- it is the point
+    // at which someone should be told the trend no longer serves them.
+    const p = projectWeight(run(80.05, -0.1, 56), 80, on(56));
+    assert.equal(p.status, 'wrong-way');
+    assert.ok(p.currentKg < 80);
+  });
+
+  it('will not fit a line to too few readings', () => {
+    const sparse = [
+      { measuredOn: '2026-01-01', weightKg: 85 },
+      { measuredOn: '2026-02-01', weightKg: 83 },
+    ];
+    assert.equal(projectWeight(sparse, 80).status, 'insufficient');
+  });
+
+  it('will not fit a line to too short a span', () => {
+    // Five readings in three days says nothing about a month from now.
+    const p = projectWeight(run(85, -0.5, 3), 80, on(3));
+    assert.equal(p.status, 'insufficient');
+  });
+
+  it('accepts readings in any order', () => {
+    const forward = run(85, -0.5, 56, 3);
+    const shuffled = [...forward].reverse();
+    assert.deepEqual(
+      projectWeight(shuffled, 80, on(56)),
+      projectWeight(forward, 80, on(56)),
+    );
+  });
+
+  it('keeps counting from today when logging stopped a while ago', () => {
+    // Last entry three weeks ago: the line has kept going, so the estimate
+    // should have moved on with it rather than freezing.
+    const pts = run(85, -0.5, 56);
+    const atLast = projectWeight(pts, 80, on(56));
+    const later = projectWeight(pts, 80, on(77));
+    assert.ok((later.currentKg as number) < (atLast.currentKg as number));
+    assert.ok((later.daysToTarget as number) < (atLast.daysToTarget as number));
+  });
+
+  it('never returns a date it calls on-track without one', () => {
+    for (const [target, rate] of [
+      [80, -0.5],
+      [90, 0.5],
+      [85, 0],
+    ] as const) {
+      const p = projectWeight(run(85, rate, 56), target, on(56));
+      if (p.status === 'on-track') {
+        assert.ok(p.reachedOn && (p.daysToTarget as number) > 0);
+      } else {
+        assert.equal(p.reachedOn, p.status === 'reached' ? on(56) : null);
+      }
     }
   });
 });

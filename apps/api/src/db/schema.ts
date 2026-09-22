@@ -42,6 +42,8 @@ export const users = pgTable('users', {
   birthDate: date('birth_date'),
   heightCm: real('height_cm'),
   activityLevel: activityLevelEnum('activity_level'),
+  /** What the weight chart projects towards. Null means no goal set. */
+  targetWeightKg: real('target_weight_kg'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
