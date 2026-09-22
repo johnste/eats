@@ -216,7 +216,7 @@ export function Today() {
                         {entries.map((entry) => (
                           <li
                             key={entry.id}
-                            className="group flex items-center justify-between gap-3 py-1"
+                            className="group flex items-center gap-2 py-1"
                           >
                             <button
                               type="button"
@@ -226,19 +226,22 @@ export function Today() {
                               <span className="text-ink block truncate text-[13px] leading-tight">
                                 {entry.food.name}
                               </span>
-                              <span className="flex items-center gap-2">
-                                <span className="text-faint nums flex-1 truncate text-[11px]">
-                                  {round(entry.grams)} g
-                                  {entry.food.brand && ` · ${entry.food.brand}`}
-                                </span>
-                                <MacroSplit
-                                  proteinG={entry.proteinG}
-                                  carbsG={entry.carbsG}
-                                  fatG={entry.fatG}
-                                  className="w-11 shrink-0"
-                                />
+                              <span className="text-faint nums block truncate text-[11px]">
+                                {round(entry.grams)} g
+                                {entry.food.brand && ` · ${entry.food.brand}`}
                               </span>
                             </button>
+                            {/* Its own column rather than part of the name
+                                block: a fixed width here is what lines the
+                                strips up down the list, and the row's
+                                items-center is what centres them against the
+                                figure. */}
+                            <MacroSplit
+                              proteinG={entry.proteinG}
+                              carbsG={entry.carbsG}
+                              fatG={entry.fatG}
+                              className="w-10 shrink-0"
+                            />
                             <div className="flex shrink-0 items-center gap-1">
                               {confirming === entry.id ? (
                                 <>
@@ -268,7 +271,7 @@ export function Today() {
                               ) : (
                                 <>
                                   <span
-                                    className="nums text-[13px]"
+                                    className="nums w-14 text-right text-[13px]"
                                     style={{
                                       color:
                                         focus === 'kcal'
