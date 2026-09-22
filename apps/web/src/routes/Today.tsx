@@ -8,6 +8,7 @@ import {
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { EntrySheet } from '../components/EntrySheet.tsx';
+import { FoodPicker } from '../components/FoodPicker.tsx';
 import {
   DaySummary,
   MACRO_META,
@@ -52,9 +53,18 @@ export function Today() {
   // first tap only arms it. Nothing is removed until the second.
   const [confirming, setConfirming] = useState<string | null>(null);
   const [editing, setEditing] = useState<LogEntryResponse | null>(null);
+  // Which meal has the add panel open, if any. One at a time: two open
+  // panels would push the day off the screen and neither would be in view.
+  const [adding, setAdding] = useState<Meal | null>(null);
   // Which measure the meal sections are reported in. Calories by default,
   // because that is the question most days.
   const [focus, setFocus] = useState<MacroFocus>('kcal');
+
+  // Swiping to another day keeps this component mounted, so an open panel
+  // would follow you there and add to the wrong date.
+  useEffect(() => {
+    setAdding(null);
+  }, [date]);
 
   // Disarm on its own, so a stray tap does not leave a live delete button
   // sitting under your finger.
@@ -196,15 +206,18 @@ export function Today() {
                         )}
                         <button
                           type="button"
-                          aria-label={`Add to ${MEAL_LABELS[meal]}`}
-                          // focus tells the add screen to open the keyboard:
-                          // tapping + means you already know what you want.
-                          onClick={() =>
-                            navigate(
-                              `/add?meal=${meal}&date=${date}&focus=${Date.now()}`,
-                            )
+                          aria-label={
+                            adding === meal
+                              ? `Close adding to ${MEAL_LABELS[meal]}`
+                              : `Add to ${MEAL_LABELS[meal]}`
                           }
-                          className="text-accent bg-accent-soft grid size-7 place-items-center rounded-full text-base leading-none"
+                          aria-expanded={adding === meal}
+                          onClick={() => setAdding(adding === meal ? null : meal)}
+                          className={`grid size-7 place-items-center rounded-full text-base leading-none transition-transform ${
+                            adding === meal
+                              ? 'bg-accent text-surface rotate-45'
+                              : 'text-accent bg-accent-soft'
+                          }`}
                         >
                           +
                         </button>
@@ -309,6 +322,21 @@ export function Today() {
                           </li>
                         ))}
                       </ul>
+                    )}
+
+                    {adding === meal && (
+                      <div className="border-line mt-3 border-t pt-3">
+                        <FoodPicker
+                          date={date}
+                          meal={meal}
+                          variant="inline"
+                          // A fresh token each time the panel opens, so the
+                          // keyboard comes up on every tap of + rather than
+                          // only the first.
+                          autoFocusToken={`${meal}-${adding}`}
+                          onDone={() => setAdding(null)}
+                        />
+                      </div>
                     )}
                   </section>
                 );
