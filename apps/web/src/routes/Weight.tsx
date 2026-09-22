@@ -240,7 +240,8 @@ export function Weight() {
 }
 
 /**
- * The goal, and when the readings say it arrives.
+ * The goal, and when the readings say it arrives. Read-only: the goal itself
+ * is part of your profile, so it is set in Settings with the rest of it.
  *
  * Every outcome gets a sentence. A projection that cannot be made is more
  * useful said plainly than hidden -- "you are holding steady" is the answer
@@ -255,69 +256,14 @@ function GoalCard({
   projection: ReturnType<typeof projectWeight> | null;
   entries: number;
 }) {
-  const qc = useQueryClient();
-  const profile = useProfile();
-  const [editing, setEditing] = useState(false);
-  const [value, setValue] = useState('');
-
-  const parsed = Number.parseFloat(value.replace(',', '.'));
-  const valid = Number.isFinite(parsed) && parsed >= 20 && parsed <= 400;
-
-  const save = useMutation({
-    mutationFn: (targetWeightKg: number | null) => {
-      const p = profile.data;
-      if (!p) throw new Error('profile not loaded');
-      return api.saveProfile({ ...p, targetWeightKg });
-    },
-    onSuccess: () => {
-      setEditing(false);
-      setValue('');
-      void qc.invalidateQueries({ queryKey: keys.profile });
-    },
-  });
-
-  if (target === null || editing) {
+  if (target === null) {
     return (
       <Card>
         <h2 className="text-ink mb-1 text-[15px]">Goal weight</h2>
-        <p className="text-muted mb-4 text-[13px]">
-          Set one and the chart will show it, with an estimate of when your current
-          trend gets there.
+        <p className="text-muted text-[13px]">
+          Set one under Settings &rarr; About you, and it will be marked on the chart
+          with an estimate of when your current trend reaches it.
         </p>
-        <form
-          className="flex items-end gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (valid) save.mutate(parsed);
-          }}
-        >
-          <div className="flex-1">
-            <Field
-              label="Target"
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              inputMode="decimal"
-              suffix="kg"
-              placeholder={target === null ? '—' : String(round(target))}
-              autoFocus={editing}
-              autoSelect
-              invalid={value !== '' && !valid}
-            />
-          </div>
-          <Button type="submit" disabled={!valid || save.isPending}>
-            {save.isPending ? 'Saving…' : 'Set'}
-          </Button>
-          {editing && (
-            <Button type="button" variant="ghost" onClick={() => setEditing(false)}>
-              Cancel
-            </Button>
-          )}
-        </form>
-        {save.error instanceof ApiError && (
-          <p className="mt-2">
-            <ErrorNote>{save.error.message}</ErrorNote>
-          </p>
-        )}
       </Card>
     );
   }
@@ -331,26 +277,6 @@ function GoalCard({
             <span className="text-muted ml-1 text-sm font-normal">kg</span>
           </p>
           <p className="text-faint text-xs">Goal</p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            variant="ghost"
-            className="min-h-9 px-3 text-[13px]"
-            onClick={() => {
-              setValue(String(round(target)));
-              setEditing(true);
-            }}
-          >
-            Change
-          </Button>
-          <Button
-            variant="ghost"
-            className="min-h-9 px-3 text-[13px]"
-            onClick={() => save.mutate(null)}
-            disabled={save.isPending}
-          >
-            Clear
-          </Button>
         </div>
       </div>
       <p className="text-muted mt-3 text-[13px] leading-relaxed">

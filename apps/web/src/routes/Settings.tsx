@@ -1,5 +1,6 @@
 import {
   ACTIVITY_LEVEL_KEYS,
+  round,
   SEXES,
   WEIGHT_GOALS,
   type WeightGoal,
@@ -591,6 +592,7 @@ function ProfileCard() {
   const [birthDate, setBirthDate] = useState('');
   const [heightCm, setHeightCm] = useState('');
   const [activityLevel, setActivityLevel] = useState<ActivityLevel | ''>('');
+  const [targetWeight, setTargetWeight] = useState('');
 
   useEffect(() => {
     if (!profile.data) return;
@@ -598,6 +600,9 @@ function ProfileCard() {
     setBirthDate(profile.data.birthDate ?? '');
     setHeightCm(profile.data.heightCm === null ? '' : String(profile.data.heightCm));
     setActivityLevel(profile.data.activityLevel ?? '');
+    setTargetWeight(
+      profile.data.targetWeightKg === null ? '' : String(profile.data.targetWeightKg),
+    );
   }, [profile.data]);
 
   const save = useMutation({
@@ -607,10 +612,9 @@ function ProfileCard() {
         birthDate: birthDate === '' ? null : birthDate,
         heightCm: heightCm === '' ? null : Number(heightCm),
         activityLevel: activityLevel === '' ? null : activityLevel,
-        // Carried through untouched. The goal weight is set on the weight
-        // screen, and a PUT of the whole profile would otherwise clear it
-        // every time this form is saved.
-        targetWeightKg: profile.data?.targetWeightKg ?? null,
+        // Empty clears the goal, which is how you turn the projection off.
+        targetWeightKg:
+          targetWeight.trim() === '' ? null : Number(targetWeight.replace(',', '.')),
       }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: keys.profile });
@@ -621,7 +625,12 @@ function ProfileCard() {
   return (
     <Disclosure
       title="About you"
-      description="Only used to estimate your daily energy use."
+      hint={
+        profile.data?.targetWeightKg
+          ? `${round(profile.data.targetWeightKg)} kg goal`
+          : undefined
+      }
+      description="Used to estimate your daily energy use, and to work out when your weight goal is in reach."
     >
       <form
         className="space-y-3"
@@ -654,6 +663,15 @@ function ProfileCard() {
           value={activityLevel}
           onChange={(v) => setActivityLevel(v as ActivityLevel | '')}
           options={ACTIVITY_LEVEL_KEYS.map((k) => [k, ACTIVITY_LABELS[k]])}
+        />
+        <Field
+          label="Goal weight"
+          suffix="kg"
+          inputMode="decimal"
+          value={targetWeight}
+          onChange={(e) => setTargetWeight(e.target.value)}
+          placeholder="—"
+          hint="The weight screen marks this on the chart and estimates when your trend reaches it. Leave empty for no goal."
         />
 
         {save.error instanceof ApiError && <ErrorNote>{save.error.message}</ErrorNote>}
