@@ -292,9 +292,7 @@ function projectionSentence(
   entries: number,
 ): string {
   if (!p || p.status === 'insufficient') {
-    return entries === 0
-      ? 'Log a few weights.'
-      : 'A week of readings and an estimate appears.';
+    return entries === 0 ? 'Log a few weights.' : 'Need more data.';
   }
 
   const rate = `${Math.abs(round(p.kgPerWeek, 2))} kg/week`;
