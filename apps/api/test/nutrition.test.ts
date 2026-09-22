@@ -341,9 +341,16 @@ describe('projectWeight', () => {
   });
 
   it('will not fit a line to too short a span', () => {
-    // Five readings in three days says nothing about a month from now.
+    // Four readings in three days says nothing about a month from now.
     const p = projectWeight(run(85, -0.5, 3), 80, on(3));
     assert.equal(p.status, 'insufficient');
+  });
+
+  it('starts estimating after a week', () => {
+    // Early and rough beats no date at all, so a week is the floor.
+    const p = projectWeight(run(85, -0.5, 7), 80, on(7));
+    assert.equal(p.status, 'on-track');
+    assert.ok((p.daysToTarget as number) > 0);
   });
 
   it('accepts readings in any order', () => {

@@ -275,9 +275,14 @@ export interface WeightProjection {
 const FLAT_KG_PER_WEEK = 0.05;
 /** Within this of the target, call it arrived. */
 const ARRIVED_KG = 0.25;
-/** A line needs both enough readings and enough time to mean anything. */
+/**
+ * A line needs both enough readings and enough time to mean anything. A week
+ * is early -- daily weight swings by more than a week's worth of real change,
+ * so the first estimate will move a lot as readings accumulate -- but an early
+ * rough date is more use than no date at all.
+ */
 const MIN_POINTS = 4;
-const MIN_SPAN_DAYS = 14;
+const MIN_SPAN_DAYS = 7;
 
 const dayNumber = (dateKey: string): number => {
   const [y, m, d] = dateKey.split('-').map(Number) as [number, number, number];

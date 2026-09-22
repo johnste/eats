@@ -293,42 +293,27 @@ function projectionSentence(
 ): string {
   if (!p || p.status === 'insufficient') {
     return entries === 0
-      ? 'Log a few weights and an estimate will appear here.'
-      : 'Keep logging — an estimate needs a fortnight of readings to be worth anything.';
+      ? 'Log a few weights.'
+      : 'A week of readings and an estimate appears.';
   }
 
-  const rate = `${Math.abs(round(p.kgPerWeek, 2))} kg a week`;
+  const rate = `${Math.abs(round(p.kgPerWeek, 2))} kg/week`;
 
-  if (p.status === 'reached')
-    return `You are there. Holding around ${round(target)} kg.`;
-  if (p.status === 'flat') {
-    return `Holding steady near ${round(p.currentKg, 1)} kg, so there is no date to give yet.`;
-  }
+  if (p.status === 'reached') return 'Reached.';
+  if (p.status === 'flat') return 'Holding steady — no date yet.';
   if (p.status === 'wrong-way') {
-    const way = p.kgPerWeek > 0 ? 'gaining' : 'losing';
-    return `The trend is ${way} ${rate}, which is away from ${round(target)} kg.`;
+    return `${p.kgPerWeek > 0 ? 'Gaining' : 'Losing'} ${rate} — heading away from ${round(target)} kg.`;
   }
 
   const days = p.daysToTarget ?? 0;
-  if (days > 730) {
-    return `At ${rate} this is more than two years off — worth a bigger change than the scale will show.`;
-  }
-  return `At ${rate}, around ${longDate(p.reachedOn as string)} — about ${humanSpan(days)} away.`;
+  if (days > 730) return `Over two years at ${rate}.`;
+  return `${shortDate(p.reachedOn as string)} at ${rate}, about ${humanSpan(days)} away.`;
 }
 
 function humanSpan(days: number): string {
   if (days < 14) return `${days} days`;
   if (days < 70) return `${Math.round(days / 7)} weeks`;
   return `${Math.round(days / 30.4)} months`;
-}
-
-function longDate(date: string): string {
-  const [y, m, d] = date.split('-').map(Number) as [number, number, number];
-  return new Date(y, m - 1, d).toLocaleDateString(undefined, {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
 }
 
 /** Trailing mean over the last `AVERAGE_DAYS` entries, once enough exist. */
