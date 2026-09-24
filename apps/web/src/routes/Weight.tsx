@@ -15,12 +15,13 @@ import { BottomBar, BottomBarSpacer } from '../components/BottomBar.tsx';
 import { Button, Card, Empty, ErrorNote, Field, Spinner } from '../components/ui.tsx';
 import { api, ApiError } from '../lib/api.ts';
 import { keys, useProfile, WEIGHT_WINDOW_DAYS } from '../lib/queries.ts';
+import { useToday } from '../lib/useToday.ts';
 
 const AVERAGE_DAYS = 7;
 
 export function Weight() {
   const qc = useQueryClient();
-  const today = toDateKey();
+  const today = useToday();
   const from = addDays(today, -WEIGHT_WINDOW_DAYS);
   const [value, setValue] = useState('');
 

@@ -18,6 +18,7 @@ import {
 import { Card, Empty, ErrorNote, Spinner } from '../components/ui.tsx';
 import { useDay, useLogMutations, usePrefetchAdjacentDays } from '../lib/queries.ts';
 import { useSwipe } from '../lib/useSwipe.ts';
+import { useToday } from '../lib/useToday.ts';
 
 const MEAL_LABELS: Record<Meal, string> = {
   breakfast: 'Breakfast',
@@ -26,8 +27,7 @@ const MEAL_LABELS: Record<Meal, string> = {
   snack: 'Snacks',
 };
 
-function humanDate(date: string): string {
-  const today = toDateKey();
+function humanDate(date: string, today: string): string {
   if (date === today) return 'Today';
   if (date === addDays(today, -1)) return 'Yesterday';
   if (date === addDays(today, 1)) return 'Tomorrow';
@@ -42,7 +42,9 @@ function humanDate(date: string): string {
 export function Today() {
   const params = useParams<{ date?: string }>();
   const navigate = useNavigate();
-  const date = params.date ?? toDateKey();
+  // Live, so an app resumed the next morning is not still showing yesterday.
+  const today = useToday();
+  const date = params.date ?? today;
   const day = useDay(date);
   const { remove } = useLogMutations(date);
 
@@ -76,12 +78,12 @@ export function Today() {
 
   const go = (delta: number) => {
     // Nothing to log in the future, so forward stops at today.
-    if (delta > 0 && date >= toDateKey()) return;
+    if (delta > 0 && date >= today) return;
     const next = addDays(date, delta);
-    navigate(next === toDateKey() ? '/' : `/day/${next}`);
+    navigate(next === today ? '/' : `/day/${next}`);
   };
 
-  const canForward = date < toDateKey();
+  const canForward = date < today;
   const { swipe, handlers } = useSwipe({
     onLeft: () => go(1),
     onRight: () => go(-1),
@@ -108,7 +110,7 @@ export function Today() {
               swipe.willCommit ? 'text-accent' : 'text-faint'
             }`}
           >
-            {humanDate(peekDate)}
+            {humanDate(peekDate, today)}
           </span>
         </div>
       )}
@@ -142,9 +144,9 @@ export function Today() {
           <StepButton label="Previous day" onClick={() => go(-1)} d="M15 18l-6-6 6-6" />
           <div className="text-center">
             <h1 className="text-ink text-[17px] leading-tight font-semibold">
-              {humanDate(date)}
+              {humanDate(date, today)}
             </h1>
-            {humanDate(date) !== date && (
+            {humanDate(date, today) !== date && (
               <p className="text-faint nums text-[11px]">{date}</p>
             )}
           </div>
@@ -152,7 +154,7 @@ export function Today() {
             label="Next day"
             onClick={() => go(1)}
             d="M9 18l6-6-6-6"
-            disabled={date >= toDateKey()}
+            disabled={date >= today}
           />
         </header>
 

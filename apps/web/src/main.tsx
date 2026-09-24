@@ -11,7 +11,12 @@ const queryClient = new QueryClient({
       // connections are worth being frugal with.
       staleTime: 60_000,
       retry: 1,
-      refetchOnWindowFocus: false,
+      // Installed on a phone the app is resumed far more often than it is
+      // loaded, and a resume is exactly when the data is most likely to have
+      // moved on -- food logged from a chat, or on another device. staleTime
+      // still applies, so flicking between apps costs nothing; coming back
+      // after a minute or more refetches.
+      refetchOnWindowFocus: true,
     },
   },
 });

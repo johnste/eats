@@ -2,6 +2,7 @@ import { guessMeal, toDateKey, type Meal } from '@eats/shared';
 import { useSearchParams } from 'react-router';
 import { useNavigate } from 'react-router';
 import { FoodPicker } from '../components/FoodPicker.tsx';
+import { useToday } from '../lib/useToday.ts';
 
 /**
  * The Add tab. The same picker the day view opens inline, given the whole
@@ -10,7 +11,8 @@ import { FoodPicker } from '../components/FoodPicker.tsx';
 export function Add() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
-  const date = params.get('date') ?? toDateKey();
+  const today = useToday();
+  const date = params.get('date') ?? today;
   const meal = (params.get('meal') as Meal | null) ?? guessMeal();
   const focusToken = params.get('focus');
 
@@ -22,7 +24,7 @@ export function Add() {
         meal={meal}
         variant="page"
         autoFocusToken={focusToken ?? undefined}
-        onDone={() => navigate(date === toDateKey() ? '/' : `/day/${date}`)}
+        onDone={() => navigate(date === today ? '/' : `/day/${date}`)}
       />
     </>
   );
