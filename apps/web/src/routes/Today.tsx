@@ -1,5 +1,6 @@
 import {
   addDays,
+  MEALS,
   round,
   toDateKey,
   type LogEntryResponse,
@@ -19,6 +20,25 @@ import { Card, Empty, ErrorNote, Spinner } from '../components/ui.tsx';
 import { useDay, useLogMutations, usePrefetchAdjacentDays } from '../lib/queries.ts';
 import { useSwipe } from '../lib/useSwipe.ts';
 import { useToday } from '../lib/useToday.ts';
+
+const COLLAPSED_KEY = 'eats:collapsed-meals';
+
+/**
+ * Which meals are folded shut. Kept in localStorage: "I don't need to see
+ * what's in breakfast" is a standing preference, not something to redo every
+ * time the app opens.
+ */
+function loadCollapsed(): Meal[] {
+  try {
+    const parsed: unknown = JSON.parse(localStorage.getItem(COLLAPSED_KEY) ?? '[]');
+    return Array.isArray(parsed)
+      ? parsed.filter((m): m is Meal => MEALS.includes(m as Meal))
+      : [];
+  } catch {
+    // Unavailable or corrupt. Not worth failing a screen over.
+    return [];
+  }
+}
 
 const MEAL_LABELS: Record<Meal, string> = {
   breakfast: 'Breakfast',
@@ -58,6 +78,20 @@ export function Today() {
   // Which meal has the add panel open, if any. One at a time: two open
   // panels would push the day off the screen and neither would be in view.
   const [adding, setAdding] = useState<Meal | null>(null);
+  const [collapsed, setCollapsed] = useState<Meal[]>(loadCollapsed);
+
+  const setFolded = (meal: Meal, folded: boolean) =>
+    setCollapsed((prev) => {
+      const next = folded
+        ? [...new Set([...prev, meal])]
+        : prev.filter((m) => m !== meal);
+      try {
+        localStorage.setItem(COLLAPSED_KEY, JSON.stringify(next));
+      } catch {
+        // Preference lost on reload, which beats the screen falling over.
+      }
+      return next;
+    });
   // Which measure the meal sections are reported in. Calories by default,
   // because that is the question most days.
   const [focus, setFocus] = useState<MacroFocus>('kcal');
@@ -188,11 +222,41 @@ export function Today() {
                   fatG: entries.reduce((a, e) => a + e.fatG, 0),
                 };
 
+                const folded = collapsed.includes(meal) && entries.length > 0;
+
                 return (
                   <section key={meal} className="px-4 py-3">
                     <div className="flex items-center justify-between gap-3">
-                      <h2 className="text-ink shrink-0 text-sm font-semibold">
-                        {MEAL_LABELS[meal]}
+                      {/* Heading wrapping a button is the accordion pattern:
+                          the heading stays a heading for anything outlining
+                          the page, and the button is what gets pressed. */}
+                      <h2 className="shrink-0 text-sm font-semibold">
+                        <button
+                          type="button"
+                          onClick={() => setFolded(meal, !folded)}
+                          disabled={entries.length === 0}
+                          aria-expanded={entries.length > 0 ? !folded : undefined}
+                          aria-controls={`${meal}-entries`}
+                          className="text-ink flex items-center gap-1 py-1"
+                        >
+                          {MEAL_LABELS[meal]}
+                          {entries.length > 0 && (
+                            <svg
+                              viewBox="0 0 24 24"
+                              className={`text-faint size-3 transition-transform ${
+                                folded ? '' : 'rotate-180'
+                              }`}
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              aria-hidden
+                            >
+                              <path d="M6 9l6 6 6-6" />
+                            </svg>
+                          )}
+                        </button>
                       </h2>
                       {entries.length > 0 && (
                         <MacroSplit {...split} className="w-14 shrink-0" />
@@ -214,7 +278,10 @@ export function Today() {
                               : `Add to ${MEAL_LABELS[meal]}`
                           }
                           aria-expanded={adding === meal}
-                          onClick={() => setAdding(adding === meal ? null : meal)}
+                          onClick={() => {
+                            if (adding !== meal) setFolded(meal, false);
+                            setAdding(adding === meal ? null : meal);
+                          }}
                           className={`grid size-7 place-items-center rounded-full text-base leading-none transition-transform ${
                             adding === meal
                               ? 'bg-accent text-surface rotate-45'
@@ -226,8 +293,8 @@ export function Today() {
                       </div>
                     </div>
 
-                    {entries.length > 0 && (
-                      <ul className="mt-1.5 space-y-0.5">
+                    {entries.length > 0 && !folded && (
+                      <ul id={`${meal}-entries`} className="mt-1.5 space-y-0.5">
                         {entries.map((entry) => (
                           <li
                             key={entry.id}
