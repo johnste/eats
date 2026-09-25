@@ -77,6 +77,24 @@ export const useBrands = () =>
 
 export const useGoals = () => useQuery({ queryKey: keys.goals, queryFn: api.goals });
 
+/**
+ * Maintenance calories: what holds your weight steady. Null when the profile
+ * is too thin to work one out -- the endpoint answers 409 rather than
+ * guessing, and a missing number here just means the day view says less.
+ *
+ * Barely moves, so it is cached for an hour and never retried; a 409 is an
+ * answer, not a failure worth asking twice about.
+ */
+export function useMaintenance(): number | null {
+  const q = useQuery({
+    queryKey: keys.tdee('maintain', 0),
+    queryFn: () => api.tdee('maintain', 0),
+    retry: false,
+    staleTime: 60 * 60_000,
+  });
+  return q.data ? Math.round(q.data.tdee) : null;
+}
+
 export const useProfile = () =>
   useQuery({ queryKey: keys.profile, queryFn: api.profile });
 
@@ -101,6 +119,11 @@ export function useWarmCache(enabled: boolean): void {
       queryFn: () => api.recentFoods(meal),
     });
     void qc.prefetchQuery({ queryKey: keys.goals, queryFn: api.goals });
+    void qc.prefetchQuery({
+      queryKey: keys.tdee('maintain', 0),
+      queryFn: () => api.tdee('maintain', 0),
+      retry: false,
+    });
     void qc.prefetchQuery({
       queryKey: keys.weights(from, today),
       queryFn: () => api.weights(from, today),

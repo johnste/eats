@@ -142,11 +142,14 @@ function BarRow({
 export function DaySummary({
   totals,
   goal,
+  maintenance,
   focus,
   onFocus,
 }: {
   totals: { kcal: number; proteinG: number; carbsG: number; fatG: number };
   goal: { calories: number; proteinG: number; carbsG: number; fatG: number } | null;
+  /** What holds your weight steady; null when it cannot be worked out. */
+  maintenance: number | null;
   focus: MacroFocus;
   onFocus: (focus: MacroFocus) => void;
 }) {
@@ -154,7 +157,15 @@ export function DaySummary({
   const target = goal?.calories ?? null;
   const remaining = target === null ? null : Math.round(target - kcal);
   const pct = target && target > 0 ? Math.min(kcal / target, 1) * 100 : 0;
-  const over = target !== null && kcal > target;
+  const overGoal = target !== null && kcal > target;
+  const overMaintenance = maintenance !== null && kcal > maintenance;
+
+  // Passing the goal is not the failure; passing maintenance is. A day over
+  // target but under maintenance still moves the weight in the right
+  // direction, just more slowly, so it is reported rather than flagged.
+  // Without a maintenance figure there is no second line to fall back on,
+  // and over target is all that can be said.
+  const alarmed = maintenance === null ? overGoal : overMaintenance;
 
   return (
     <div className="space-y-3">
@@ -166,13 +177,26 @@ export function DaySummary({
           </span>
         </p>
         {remaining !== null && (
-          <p
-            className={`nums shrink-0 text-[13px] font-medium ${
-              remaining < 0 ? 'text-danger' : 'text-muted'
-            }`}
-          >
-            {remaining < 0 ? `${Math.abs(remaining)} over` : `${remaining} left`}
-          </p>
+          <div className="shrink-0 text-right">
+            <p
+              className={`nums text-[13px] font-medium ${
+                alarmed ? 'text-danger' : 'text-muted'
+              }`}
+            >
+              {remaining < 0 ? `${Math.abs(remaining)} over goal` : `${remaining} left`}
+            </p>
+            {overGoal && maintenance !== null && (
+              <p
+                className={`nums text-[11px] ${
+                  overMaintenance ? 'text-danger' : 'text-faint'
+                }`}
+              >
+                {overMaintenance
+                  ? `${kcal - maintenance} over maintenance`
+                  : `${maintenance - kcal} under maintenance`}
+              </p>
+            )}
+          </div>
         )}
       </div>
 
@@ -188,14 +212,19 @@ export function DaySummary({
         aria-label={
           target === null
             ? `${kcal} calories, no goal set`
-            : `${kcal} of ${target} calories`
+            : `${kcal} of ${target} calories` +
+              (overGoal && maintenance !== null
+                ? overMaintenance
+                  ? `, ${kcal - maintenance} over maintenance`
+                  : `, still ${maintenance - kcal} under maintenance`
+                : '')
         }
       >
         <span
           className="block h-full rounded-full transition-[width] duration-500"
           style={{
             width: `${pct}%`,
-            background: over ? 'var(--color-danger)' : 'var(--color-accent)',
+            background: alarmed ? 'var(--color-danger)' : 'var(--color-accent)',
           }}
         />
       </button>

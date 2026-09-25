@@ -17,7 +17,12 @@ import {
   type MacroFocus,
 } from '../components/Macros.tsx';
 import { Card, Empty, ErrorNote, Spinner } from '../components/ui.tsx';
-import { useDay, useLogMutations, usePrefetchAdjacentDays } from '../lib/queries.ts';
+import {
+  useDay,
+  useLogMutations,
+  useMaintenance,
+  usePrefetchAdjacentDays,
+} from '../lib/queries.ts';
 import { useSwipe } from '../lib/useSwipe.ts';
 import { useToday } from '../lib/useToday.ts';
 
@@ -66,6 +71,7 @@ export function Today() {
   const today = useToday();
   const date = params.date ?? today;
   const day = useDay(date);
+  const maintenance = useMaintenance();
   const { remove } = useLogMutations(date);
 
   // Swiping should land on data that is already here, not on a spinner.
@@ -201,6 +207,7 @@ export function Today() {
               <DaySummary
                 totals={day.data.totals}
                 goal={day.data.goal}
+                maintenance={maintenance}
                 focus={focus}
                 onFocus={setFocus}
               />
