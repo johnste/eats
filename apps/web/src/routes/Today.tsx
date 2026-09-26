@@ -23,6 +23,7 @@ import {
   useMaintenance,
   usePrefetchAdjacentDays,
 } from '../lib/queries.ts';
+import { useMealDrag } from '../lib/useMealDrag.ts';
 import { useSwipe } from '../lib/useSwipe.ts';
 import { useToday } from '../lib/useToday.ts';
 
@@ -72,7 +73,19 @@ export function Today() {
   const date = params.date ?? today;
   const day = useDay(date);
   const maintenance = useMaintenance();
-  const { remove } = useLogMutations(date);
+  const { remove, update } = useLogMutations(date);
+
+  // Dragging an entry onto another meal. The sheet behind a tap does the
+  // same thing and is the accessible route; this is the shortcut.
+  const drag = useMealDrag((entryId, meal) => {
+    const entry = day.data
+      ? Object.values(day.data.meals)
+          .flat()
+          .find((e) => e.id === entryId)
+      : undefined;
+    if (!entry) return;
+    update.mutate({ id: entryId, grams: entry.grams, meal, loggedOn: date });
+  });
 
   // Swiping should land on data that is already here, not on a spinner.
   usePrefetchAdjacentDays(date);
@@ -129,6 +142,9 @@ export function Today() {
     onRight: () => go(-1),
     canLeft: canForward,
     canRight: true,
+    // A drag owns the gesture while it lasts, or the day would change
+    // underneath the entry being moved.
+    enabled: drag.state === null,
   });
 
   // Pulling from the right edge reveals the previous day, and vice versa.
@@ -231,8 +247,16 @@ export function Today() {
 
                 const folded = collapsed.includes(meal) && entries.length > 0;
 
+                const targeted = drag.state !== null && drag.state.over === meal;
+
                 return (
-                  <section key={meal} className="px-4 py-3">
+                  <section
+                    key={meal}
+                    ref={drag.register(meal)}
+                    className={`px-4 py-3 transition-colors ${
+                      targeted && drag.state?.from !== meal ? 'bg-accent-soft' : ''
+                    }`}
+                  >
                     <div className="flex items-center justify-between gap-3">
                       {/* Heading wrapping a button is the accordion pattern:
                           the heading stays a heading for anything outlining
@@ -305,12 +329,24 @@ export function Today() {
                         {entries.map((entry) => (
                           <li
                             key={entry.id}
-                            className="group flex items-center gap-2 py-1"
+                            className={`group flex items-center gap-2 py-1 transition-opacity ${
+                              drag.state?.entryId === entry.id ? 'opacity-40' : ''
+                            }`}
                           >
                             <button
                               type="button"
-                              onClick={() => setEditing(entry)}
-                              className="min-w-0 flex-1 text-left"
+                              {...drag.rowProps({
+                                id: entry.id,
+                                label: entry.food.name,
+                                meal,
+                              })}
+                              onClick={() => {
+                                // The press that ended a drag must not also
+                                // open the sheet behind it.
+                                if (drag.consumeClick()) return;
+                                setEditing(entry);
+                              }}
+                              className="min-w-0 flex-1 touch-none text-left select-none"
                             >
                               <span className="text-ink block truncate text-[13px] leading-tight">
                                 {entry.food.name}
@@ -431,6 +467,20 @@ export function Today() {
           </div>
         )}
       </div>
+
+      {drag.state && (
+        <div
+          aria-hidden
+          className="bg-raised border-accent text-ink pointer-events-none fixed z-50 max-w-[60vw] truncate rounded-xl border-2 px-3 py-2 text-[13px] font-medium shadow-lg"
+          style={{
+            left: drag.state.x,
+            top: drag.state.y,
+            transform: 'translate(-50%, -140%)',
+          }}
+        >
+          {drag.state.label}
+        </div>
+      )}
 
       {editing && (
         <EntrySheet entry={editing} date={date} onClose={() => setEditing(null)} />

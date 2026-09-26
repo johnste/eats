@@ -56,8 +56,10 @@ export function useSwipe(handlers: {
   onRight?: () => void;
   canLeft?: boolean;
   canRight?: boolean;
+  /** Off while something else owns the gesture, such as dragging an entry. */
+  enabled?: boolean;
 }) {
-  const { canLeft = true, canRight = true } = handlers;
+  const { canLeft = true, canRight = true, enabled = true } = handlers;
   const start = useRef<{ x: number; y: number } | null>(null);
   const axis = useRef<'undecided' | 'horizontal' | 'vertical'>('undecided');
   const [state, setState] = useState<SwipeState>(AT_REST);
@@ -78,7 +80,7 @@ export function useSwipe(handlers: {
     handlers: {
       onTouchStart: (e: TouchEvent) => {
         const touch = e.touches[0];
-        if (!touch) return;
+        if (!enabled || !touch) return;
         start.current = { x: touch.clientX, y: touch.clientY };
         axis.current = 'undecided';
       },
