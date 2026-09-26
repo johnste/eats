@@ -144,7 +144,7 @@ function AgentAccessCard() {
       hint={
         connections.data?.length ? `${connections.data.length} connected` : undefined
       }
-      description="Let an AI assistant search foods, log a meal, and read back your day. It cannot see your history or weights, and cannot delete anything."
+      description="Let an AI assistant search foods, log meals, and read back today and yesterday — including moving or removing entries it got wrong. It cannot reach further back than yesterday, see your weight, or change your account."
     >
       <div className="bg-surface border-line mb-4 rounded-xl border p-3">
         <p className="text-muted mb-1 text-[11px] font-medium">Address</p>

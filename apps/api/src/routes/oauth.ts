@@ -351,10 +351,11 @@ export const oauthRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
          <ul>
            <li>Search foods you and Eats already know about</li>
            <li>Add food to a meal on your log</li>
-           <li>Read back what you have eaten today</li>
+           <li>Read back today and yesterday</li>
+           <li>Move or remove entries on those two days</li>
          </ul>
-         <p>It cannot see your weight or past days, cannot delete anything,
-            and cannot change your account.</p>
+         <p>It cannot reach further back than yesterday, cannot see your
+            weight, and cannot change your account.</p>
          <form method="post" action="/oauth/authorize">
            ${hidden}
            <input type="hidden" name="csrf" value="${esc(csrf)}">

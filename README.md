@@ -71,10 +71,24 @@ Re-running updates rather than duplicates.
 ## Agent access (MCP)
 
 The server speaks MCP over Streamable HTTP at `POST /mcp` — for the deployed
-app, `https://eats.example.com/mcp`. Three tools: `search_foods`, `log_food`
-(by `foodId`, or by name plus per-100g macros for something not in the
-database) and `get_today`. There is no SSE stream, so `GET /mcp` answers 405;
-nothing here is server-initiated.
+app, `https://eats.example.com/mcp`. There is no SSE stream, so `GET /mcp`
+answers 405; nothing here is server-initiated.
+
+| Tool | Does |
+|---|---|
+| `search_foods` | Find a food already known to the app |
+| `log_food` | By `foodId`, or name plus per-100g macros for something new |
+| `get_day` | Totals, goal and every entry with its id |
+| `move_entry` | Change an entry's meal, day or amount |
+| `delete_entry` | Remove an entry |
+
+**An agent can only touch today and yesterday.** `isEditableDay` gates every
+one of those tools, on the day being named *and* on the day an entry
+currently sits on — otherwise an old day could be emptied an entry at a time
+without its date ever being mentioned. The reasoning is that an agent
+correcting a mistake is working from what it remembers of the conversation,
+which reaches about as far back as last night; past that a confident edit is
+a guess, and a guess that rewrites a week-old day is worse than no edit.
 
 There are two ways to authenticate, because clients differ in what they can do.
 
@@ -144,9 +158,10 @@ would try, and no rate limit rescues a secret that is in that set.
 
 ### Either way
 
-An agent can log food but cannot read history or weights, cannot delete
-anything, and cannot touch the account. Revoking takes effect on the next
-request.
+An agent can log, correct and remove food on today and yesterday. It cannot
+reach further back, cannot see your weight, and cannot touch the account.
+Every lookup is scoped to the token's owner, so an id from another account
+resolves to nothing. Revoking takes effect on the next request.
 
 Two things that are easy to get wrong and fail silently:
 

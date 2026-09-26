@@ -2,7 +2,14 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { AttemptLimiter } from '../src/lib/attempts.ts';
 import { WORD_COUNT } from '../src/lib/passphrase.ts';
-import { logArgs, searchArgs, TOOLS } from '../src/routes/mcp.ts';
+import {
+  deleteArgs,
+  isEditableDay,
+  logArgs,
+  moveArgs,
+  searchArgs,
+  TOOLS,
+} from '../src/routes/mcp.ts';
 import {
   generatePassphrase,
   MIN_SECRET_LENGTH,
@@ -174,7 +181,7 @@ describe('mcp tool declarations', () => {
   it('describes every tool well enough for an agent to use it unprompted', () => {
     assert.deepEqual(
       TOOLS.map((t) => t.name),
-      ['search_foods', 'log_food', 'get_today'],
+      ['search_foods', 'log_food', 'get_day', 'move_entry', 'delete_entry'],
     );
     for (const tool of TOOLS) {
       assert.ok(tool.description.length > 80, `${tool.name} needs a real description`);
@@ -200,6 +207,77 @@ describe('mcp tool declarations', () => {
     // call time, which a JSON Schema `required` list cannot express.
     assert.deepEqual(required.log_food, ['grams', 'meal']);
     // Defaults to today, which is the whole point of the tool.
-    assert.deepEqual(required.get_today, []);
+    assert.deepEqual(required.get_day, []);
+    // Both editing tools need to be told what to act on, and nothing else.
+    assert.deepEqual(required.move_entry, ['entryId']);
+    assert.deepEqual(required.delete_entry, ['entryId']);
+  });
+});
+
+describe('what an agent may edit', () => {
+  const today = '2026-09-25';
+
+  it('allows today and yesterday', () => {
+    assert.ok(isEditableDay('2026-09-25', today));
+    assert.ok(isEditableDay('2026-09-24', today));
+  });
+
+  it('refuses anything older', () => {
+    // An agent correcting a mistake is working from what it remembers of the
+    // conversation. Past yesterday that is a guess, and a guess should not be
+    // allowed to rewrite a day.
+    for (const old of ['2026-09-23', '2026-09-01', '2025-12-31']) {
+      assert.equal(isEditableDay(old, today), false, old);
+    }
+  });
+
+  it('refuses the future', () => {
+    assert.equal(isEditableDay('2026-09-26', today), false);
+  });
+
+  it('crosses a month boundary correctly', () => {
+    assert.ok(isEditableDay('2026-08-31', '2026-09-01'));
+    assert.equal(isEditableDay('2026-08-30', '2026-09-01'), false);
+  });
+
+  it('crosses a year boundary correctly', () => {
+    assert.ok(isEditableDay('2025-12-31', '2026-01-01'));
+    assert.equal(isEditableDay('2025-12-30', '2026-01-01'), false);
+  });
+});
+
+describe('move and delete arguments', () => {
+  const id = '550e8400-e29b-41d4-a716-446655440000';
+
+  it('moves an entry to another meal', () => {
+    assert.ok(moveArgs.safeParse({ entryId: id, meal: 'breakfast' }).success);
+  });
+
+  it('takes any one correction on its own', () => {
+    for (const change of [{ meal: 'lunch' }, { date: '2026-09-24' }, { grams: 80 }]) {
+      assert.ok(moveArgs.safeParse({ entryId: id, ...change }).success);
+    }
+  });
+
+  it('rejects a date that is not a date', () => {
+    assert.ok(!moveArgs.safeParse({ entryId: id, date: 'yesterday' }).success);
+    assert.ok(!moveArgs.safeParse({ entryId: id, date: '25/09/2026' }).success);
+  });
+
+  it('rejects an entry id that is not one', () => {
+    assert.ok(!moveArgs.safeParse({ entryId: '42' }).success);
+    assert.ok(!deleteArgs.safeParse({ entryId: '' }).success);
+  });
+
+  it('rejects a correction that would poison the total', () => {
+    assert.ok(!moveArgs.safeParse({ entryId: id, grams: 0 }).success);
+    assert.ok(!moveArgs.safeParse({ entryId: id, grams: 9000 }).success);
+  });
+
+  it('lets log_food name a day, within the same rule', () => {
+    assert.ok(
+      logArgs.safeParse({ grams: 60, meal: 'lunch', date: '2026-09-24' }).success,
+    );
+    assert.ok(!logArgs.safeParse({ grams: 60, meal: 'lunch', date: 'nope' }).success);
   });
 });
