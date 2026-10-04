@@ -27,11 +27,29 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+/**
+ * Long enough for a slow phone connection, short enough to be an answer.
+ *
+ * Without one, fetch waits indefinitely, and a host that accepts the
+ * connection but never replies -- a wedged server rather than a missing one
+ * -- leaves every query pending forever. That is a spinner that never
+ * resolves, which tells you nothing; a timeout at least becomes an error the
+ * app can show.
+ */
+const TIMEOUT_MS = 15_000;
+/** Scanning uploads a photo and waits on OCR, which is legitimately slow. */
+const OCR_TIMEOUT_MS = 60_000;
+
+async function request<T>(
+  path: string,
+  init: RequestInit = {},
+  timeoutMs = TIMEOUT_MS,
+): Promise<T> {
   let res: Response;
   try {
     res = await fetch(`/api${path}`, {
       ...init,
+      signal: AbortSignal.timeout(timeoutMs),
       credentials: 'same-origin',
       // Only declare a JSON body when there is one. Sending the header with an
       // empty body makes Fastify reject the request outright, which silently
@@ -41,8 +59,16 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
           ? init.headers
           : { 'content-type': 'application/json', ...init.headers },
     });
-  } catch {
-    throw new ApiError("Can't reach the server. Check your connection.", 0);
+  } catch (err) {
+    // A timeout and a refused connection are different problems and deserve
+    // different sentences: one is the server, the other is probably you.
+    const timedOut = err instanceof DOMException && err.name === 'TimeoutError';
+    throw new ApiError(
+      timedOut
+        ? "The server isn't responding. It may be down — try again shortly."
+        : "Can't reach the server. Check your connection.",
+      0,
+    );
   }
 
   if (res.status === 204) return undefined as T;
@@ -118,7 +144,11 @@ export const api = {
   scanLabel: (file: File) => {
     const form = new FormData();
     form.append('image', file);
-    return request<OcrResponse>('/foods/ocr', { method: 'POST', body: form });
+    return request<OcrResponse>(
+      '/foods/ocr',
+      { method: 'POST', body: form },
+      OCR_TIMEOUT_MS,
+    );
   },
 
   profile: () => get<ProfileBody>('/profile'),

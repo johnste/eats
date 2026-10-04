@@ -2,7 +2,8 @@ import { type ComponentType, lazy, Suspense } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 import { UpdatePrompt } from './components/UpdatePrompt.tsx';
 import { TabBar } from './components/TabBar.tsx';
-import { Spinner } from './components/ui.tsx';
+import { Button, Spinner } from './components/ui.tsx';
+import { ApiError } from './lib/api.ts';
 import { useMe, useWarmCache } from './lib/queries.ts';
 import { Login } from './routes/Login.tsx';
 import { Today } from './routes/Today.tsx';
@@ -95,6 +96,27 @@ export function App() {
     return (
       <div className="grid min-h-dvh place-items-center">
         <Spinner label="" />
+      </div>
+    );
+  }
+
+  // Signed out is `null`; an error means we never found out. Showing the
+  // login form for the second would invite you to type a password at a
+  // server that cannot answer, and blame you when it fails.
+  if (me.isError) {
+    return (
+      <div className="grid min-h-dvh place-items-center px-6">
+        <div className="max-w-sm text-center">
+          <h1 className="text-ink text-lg font-semibold">Can't reach Eats</h1>
+          <p className="text-muted mt-1 mb-5 text-[13px]">
+            {me.error instanceof ApiError
+              ? me.error.message
+              : 'Something went wrong reaching the server.'}
+          </p>
+          <Button onClick={() => void me.refetch()} disabled={me.isFetching}>
+            {me.isFetching ? 'Trying…' : 'Try again'}
+          </Button>
+        </div>
       </div>
     );
   }
