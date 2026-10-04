@@ -1,10 +1,11 @@
 import {
   createLogBody,
   dateKey,
+  daysBetween,
+  daySummaryResponse,
   dayResponse,
   errorResponse,
   logEntryResponse,
-  macrosResponse,
   rangeQuery,
   updateLogBody,
 } from '@eats/shared';
@@ -15,10 +16,11 @@ import { z } from 'zod';
 import { type AppDeps, requireUser } from '../app.ts';
 import { foods, logEntries } from '../db/schema.ts';
 import {
-  dailyTotals,
+  daySummaries,
   entriesForRange,
   goalOn,
   groupByMeal,
+  MAX_SUMMARY_DAYS,
   snapshotFor,
   totalsOf,
 } from '../lib/log.ts';
@@ -66,7 +68,7 @@ export const logRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
       schema: {
         querystring: rangeQuery,
         response: {
-          200: z.array(macrosResponse.extend({ date: dateKey })),
+          200: z.array(daySummaryResponse),
           400: errorResponse,
         },
       },
@@ -77,13 +79,23 @@ export const logRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
       if (from > to) {
         return reply.status(400).send({ error: '`from` must not be after `to`.' });
       }
-      return dailyTotals(db, user.id, from, to);
+      if (daysBetween(from, to) > MAX_SUMMARY_DAYS) {
+        return reply
+          .status(400)
+          .send({ error: `Range is longer than ${MAX_SUMMARY_DAYS} days.` });
+      }
+      return daySummaries(db, user.id, from, to);
     },
   );
 
   r.post(
     '/',
-    { schema: { body: createLogBody, response: { 200: logEntryResponse, 404: errorResponse } } },
+    {
+      schema: {
+        body: createLogBody,
+        response: { 200: logEntryResponse, 404: errorResponse },
+      },
+    },
     async (req, reply) => {
       const user = await requireUser(req);
       const { foodId, grams, meal, loggedOn } = req.body;
@@ -161,7 +173,9 @@ export const logRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
           carbsG: macros.carbsG,
           fatG: macros.fatG,
         })
-        .where(and(eq(logEntries.id, existing.entry.id), eq(logEntries.userId, user.id)))
+        .where(
+          and(eq(logEntries.id, existing.entry.id), eq(logEntries.userId, user.id)),
+        )
         .returning();
       if (!row) throw new Error('log update returned no row');
 

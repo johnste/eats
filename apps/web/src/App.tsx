@@ -44,9 +44,14 @@ if (typeof sessionStorage !== 'undefined') {
  * barcode detector's WebAssembly, neither of which should be downloaded
  * before they are needed on a phone connection.
  */
-const Add = lazyRoute(() => import('./routes/Add.tsx').then((m) => ({ default: m.Add })));
+const Add = lazyRoute(() =>
+  import('./routes/Add.tsx').then((m) => ({ default: m.Add })),
+);
 const NewFood = lazyRoute(() =>
   import('./routes/NewFood.tsx').then((m) => ({ default: m.NewFood })),
+);
+const Trends = lazyRoute(() =>
+  import('./routes/Trends.tsx').then((m) => ({ default: m.Trends })),
 );
 const Weight = lazyRoute(() =>
   import('./routes/Weight.tsx').then((m) => ({ default: m.Weight })),
@@ -63,17 +68,18 @@ function Shell() {
       {/* Bottom padding clears the fixed tab bar plus the home indicator. */}
       <div className="mx-auto max-w-lg px-4 pt-4 pb-28">
         <Suspense fallback={<Spinner label="" />}>
-        <Routes>
-          <Route path="/" element={<Today />} />
-          <Route path="/day/:date" element={<Today />} />
-          <Route path="/add" element={<Add />} />
-          <Route path="/foods/new" element={<NewFood />} />
-          {/* Same form, populated. */}
-          <Route path="/foods/:id/edit" element={<NewFood />} />
-          <Route path="/weight" element={<Weight />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+          <Routes>
+            <Route path="/" element={<Today />} />
+            <Route path="/day/:date" element={<Today />} />
+            <Route path="/add" element={<Add />} />
+            <Route path="/foods/new" element={<NewFood />} />
+            {/* Same form, populated. */}
+            <Route path="/foods/:id/edit" element={<NewFood />} />
+            <Route path="/trends" element={<Trends />} />
+            <Route path="/weight" element={<Weight />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
         </Suspense>
       </div>
       <TabBar />
@@ -93,7 +99,5 @@ export function App() {
     );
   }
 
-  return (
-    <BrowserRouter>{me.data ? <Shell /> : <Login />}</BrowserRouter>
-  );
+  return <BrowserRouter>{me.data ? <Shell /> : <Login />}</BrowserRouter>;
 }

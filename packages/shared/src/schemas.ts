@@ -187,6 +187,31 @@ export const dayResponse = z.object({
 
 export const rangeQuery = z.object({ from: dateKey, to: dateKey });
 
+/**
+ * One row per day across a range, including days with nothing on them.
+ *
+ * Macros are null rather than zero for a day that was never logged: a blank
+ * day is an absence of data, and averaging it as a zero would quietly drag
+ * every number down. The goal is the one that was in force on that day --
+ * goals are append-only precisely so history keeps the target it was
+ * actually judged against.
+ */
+export const daySummaryResponse = z.object({
+  date: dateKey,
+  kcal: z.number().nullable(),
+  proteinG: z.number().nullable(),
+  carbsG: z.number().nullable(),
+  fatG: z.number().nullable(),
+  goal: z
+    .object({
+      calories: z.number(),
+      proteinG: z.number(),
+      carbsG: z.number(),
+      fatG: z.number(),
+    })
+    .nullable(),
+});
+
 /* ------------------------------------------------------------- weights --- */
 
 export const createWeightBody = z.object({
@@ -236,6 +261,7 @@ export type CreateLogBody = z.infer<typeof createLogBody>;
 export type UpdateLogBody = z.infer<typeof updateLogBody>;
 export type LogEntryResponse = z.infer<typeof logEntryResponse>;
 export type DayResponse = z.infer<typeof dayResponse>;
+export type DaySummaryResponse = z.infer<typeof daySummaryResponse>;
 export type CreateWeightBody = z.infer<typeof createWeightBody>;
 export type OcrResponse = z.infer<typeof ocrResponse>;
 export type OcrField = z.infer<typeof ocrField>;

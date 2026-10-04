@@ -38,6 +38,7 @@ export const keys = {
   profile: ['profile'] as const,
   tdee: (goal: string, kgPerWeek: number) => ['tdee', goal, kgPerWeek] as const,
   weights: (from: string, to: string) => ['weights', from, to] as const,
+  summary: (from: string, to: string) => ['summary', from, to] as const,
 };
 
 /** null means "definitely signed out", as opposed to "still loading". */

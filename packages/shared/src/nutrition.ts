@@ -382,3 +382,12 @@ export function projectWeight(
     reachedOn: addDays(today, days),
   };
 }
+
+/** Inclusive day count between two date keys. */
+export function daysBetween(from: string, to: string): number {
+  const n = (k: string) => {
+    const [y, m, d] = k.split('-').map(Number) as [number, number, number];
+    return Math.round(Date.UTC(y, m - 1, d) / 86_400_000);
+  };
+  return n(to) - n(from) + 1;
+}

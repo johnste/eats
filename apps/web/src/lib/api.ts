@@ -3,6 +3,7 @@ import type {
   CreateFoodBody,
   CreateLogBody,
   DayResponse,
+  DaySummaryResponse,
   FoodResponse,
   FoodSearchResponse,
   GoalBody,
@@ -78,15 +79,7 @@ export const api = {
 
   day: (date: string) => get<DayResponse>(`/log?date=${date}`),
   summary: (from: string, to: string) =>
-    get<
-      {
-        date: string;
-        kcal: number;
-        proteinG: number;
-        carbsG: number;
-        fatG: number;
-      }[]
-    >(`/log/summary?from=${from}&to=${to}`),
+    get<DaySummaryResponse[]>(`/log/summary?from=${from}&to=${to}`),
   addEntry: (body: CreateLogBody) => send<LogEntryResponse>('POST', '/log', body),
   updateEntry: (
     id: string,

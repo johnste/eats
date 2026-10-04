@@ -7,6 +7,7 @@ const TABS = [
     icon: 'M3 11l9-8 9 8v9a2 2 0 0 1-2 2h-4v-6H9v6H5a2 2 0 0 1-2-2z',
   },
   { to: '/add', label: 'Add', icon: 'M12 5v14M5 12h14' },
+  { to: '/trends', label: 'Trends', icon: 'M4 20V10M10 20V4M16 20v-7M22 20H2' },
   { to: '/weight', label: 'Weight', icon: 'M3 17l6-6 4 4 8-8' },
   {
     to: '/settings',

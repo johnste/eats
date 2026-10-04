@@ -6,6 +6,7 @@ import {
   targetCalories,
   atwaterAgrees,
   bmr,
+  daysBetween,
   guessMeal,
   kjToKcal,
   MEALS,
@@ -385,5 +386,28 @@ describe('projectWeight', () => {
         assert.equal(p.reachedOn, p.status === 'reached' ? on(56) : null);
       }
     }
+  });
+});
+
+describe('daysBetween', () => {
+  it('counts both ends', () => {
+    // A range is a set of days, not a subtraction: Monday to Monday is one
+    // day of history, and charting it should draw one bar.
+    assert.equal(daysBetween('2026-10-04', '2026-10-04'), 1);
+    assert.equal(daysBetween('2026-09-28', '2026-10-04'), 7);
+  });
+
+  it('crosses months and years', () => {
+    assert.equal(daysBetween('2026-01-31', '2026-02-01'), 2);
+    assert.equal(daysBetween('2025-12-31', '2026-01-01'), 2);
+  });
+
+  it('counts a leap day', () => {
+    assert.equal(daysBetween('2028-02-28', '2028-03-01'), 3);
+    assert.equal(daysBetween('2026-02-28', '2026-03-01'), 2);
+  });
+
+  it('goes negative when the range is backwards, so callers can tell', () => {
+    assert.ok(daysBetween('2026-10-04', '2026-10-01') < 0);
   });
 });
