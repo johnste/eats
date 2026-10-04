@@ -22,6 +22,17 @@ import { useToday } from '../lib/useToday.ts';
 /** Past this many days, one bar per day is thinner than the gap between them. */
 const BARS_UPTO = 45;
 
+/**
+ * The macro chart runs out of room three times sooner, because it draws three
+ * bars per day rather than one.
+ *
+ * On a phone the plot is about 270px. Allowing for the gap between days that
+ * leaves roughly 215px of bar: at twelve days that is 6px each, and at thirty
+ * it is under 3px -- narrower than the gaps around it, which reads as noise
+ * rather than as three series. Beyond this it becomes lines.
+ */
+const MACRO_BARS_UPTO = 12;
+
 const PRESETS = [
   { label: '7 days', days: 7 },
   { label: '30 days', days: 30 },
@@ -47,7 +58,9 @@ export function Trends() {
   const maintenance = useMaintenance();
   const rows = summary.data ?? [];
   const stats = useMemo(() => summarise(rows), [rows]);
-  const asBars = daysBetween(from, to) <= BARS_UPTO;
+  const span = daysBetween(from, to);
+  const asBars = span <= BARS_UPTO;
+  const macrosAsBars = span <= MACRO_BARS_UPTO;
 
   return (
     <>
@@ -159,7 +172,7 @@ export function Trends() {
             </p>
             <div className="-ml-2 h-52">
               <ResponsiveContainer width="100%" height="100%">
-                <MacroChart rows={rows} asBars={asBars} />
+                <MacroChart rows={rows} asBars={macrosAsBars} />
               </ResponsiveContainer>
             </div>
             <Legend
@@ -284,7 +297,13 @@ function MacroChart({ rows, asBars }: { rows: DaySummaryResponse[]; asBars: bool
     <BarChart data={rows} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
       {shared}
       {keysOf.map((k) => (
-        <Bar key={k} dataKey={k} fill={MACRO_META[k].color} radius={[3, 3, 0, 0]} />
+        <Bar
+          key={k}
+          dataKey={k}
+          fill={MACRO_META[k].color}
+          radius={[3, 3, 0, 0]}
+          isAnimationActive={false}
+        />
       ))}
     </BarChart>
   ) : (
