@@ -148,11 +148,15 @@ export function CameraSheet({
           </div>
 
           <p className="text-faint text-center text-[13px]">
-            {hint} Only what is inside the box is read — turn the phone
-            sideways for a wide table.
+            {hint} Only what is inside the box is read — turn the phone sideways for a
+            wide table.
           </p>
 
-          <Button className="w-full" disabled={!ready || busy} onClick={() => void shoot()}>
+          <Button
+            className="w-full"
+            disabled={!ready || busy}
+            onClick={() => void shoot()}
+          >
             {busy ? 'Reading the label…' : ready ? 'Take photo' : 'Starting camera…'}
           </Button>
 
@@ -163,7 +167,7 @@ export function CameraSheet({
                 onClose();
                 onPickFile();
               }}
-              className="text-muted w-full text-center text-[13px] underline underline-offset-4"
+              className="text-muted min-h-11 w-full text-center text-[13px] underline underline-offset-4"
             >
               Choose an existing photo
             </button>

@@ -340,7 +340,7 @@ function RangeButton({
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`min-h-9 rounded-full border-2 px-3 text-[13px] font-medium ${
+      className={`min-h-11 rounded-full border-2 px-4 text-[13px] font-medium ${
         active ? 'border-accent bg-accent-soft text-accent' : 'border-line text-muted'
       }`}
     >

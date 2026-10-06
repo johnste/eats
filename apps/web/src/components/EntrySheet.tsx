@@ -85,7 +85,7 @@ export function EntrySheet({
                 type="button"
                 onClick={() => setMeal(m)}
                 aria-pressed={meal === m}
-                className={`min-h-10 rounded-lg border text-xs capitalize ${
+                className={`min-h-11 rounded-lg border text-xs capitalize ${
                   meal === m
                     ? 'border-accent bg-accent-soft text-accent font-medium'
                     : 'border-line text-muted'

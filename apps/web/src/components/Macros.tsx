@@ -111,7 +111,7 @@ function BarRow({
       type="button"
       onClick={onSelect}
       aria-pressed={selected}
-      className={`flex w-full items-center gap-3 rounded-lg px-1 py-0.5 text-left transition-colors ${
+      className={`flex min-h-11 w-full items-center gap-3 rounded-lg px-1 py-2 text-left transition-colors ${
         selected ? 'bg-surface' : ''
       }`}
     >
@@ -204,11 +204,10 @@ export function DaySummary({
         type="button"
         onClick={() => onFocus('kcal')}
         aria-pressed={focus === 'kcal'}
-        className={`bg-line block h-2 w-full overflow-hidden rounded-full ${
-          focus === 'kcal'
-            ? 'ring-accent/40 ring-2 ring-offset-2 ring-offset-transparent'
-            : ''
-        }`}
+        // Padding, not a taller bar: the mark stays 8px while the thing
+        // your thumb has to find is 44.
+        // 18px either side of an 8px bar is exactly 44.
+        className="block w-full py-[18px]"
         aria-label={
           target === null
             ? `${kcal} calories, no goal set`
@@ -221,12 +220,20 @@ export function DaySummary({
         }
       >
         <span
-          className="block h-full rounded-full transition-[width] duration-500"
-          style={{
-            width: `${pct}%`,
-            background: alarmed ? 'var(--color-danger)' : 'var(--color-accent)',
-          }}
-        />
+          className={`bg-line block h-2 w-full overflow-hidden rounded-full ${
+            focus === 'kcal'
+              ? 'ring-accent/40 ring-2 ring-offset-2 ring-offset-transparent'
+              : ''
+          }`}
+        >
+          <span
+            className="block h-full rounded-full transition-[width] duration-500"
+            style={{
+              width: `${pct}%`,
+              background: alarmed ? 'var(--color-danger)' : 'var(--color-accent)',
+            }}
+          />
+        </span>
       </button>
 
       <div className="border-line space-y-2 border-t pt-3">

@@ -367,7 +367,7 @@ function QuantitySheet({
                 type="button"
                 onClick={() => setMeal(m)}
                 aria-pressed={meal === m}
-                className={`min-h-10 rounded-lg border text-xs capitalize ${
+                className={`min-h-11 rounded-lg border text-xs capitalize ${
                   meal === m
                     ? 'border-accent bg-accent-soft text-accent font-medium'
                     : 'border-line text-muted'
@@ -426,7 +426,7 @@ function QuantitySheet({
           <button
             type="button"
             onClick={() => navigate(`/foods/${food.id}/edit?date=${date}`)}
-            className="text-muted w-full text-center text-[13px] underline underline-offset-4"
+            className="text-muted min-h-11 w-full text-center text-[13px] underline underline-offset-4"
           >
             Edit this food
           </button>

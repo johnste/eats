@@ -338,7 +338,7 @@ export function NewFood() {
               <button
                 type="button"
                 onClick={() => setBarcode('')}
-                className="text-muted text-[13px] underline underline-offset-4"
+                className="text-muted min-h-11 px-1 text-[13px] underline underline-offset-4"
               >
                 Remove
               </button>
@@ -423,7 +423,7 @@ export function NewFood() {
           <button
             type="button"
             onClick={() => setServings([...servings, { label: '', grams: '' }])}
-            className="text-accent mt-2 text-[13px] underline underline-offset-4"
+            className="text-accent mt-2 min-h-11 px-1 text-[13px] underline underline-offset-4"
           >
             {servings.length === 0 ? 'Add a portion size' : 'Add another'}
           </button>

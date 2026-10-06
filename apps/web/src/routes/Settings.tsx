@@ -175,7 +175,7 @@ function AgentAccessCard() {
                 <button
                   type="button"
                   onClick={() => disconnect.mutate(c.clientId)}
-                  className="text-danger shrink-0 text-[13px] underline underline-offset-4"
+                  className="text-danger min-h-11 shrink-0 px-1 text-[13px] underline underline-offset-4"
                 >
                   Disconnect
                 </button>
@@ -236,7 +236,7 @@ function AgentAccessCard() {
         <button
           type="button"
           onClick={() => suggest.mutate()}
-          className="text-accent text-[13px] underline underline-offset-4"
+          className="text-accent min-h-11 px-1 text-[13px] underline underline-offset-4"
         >
           {suggest.isPending ? 'Thinking…' : 'Suggest one for me'}
         </button>
@@ -280,7 +280,7 @@ function AgentAccessCard() {
               <button
                 type="button"
                 onClick={() => revoke.mutate(t.id)}
-                className="text-danger shrink-0 text-[13px] underline underline-offset-4"
+                className="text-danger min-h-11 shrink-0 px-1 text-[13px] underline underline-offset-4"
               >
                 Revoke
               </button>
@@ -493,7 +493,7 @@ function GoalsCard() {
                     type="button"
                     onClick={() => setWeightGoal(g)}
                     aria-pressed={weightGoal === g}
-                    className={`min-h-10 rounded-lg border text-xs ${
+                    className={`min-h-11 rounded-lg border text-xs ${
                       weightGoal === g
                         ? 'border-accent bg-accent-soft text-accent font-medium'
                         : 'border-line text-muted'
@@ -517,7 +517,7 @@ function GoalsCard() {
                       type="button"
                       onClick={() => setKgPerWeek(rate)}
                       aria-pressed={kgPerWeek === rate}
-                      className={`nums min-h-10 rounded-lg border text-xs ${
+                      className={`nums min-h-11 rounded-lg border text-xs ${
                         kgPerWeek === rate
                           ? 'border-accent bg-accent-soft text-accent font-medium'
                           : 'border-line text-muted'

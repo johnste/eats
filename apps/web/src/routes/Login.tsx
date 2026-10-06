@@ -106,7 +106,7 @@ export function Login() {
 
       <button
         type="button"
-        className="text-muted mt-6 text-center text-[13px] underline underline-offset-4"
+        className="text-muted mt-6 min-h-11 text-center text-[13px] underline underline-offset-4"
         onClick={() => {
           setMode(mode === 'login' ? 'register' : 'login');
           submit.reset();

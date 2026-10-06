@@ -270,7 +270,7 @@ export function Today() {
                           disabled={entries.length === 0}
                           aria-expanded={entries.length > 0 ? !folded : undefined}
                           aria-controls={`${meal}-entries`}
-                          className="text-ink flex items-center gap-1 py-1"
+                          className="text-ink flex min-h-11 min-w-11 items-center gap-1 py-2"
                         >
                           {MEAL_LABELS[meal]}
                           {entries.length > 0 && (
@@ -315,7 +315,7 @@ export function Today() {
                             if (adding !== meal) setFolded(meal, false);
                             setAdding(adding === meal ? null : meal);
                           }}
-                          className={`grid size-7 place-items-center rounded-full text-base leading-none transition-transform ${
+                          className={`grid size-11 shrink-0 place-items-center rounded-full text-lg leading-none transition-transform ${
                             adding === meal
                               ? 'bg-accent text-surface rotate-45'
                               : 'text-accent bg-accent-soft'
@@ -348,7 +348,7 @@ export function Today() {
                                 if (drag.consumeClick()) return;
                                 setEditing(entry);
                               }}
-                              className="min-w-0 flex-1 touch-none text-left select-none"
+                              className="min-h-11 min-w-0 flex-1 touch-none py-1 text-left select-none"
                             >
                               <span className="text-ink block truncate text-[13px] leading-tight">
                                 {entry.food.name}
@@ -416,7 +416,7 @@ export function Today() {
                                     type="button"
                                     aria-label={`Remove ${entry.food.name}`}
                                     onClick={() => setConfirming(entry.id)}
-                                    className="text-faint active:text-danger grid size-7 place-items-center rounded-full"
+                                    className="text-faint active:text-danger grid size-11 shrink-0 place-items-center rounded-full"
                                   >
                                     <svg
                                       viewBox="0 0 24 24"
@@ -508,7 +508,7 @@ function StepButton({
       aria-label={label}
       onClick={onClick}
       disabled={disabled}
-      className="text-muted grid size-10 place-items-center rounded-full disabled:opacity-25"
+      className="text-muted grid size-11 place-items-center rounded-full disabled:opacity-25"
     >
       <svg
         viewBox="0 0 24 24"

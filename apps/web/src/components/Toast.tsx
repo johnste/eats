@@ -39,9 +39,17 @@ export function Toast({
             type="button"
             onClick={onDismiss}
             aria-label="Dismiss"
-            className="text-faint shrink-0"
+            className="text-faint grid size-11 shrink-0 place-items-center"
           >
-            <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+            <svg
+              viewBox="0 0 24 24"
+              className="size-4"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              aria-hidden
+            >
               <path d="M18 6L6 18M6 6l12 12" />
             </svg>
           </button>
