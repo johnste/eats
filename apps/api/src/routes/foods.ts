@@ -4,8 +4,10 @@ import {
   errorResponse,
   foodResponse,
   foodSearchQuery,
+  duplicateGroupResponse,
   foodSearchResponse,
   mealSchema,
+  mergeFoodsBody,
   updateFoodBody,
 } from '@eats/shared';
 import { and, eq } from 'drizzle-orm';
@@ -13,6 +15,19 @@ import type { FastifyPluginAsync } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { type AppDeps, requireUser } from '../app.ts';
+import { findDuplicates, mergeFoods, type MergeFailure } from '../lib/dedupe.ts';
+
+/** One sentence per way a merge can be refused, said the same way everywhere. */
+const MERGE_ERRORS: Record<MergeFailure, [400 | 404, string]> = {
+  'same-food': [400, 'A food cannot be merged into itself.'],
+  'source-missing': [404, 'No such food to merge away.'],
+  'target-missing': [404, 'No such food to merge into.'],
+  'source-not-yours': [
+    400,
+    'Only a food you added can be merged away. Shared entries from ' +
+      'Livsmedelsverket and Open Food Facts can be kept, not removed.',
+  ],
+};
 import { foods, foodServings } from '../db/schema.ts';
 import {
   findByBarcode,
@@ -74,6 +89,43 @@ export const foodRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
     async (req) => {
       const user = await requireUser(req);
       return withServings(db, await recentFoods(db, user.id, 30, req.query.meal));
+    },
+  );
+
+  r.get(
+    '/duplicates',
+    { schema: { response: { 200: z.array(duplicateGroupResponse) } } },
+    async (req) => {
+      const user = await requireUser(req);
+      return findDuplicates(db, user.id);
+    },
+  );
+
+  r.post(
+    '/merge',
+    {
+      schema: {
+        body: mergeFoodsBody,
+        response: {
+          200: z.object({ moved: z.number() }),
+          400: errorResponse,
+          404: errorResponse,
+        },
+      },
+    },
+    async (req, reply) => {
+      const user = await requireUser(req);
+      const result = await mergeFoods(
+        db,
+        user.id,
+        req.body.sourceId,
+        req.body.targetId,
+      );
+      if (typeof result === 'string') {
+        const [status, message] = MERGE_ERRORS[result];
+        return reply.status(status).send({ error: message });
+      }
+      return result;
     },
   );
 

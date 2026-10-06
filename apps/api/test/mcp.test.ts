@@ -182,7 +182,15 @@ describe('mcp tool declarations', () => {
   it('describes every tool well enough for an agent to use it unprompted', () => {
     assert.deepEqual(
       TOOLS.map((t) => t.name),
-      ['search_foods', 'log_food', 'get_day', 'move_entry', 'delete_entry'],
+      [
+        'search_foods',
+        'log_food',
+        'get_day',
+        'move_entry',
+        'find_duplicates',
+        'merge_foods',
+        'delete_entry',
+      ],
     );
     for (const tool of TOOLS) {
       assert.ok(tool.description.length > 80, `${tool.name} needs a real description`);
@@ -212,6 +220,10 @@ describe('mcp tool declarations', () => {
     // Both editing tools need to be told what to act on, and nothing else.
     assert.deepEqual(required.move_entry, ['entryId']);
     assert.deepEqual(required.delete_entry, ['entryId']);
+    // Nothing to ask for: it reports what it finds.
+    assert.deepEqual(required.find_duplicates, []);
+    // Both halves, because guessing either one would merge the wrong food.
+    assert.deepEqual(required.merge_foods, ['sourceId', 'targetId']);
   });
 });
 

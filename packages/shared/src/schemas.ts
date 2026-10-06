@@ -185,6 +185,28 @@ export const dayResponse = z.object({
   meals: z.record(mealSchema, z.array(logEntryResponse)),
 });
 
+export const duplicateGroupResponse = z.object({
+  name: z.string(),
+  foods: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      brand: z.string().nullable(),
+      source: foodSource,
+      kcal100g: z.number(),
+      entries: z.number(),
+      removable: z.boolean(),
+    }),
+  ),
+});
+
+export const mergeFoodsBody = z.object({
+  /** The food that disappears. Must be one of yours. */
+  sourceId: z.uuid(),
+  /** The food it folds into. */
+  targetId: z.uuid(),
+});
+
 export const rangeQuery = z.object({ from: dateKey, to: dateKey });
 
 /**
@@ -262,6 +284,7 @@ export type UpdateLogBody = z.infer<typeof updateLogBody>;
 export type LogEntryResponse = z.infer<typeof logEntryResponse>;
 export type DayResponse = z.infer<typeof dayResponse>;
 export type DaySummaryResponse = z.infer<typeof daySummaryResponse>;
+export type DuplicateGroupResponse = z.infer<typeof duplicateGroupResponse>;
 export type CreateWeightBody = z.infer<typeof createWeightBody>;
 export type OcrResponse = z.infer<typeof ocrResponse>;
 export type OcrField = z.infer<typeof ocrField>;

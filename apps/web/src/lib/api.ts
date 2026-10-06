@@ -4,6 +4,7 @@ import type {
   CreateLogBody,
   DayResponse,
   DaySummaryResponse,
+  DuplicateGroupResponse,
   FoodResponse,
   FoodSearchResponse,
   GoalBody,
@@ -122,6 +123,9 @@ export const api = {
   createFood: (body: CreateFoodBody) => send<FoodResponse>('POST', '/foods', body),
   updateFood: (id: string, body: CreateFoodBody) =>
     send<FoodResponse>('PATCH', `/foods/${id}`, body),
+  duplicates: () => get<DuplicateGroupResponse[]>('/foods/duplicates'),
+  mergeFoods: (sourceId: string, targetId: string) =>
+    send<{ moved: number }>('POST', '/foods/merge', { sourceId, targetId }),
   brands: () => get<string[]>('/foods/brands'),
 
   /**

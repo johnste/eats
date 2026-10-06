@@ -13,6 +13,7 @@ import {
 } from '../lib/foods.ts';
 import { entriesForRange, goalOn, snapshotFor, totalsOf } from '../lib/log.ts';
 import { AttemptLimiter } from '../lib/attempts.ts';
+import { findDuplicates, mergeFoods, type MergeFailure } from '../lib/dedupe.ts';
 import { resolveAccessToken, SCOPE } from '../lib/oauth.ts';
 import { resolveToken, type TokenOwner } from '../lib/tokens.ts';
 
@@ -107,6 +108,13 @@ export const moveArgs = z.object({
 });
 
 export const deleteArgs = z.object({ entryId: z.uuid() });
+
+export const mergeArgs = z.object({
+  /** The food that disappears. Must be one you added. */
+  sourceId: z.uuid(),
+  /** The food it folds into. */
+  targetId: z.uuid(),
+});
 
 export const TOOLS = [
   {
@@ -213,6 +221,34 @@ export const TOOLS = [
     },
   },
   {
+    name: 'find_duplicates',
+    title: 'Find foods logged twice',
+    description:
+      'List foods that share a name, with how many entries point at each. ' +
+      'Use it to tidy up after the same thing was added more than once, then ' +
+      'merge_foods to fold the extras into whichever one to keep.',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'merge_foods',
+    title: 'Fold one food into another',
+    description:
+      'Move every entry pointing at one food onto another, then delete the ' +
+      'first. Past days keep their numbers: each entry carries the macros it ' +
+      'was logged with, so only the name shown changes. Cannot be undone. ' +
+      'Only a food the user added can be merged away; Livsmedelsverket and ' +
+      'Open Food Facts entries are shared and can only be kept. Confirm ' +
+      'which one is being kept before calling this.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        sourceId: { type: 'string', description: 'The food that disappears' },
+        targetId: { type: 'string', description: 'The food it folds into' },
+      },
+      required: ['sourceId', 'targetId'],
+    },
+  },
+  {
     name: 'delete_entry',
     title: 'Remove an entry',
     description:
@@ -247,6 +283,15 @@ const describe = (f: {
   kcal100g: number;
 }) =>
   `${f.name}${f.brand ? ` (${f.brand})` : ''} — id ${f.id}, ${Math.round(f.kcal100g)} kcal/100g`;
+
+const MERGE_REFUSALS: Record<MergeFailure, string> = {
+  'same-food': 'Those are the same food.',
+  'source-missing': 'No such food to merge away. Try find_duplicates.',
+  'target-missing': 'No such food to merge into. Try find_duplicates.',
+  'source-not-yours':
+    'Only a food the user added can be merged away. Livsmedelsverket and ' +
+    'Open Food Facts entries are shared, so pass the other one as sourceId.',
+};
 
 /** Said the same way everywhere, so the limit reads as a rule not a glitch. */
 const refuseDay = (date: string): string =>
@@ -427,6 +472,47 @@ async function callTool(
         : ' (no goal set)');
 
     return text(`${summary}\n\n${byMeal.join('\n')}`);
+  }
+
+  if (name === 'find_duplicates') {
+    const groups = await findDuplicates(db, owner.id);
+    if (groups.length === 0) return text('No foods share a name. Nothing to tidy.');
+    return text(
+      groups
+        .map(
+          (g) =>
+            `${g.name}:\n` +
+            g.foods
+              .map(
+                (f) =>
+                  `  ${describe(f)} — ${f.entries} ${
+                    f.entries === 1 ? 'entry' : 'entries'
+                  }${f.removable ? '' : ', shared (can only be kept)'}`,
+              )
+              .join('\n'),
+        )
+        .join('\n\n') +
+        '\n\nMerge with merge_foods, keeping whichever the user wants. Ask ' +
+        'before merging: it cannot be undone.',
+    );
+  }
+
+  if (name === 'merge_foods') {
+    const parsed = mergeArgs.safeParse(args ?? {});
+    if (!parsed.success)
+      return text(`Invalid arguments: ${parsed.error.message}`, true);
+    const result = await mergeFoods(
+      db,
+      owner.id,
+      parsed.data.sourceId,
+      parsed.data.targetId,
+    );
+    if (typeof result === 'string') return text(MERGE_REFUSALS[result], true);
+    return text(
+      `Merged. ${result.moved} ${result.moved === 1 ? 'entry' : 'entries'} ` +
+        'now point at the food you kept, carrying the same numbers they ' +
+        'were logged with.',
+    );
   }
 
   if (name === 'move_entry' || name === 'delete_entry') {
