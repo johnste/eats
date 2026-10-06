@@ -223,6 +223,10 @@ export function Weight() {
               inputMode="decimal"
               suffix="kg"
               placeholder="—"
+              // Opening this screen is almost always about typing a number,
+              // so the keyboard is up and waiting rather than a tap away.
+              autoFocus
+              autoSelect
               invalid={value !== '' && !valid}
             />
           </div>

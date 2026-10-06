@@ -82,7 +82,7 @@ export function FoodPicker({
         placeholder="Search foods…"
         type="search"
         autoComplete="off"
-        className="bg-surface border-line text-ink placeholder:text-faint focus:border-accent min-h-11 flex-1 rounded-full border px-4 focus:outline-none"
+        className="bg-raised border-line text-ink placeholder:text-faint focus:border-accent min-h-11 flex-1 rounded-full border px-4 focus:outline-none"
       />
       <Button
         variant="ghost"

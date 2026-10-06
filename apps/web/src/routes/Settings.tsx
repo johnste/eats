@@ -29,7 +29,7 @@ export function Settings() {
   return (
     <>
       <h1 className="text-ink mb-4 text-lg font-semibold">Settings</h1>
-      <div className="space-y-4">
+      <div className="space-y-6">
         <GoalsCard />
         <ProfileCard />
 

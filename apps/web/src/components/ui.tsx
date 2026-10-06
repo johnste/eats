@@ -12,15 +12,11 @@ export function Card({
   className?: string;
 }) {
   return (
-    <section
-      // The shadow comes from the [data-card] rule in styles.css, which is
-      // unlayered and so beats any utility class anyway. Setting it here too
-      // just built a second box-shadow for the browser to discard.
-      data-card=""
-      className={cx('bg-raised border-line rounded-card border p-4', className)}
-    >
-      {children}
-    </section>
+    // No fill, no outline, no shadow. A screen of stacked panels reads as
+    // boxes first and content second; spacing and the page's own gutter do
+    // the grouping now, and the rounding is kept for anything that still
+    // sets a background of its own.
+    <section className={cx('rounded-card', className)}>{children}</section>
   );
 }
 
@@ -73,12 +69,8 @@ export function Disclosure({
   children: ReactNode;
 }) {
   return (
-    <details
-      data-card
-      className="bg-raised border-line rounded-card group border"
-      open={defaultOpen}
-    >
-      <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
+    <details className="border-line group border-b last:border-b-0" open={defaultOpen}>
+      <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 py-3 [&::-webkit-details-marker]:hidden">
         <span className="text-ink flex-1 text-[15px] font-semibold">{title}</span>
         {hint && <span className="text-muted nums text-[13px]">{hint}</span>}
         <svg
@@ -94,7 +86,7 @@ export function Disclosure({
           <path d="M6 9l6 6 6-6" />
         </svg>
       </summary>
-      <div className="px-4 pt-1 pb-4">
+      <div className="pt-1 pb-5">
         {description && <p className="text-muted mb-4 text-[13px]">{description}</p>}
         {children}
       </div>
@@ -152,7 +144,7 @@ export function Field({
           aria-invalid={invalid || undefined}
           aria-describedby={hint ? hintId : undefined}
           className={cx(
-            'bg-surface border-line text-ink nums min-h-11 w-full rounded-2xl border px-3.5',
+            'bg-raised border-line text-ink nums min-h-11 w-full rounded-2xl border px-3.5',
             'placeholder:text-faint focus:border-accent focus:outline-none',
             invalid && 'border-danger',
             suffix && 'pr-12',

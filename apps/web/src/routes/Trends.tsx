@@ -122,7 +122,7 @@ export function Trends() {
       )}
 
       {summary.data && stats.logged > 0 && (
-        <div className="space-y-4">
+        <div className="space-y-6">
           <Card>
             {/* Averaged over days that were actually logged. Counting a blank
                 day as zero would quietly drag every number down. */}

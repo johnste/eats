@@ -218,7 +218,7 @@ export function Today() {
         {day.isError && <ErrorNote>Couldn't load this day.</ErrorNote>}
 
         {day.data && (
-          <div className="space-y-4">
+          <div className="space-y-6">
             <Card>
               <DaySummary
                 totals={day.data.totals}
@@ -253,7 +253,9 @@ export function Today() {
                   <section
                     key={meal}
                     ref={drag.register(meal)}
-                    className={`px-4 py-3 transition-colors ${
+                    // Bleeds into the gutter so the drop highlight reads as
+                    // a region rather than a stripe behind the text.
+                    className={`-mx-3 rounded-2xl px-3 py-3 transition-colors ${
                       targeted && drag.state?.from !== meal ? 'bg-accent-soft' : ''
                     }`}
                   >

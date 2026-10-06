@@ -140,16 +140,16 @@ h2 {
  * --swipe-glow is composed in Today.tsx, where the direction and strength of
  * the drag are known; unset, this collapses to the ordinary card shadow.
  */
-[data-card] {
-  box-shadow: var(--shadow-card);
-}
 
 /* Only while a finger is down. Composing the glow into every card's shadow
    at all times means each card's shadow depends on an inherited custom
    property, so the whole list restyles whenever that property changes -- and
    it buys nothing for the 99% of the time nobody is swiping. */
-[data-swiping] [data-card] {
-  box-shadow: var(--shadow-card), var(--swipe-glow, 0 0 transparent);
+/* The glow has nothing to sit on now that cards have no fill, so it goes on
+   the day itself. The element carrying data-swiping is the same one that
+   composes --swipe-glow, so the rule belongs on it rather than below it. */
+[data-swiping] {
+  box-shadow: var(--swipe-glow, 0 0 transparent);
 }
 
 /* While an entry is being dragged the page must hold still under it. The
