@@ -82,6 +82,14 @@ answers 405; nothing here is server-initiated.
 | `move_entry` | Change an entry's meal, day or amount |
 | `delete_entry` | Remove an entry |
 
+**`log_food` refuses to create a food that already exists.** Logging by name
+creates a new food, so an agent that skips `search_foods` and invents macros
+leaves two copies of the same thing carrying different numbers. A name that
+already exists (ignoring case and spacing) is refused, with the matching ids
+handed back so the call can be repeated with a `foodId`; `createNew: true`
+gets past it when the food genuinely is different. A near miss is allowed but
+reported, so the next call is more likely to search first.
+
 **An agent can only touch today and yesterday.** `isEditableDay` gates every
 one of those tools, on the day being named *and* on the day an entry
 currently sits on — otherwise an old day could be emptied an entry at a time

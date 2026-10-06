@@ -5,6 +5,7 @@ import { WORD_COUNT } from '../src/lib/passphrase.ts';
 import {
   deleteArgs,
   isEditableDay,
+  sameName,
   logArgs,
   moveArgs,
   searchArgs,
@@ -279,5 +280,40 @@ describe('move and delete arguments', () => {
       logArgs.safeParse({ grams: 60, meal: 'lunch', date: '2026-09-24' }).success,
     );
     assert.ok(!logArgs.safeParse({ grams: 60, meal: 'lunch', date: 'nope' }).success);
+  });
+});
+
+describe('duplicate foods', () => {
+  it('treats case and spacing as the same food', () => {
+    assert.ok(sameName('Havregryn', 'havregryn'));
+    assert.ok(sameName('  Havregryn  ', 'Havregryn'));
+    assert.ok(sameName('Kaffe med  mjolk', 'kaffe med mjolk'));
+  });
+
+  it('leaves genuinely different names alone', () => {
+    assert.equal(sameName('Havregryn', 'Havregryn fullkorn'), false);
+    assert.equal(sameName('Agg kokt', 'Agg stekt'), false);
+    assert.equal(sameName('Mjolk', 'Mjolkchoklad'), false);
+  });
+
+  it('does not fold accents together', () => {
+    // Merging two foods cannot be undone, and "Agg" being the same word as
+    // "Agg" with a ring on it is a guess rather than a fact.
+    assert.equal(sameName('\u00c4gg', 'Agg'), false);
+  });
+
+  it('accepts createNew as the way past a refusal', () => {
+    const base = {
+      grams: 60,
+      meal: 'lunch',
+      name: 'Havregryn',
+      kcal100g: 375,
+      protein100g: 9.5,
+      carbs100g: 64,
+      fat100g: 7,
+    };
+    assert.ok(logArgs.safeParse(base).success);
+    assert.ok(logArgs.safeParse({ ...base, createNew: true }).success);
+    assert.ok(!logArgs.safeParse({ ...base, createNew: 'yes' }).success);
   });
 });

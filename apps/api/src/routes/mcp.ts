@@ -89,6 +89,8 @@ export const logArgs = z.object({
   /** For food not in the database: supply a name and per-100g macros. */
   name: z.string().min(1).max(200).optional(),
   brand: z.string().max(120).optional(),
+  /** Log a second food under a name that already exists. */
+  createNew: z.boolean().optional(),
   kcal100g: z.number().min(0).max(900).optional(),
   protein100g: z.number().min(0).max(100).optional(),
   carbs100g: z.number().min(0).max(100).optional(),
@@ -111,7 +113,10 @@ export const TOOLS = [
     name: 'search_foods',
     title: 'Search foods',
     description:
-      'Find a food already known to the app, by name or brand. Covers foods the ' +
+      'Find a food already known to the app, by name or brand. Always try ' +
+      'this first: logging by name creates a new food, and a second copy of ' +
+      'something already there is worse than a search that finds nothing. ' +
+      'Covers foods the ' +
       'user created, Swedish staples from Livsmedelsverket, and products cached ' +
       'from Open Food Facts. Returns each match with its id and per-100g macros. ' +
       'Use this before log_food so you can log an existing food by id rather ' +
@@ -151,6 +156,12 @@ export const TOOLS = [
         },
         name: { type: 'string', description: 'Name, when creating a new food' },
         brand: { type: 'string', description: 'Brand, optional' },
+        createNew: {
+          type: 'boolean',
+          description:
+            'Only after a refusal: log a second food under a name that ' +
+            'already exists, because it genuinely is a different food.',
+        },
         kcal100g: { type: 'number', description: 'Calories per 100g' },
         protein100g: { type: 'number', description: 'Protein grams per 100g' },
         carbs100g: {
@@ -220,6 +231,23 @@ export const TOOLS = [
 
 /* -------------------------------------------------------------- execution --- */
 
+/**
+ * Same food, loosely. Case and spacing differ between how a person types a
+ * name and how it was stored; nothing else is folded, because "Agg" and "Ägg"
+ * being the same word is a guess and merging two foods is not reversible.
+ */
+export const sameName = (a: string, b: string): boolean =>
+  a.trim().toLowerCase().replace(/\s+/g, ' ') ===
+  b.trim().toLowerCase().replace(/\s+/g, ' ');
+
+const describe = (f: {
+  name: string;
+  brand: string | null;
+  id: string;
+  kcal100g: number;
+}) =>
+  `${f.name}${f.brand ? ` (${f.brand})` : ''} — id ${f.id}, ${Math.round(f.kcal100g)} kcal/100g`;
+
 /** Said the same way everywhere, so the limit reads as a rule not a glitch. */
 const refuseDay = (date: string): string =>
   `${date} is outside what can be changed from here. Only ${toDateKey()} ` +
@@ -267,6 +295,9 @@ async function callTool(
     const a = parsed.data;
 
     let food: typeof foods.$inferSelect | undefined;
+    // Not identical, but close enough to mention once the entry is in: a nudge
+    // towards search_foods next time rather than a refusal of a fair call.
+    let nearby: string[] = [];
 
     if (a.foodId) {
       [food] = await db.select().from(foods).where(eq(foods.id, a.foodId)).limit(1);
@@ -286,6 +317,38 @@ async function callTool(
           true,
         );
       }
+      // Logging by name is how duplicates get made: an agent that skips
+      // search_foods invents macros for something already in the database,
+      // and a week later there are four Havregryn with four different
+      // numbers. Refuse the obvious case and hand back the ids instead.
+      const existing = await searchLocal(db, owner.id, a.name as string, 10);
+      const already = existing.filter((f) => sameName(f.name, a.name as string));
+      let similar = existing.filter((f) => !sameName(f.name, a.name as string));
+      if (similar.length === 0) {
+        // searchLocal matches the whole query as one substring, so "Havregryn
+        // grov" finds nothing even with three Havregryn in the table. Try the
+        // longest word alone, which is the part carrying the meaning.
+        const word = (a.name as string)
+          .split(/\s+/)
+          .filter((w) => w.length >= 4)
+          .sort((x, y) => y.length - x.length)[0];
+        if (word && word !== a.name) {
+          similar = await searchLocal(db, owner.id, word, 5);
+        }
+      }
+      nearby = similar.slice(0, 3).map(describe);
+
+      if (already.length > 0 && !a.createNew) {
+        return text(
+          `"${a.name}" is already in the database:\n` +
+            already.map((f) => `  ${describe(f)}`).join('\n') +
+            '\n\nLog it with foodId so the amounts stay consistent with what ' +
+            'is already there. If this really is a different food, repeat the ' +
+            'call with createNew: true.',
+          true,
+        );
+      }
+
       food = await db.transaction(async (tx) => {
         const row = await insertCustomFood(tx, owner.id, {
           name: a.name as string,
@@ -320,7 +383,12 @@ async function callTool(
     return text(
       `Logged ${a.grams}g of ${food.name} to ${a.meal} on ${loggedOn}: ` +
         `${macros.kcal} kcal, ${macros.proteinG}g protein, ` +
-        `${macros.carbsG}g carbs, ${macros.fatG}g fat.`,
+        `${macros.carbsG}g carbs, ${macros.fatG}g fat.` +
+        (nearby.length > 0
+          ? '\n\nSimilar foods were already here:\n' +
+            nearby.map((n) => `  ${n}`).join('\n') +
+            '\nSearch first next time, and log by foodId when one of them is it.'
+          : ''),
     );
   }
 
@@ -536,10 +604,15 @@ export const mcpRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
               capabilities: { tools: { listChanged: false } },
               serverInfo: { name: 'eats', title: 'Eats', version: '1.0.0' },
               instructions:
-                `Food and macro tracking for ${owner.displayName}. Amounts are ` +
-                'always grams and nutrition is always per 100g. Search before ' +
-                'logging so an existing food is reused rather than duplicated. ' +
-                'Only entries for today can be added here.',
+                `Food and macro tracking for ${owner.displayName}. Amounts ` +
+                'are always grams and nutrition is always per 100g.\n\n' +
+                'Call search_foods before log_food, every time. Logging by ' +
+                'name creates a new food, so inventing macros for something ' +
+                'already in the database leaves two copies of it carrying ' +
+                'different numbers. Log by foodId whenever a search finds the ' +
+                'thing you mean.\n\n' +
+                'Today and yesterday are the only days that can be read or ' +
+                'changed from here.',
             });
           }
 
