@@ -1,42 +1,70 @@
 @import 'tailwindcss';
 
 /**
- * Cream, near-black, teal, mustard and coral: a flat poster palette rather
- * than a tinted white one. Surfaces carry a warm hue instead of a neutral
- * grey, so nothing here is oklch(… 265) any more.
+ * Nunito, self-hosted.
  *
- * The three macro hues are a categorical set and were picked with the dataviz
- * validator, not by eye. Light: CVD dE 11.8, normal-vision 19.3. Dark is a
- * separate selection for its own lightness band (0.48-0.67), not a flip of
- * the light steps: CVD dE 10.7, normal-vision 19.2.
+ * A webfont rather than the system stack because the big figures are what you
+ * actually look at, and the system font renders them as UI labels. Rounded
+ * terminals are the whole point: they are what makes the app read as a diary
+ * rather than a dashboard.
  *
- * Light-mode carbs sits at 2.3:1 against the card, below the 3:1 line. That
- * is allowed only because every macro bar carries a visible text label. Do
- * not drop those labels without re-running the validator.
+ * Latin only, one variable file covering 300-800, 38KB. Swedish needs nothing
+ * beyond latin -- a, a and o all live in U+00E0-00FF. The service worker
+ * precaches woff2, so it is downloaded once and then available offline.
+ *
+ * Nunito's digits are all one width already, so the tabular-nums the app asks
+ * for costs nothing and the figures hold still as they update.
+ */
+@font-face {
+  font-family: 'Nunito';
+  src: url('./fonts/nunito-latin.woff2') format('woff2');
+  font-weight: 300 800;
+  font-style: normal;
+  /* swap, not optional: the numbers matter more than one reflow. */
+  font-display: swap;
+}
+
+/**
+ * Soft, not stark. Surfaces carry a faint cool tint instead of being white or
+ * cream, shapes are rounder than they were, and weights are lighter.
+ *
+ * The three macro hues are a categorical set and were chosen with the dataviz
+ * validator, not by eye. Indigo, apricot and rose sit closer together than the
+ * teal/mustard/coral they replace, which is the point -- but closer together
+ * is exactly where a palette stops being distinguishable, so the numbers are
+ * what decided it. Light: CVD dE 16.2, normal-vision 19.7. Dark is its own
+ * selection for its own lightness band (0.48-0.67): 16.0 and 19.1.
+ *
+ * Light-mode carbs sits at 2.2:1 against the card, below the 3:1 line. That is
+ * allowed only because every macro bar carries a visible text label. Do not
+ * drop those labels without re-running the validator.
  */
 @theme {
-  --color-surface: oklch(0.9 0.03 80);
-  --color-raised: oklch(0.95 0.02 85);
-  --color-ink: oklch(0.2 0.012 60);
-  --color-muted: oklch(0.47 0.02 70);
-  --color-faint: oklch(0.52 0.025 75);
-  --color-line: oklch(0.84 0.025 80);
+  --font-sans:
+    'Nunito', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
 
-  --color-accent: oklch(0.46 0.1 195);
-  --color-accent-soft: oklch(0.88 0.05 195);
+  --color-surface: oklch(0.97 0.008 265);
+  --color-raised: oklch(0.995 0.004 265);
+  --color-ink: oklch(0.27 0.02 280);
+  --color-muted: oklch(0.52 0.025 280);
+  --color-faint: oklch(0.56 0.03 280);
+  --color-line: oklch(0.91 0.012 275);
 
-  --color-protein: oklch(0.48 0.14 260);
-  --color-carbs: oklch(0.7 0.13 85);
-  --color-fat: oklch(0.58 0.18 30);
+  --color-accent: oklch(0.51 0.1 170);
+  --color-accent-soft: oklch(0.93 0.04 170);
 
-  --color-danger: oklch(0.52 0.19 28);
+  --color-protein: oklch(0.55 0.13 275);
+  --color-carbs: oklch(0.76 0.12 75);
+  --color-fat: oklch(0.62 0.14 10);
 
-  --radius-card: 1rem;
+  --color-danger: oklch(0.55 0.17 25);
 
-  /* Flat, not floating. The look this is drawn from has no drop shadows at
-     all; cards are separated by a drawn edge and a warmer fill, so the
-     shadow is only a hairline to keep the edge from vibrating. */
-  --shadow-card: 0 1px 0 oklch(0.2 0.012 60 / 0.06);
+  /* Rounder than before, and the softer radius is what carries the tone. */
+  --radius-card: 1.25rem;
+
+  /* Back, but diffuse and tinted rather than grey: depth without edges. */
+  --shadow-card:
+    0 1px 2px oklch(0.4 0.05 280 / 0.05), 0 6px 20px -6px oklch(0.4 0.05 280 / 0.1);
 }
 
 @layer theme {
@@ -46,23 +74,23 @@
 
   @media (prefers-color-scheme: dark) {
     :root {
-      --color-surface: oklch(0.19 0.01 70);
-      --color-raised: oklch(0.24 0.012 70);
-      --color-ink: oklch(0.94 0.015 85);
-      --color-muted: oklch(0.7 0.02 80);
-      --color-faint: oklch(0.64 0.02 75);
-      --color-line: oklch(0.33 0.015 70);
+      --color-surface: oklch(0.21 0.015 265);
+      --color-raised: oklch(0.26 0.016 265);
+      --color-ink: oklch(0.95 0.008 280);
+      --color-muted: oklch(0.72 0.02 280);
+      --color-faint: oklch(0.66 0.022 280);
+      --color-line: oklch(0.35 0.016 275);
 
-      --shadow-card: 0 1px 0 oklch(0 0 0 / 0.25);
+      --shadow-card: 0 1px 2px oklch(0 0 0 / 0.22);
 
-      --color-accent: oklch(0.72 0.11 190);
-      --color-accent-soft: oklch(0.32 0.05 195);
+      --color-accent: oklch(0.74 0.11 170);
+      --color-accent-soft: oklch(0.33 0.05 170);
 
-      --color-protein: oklch(0.6 0.14 255);
-      --color-carbs: oklch(0.665 0.14 88);
-      --color-fat: oklch(0.56 0.18 28);
+      --color-protein: oklch(0.62 0.13 278);
+      --color-carbs: oklch(0.665 0.13 72);
+      --color-fat: oklch(0.58 0.14 8);
 
-      --color-danger: oklch(0.68 0.16 28);
+      --color-danger: oklch(0.68 0.16 25);
     }
   }
 }
@@ -76,12 +104,7 @@ html {
 
 body {
   margin: 0;
-  font-family:
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    'Segoe UI',
-    sans-serif;
+  font-family: var(--font-sans);
   /* Stop the whole page rubber-banding on iOS while sheets scroll, and stop
      horizontal overscroll from becoming a browser back/forward gesture --
      which drags the entire page, fixed tab bar included. */
@@ -98,18 +121,15 @@ body {
   touch-action: pan-y;
 }
 
-/* Headings are set tighter than body text; at these sizes the default
-   tracking looks loose. */
-/* Set tight and heavy. The reference leans on weight and negative tracking
-   rather than size, which is what keeps a small screen from looking timid. */
+/**
+ * Lighter and barely tracked. Nunito's rounded shapes already carry the
+ * emphasis that weight and tight tracking were doing before, and leaning on
+ * both at once reads as shouting.
+ */
 h1,
 h2 {
-  letter-spacing: -0.021em;
-  font-weight: 700;
-}
-
-h1 {
-  letter-spacing: -0.028em;
+  letter-spacing: -0.008em;
+  font-weight: 600;
 }
 
 /**

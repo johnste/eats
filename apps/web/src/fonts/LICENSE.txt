@@ -1,0 +1,6 @@
+Copyright 2014 The Nunito Project Authors (https://github.com/googlefonts/nunito)
+
+
+https://scripts.sil.org/OFL
+
+Subset: latin only, variable weight 300-800, as served by Google Fonts.
