@@ -158,7 +158,7 @@ function AgentAccessCard() {
       {(connections.data?.length ?? 0) > 0 && (
         <div className="mb-4">
           <p className="text-muted mb-1 text-[11px] font-medium">Connected</p>
-          <ul className="divide-line border-line divide-y border-t">
+          <ul className="divide-line divide-y">
             {connections.data?.map((c) => (
               <li
                 key={c.clientId}
@@ -263,7 +263,7 @@ function AgentAccessCard() {
       )}
 
       {(tokens.data?.length ?? 0) > 0 && (
-        <ul className="divide-line mt-4 divide-y border-t border-line">
+        <ul className="divide-line mt-4 divide-y">
           {tokens.data?.map((t) => (
             <li key={t.id} className="flex items-center justify-between gap-3 py-2">
               <div className="min-w-0">

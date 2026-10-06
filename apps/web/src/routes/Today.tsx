@@ -229,7 +229,7 @@ export function Today() {
               />
             </Card>
 
-            <Card className="divide-line divide-y p-0">
+            <Card>
               {(Object.keys(MEAL_LABELS) as Meal[]).map((meal) => {
                 const entries = day.data.meals[meal] ?? [];
                 const meta = MACRO_META[focus];
@@ -255,7 +255,7 @@ export function Today() {
                     ref={drag.register(meal)}
                     // Bleeds into the gutter so the drop highlight reads as
                     // a region rather than a stripe behind the text.
-                    className={`-mx-3 rounded-2xl px-3 py-3 transition-colors ${
+                    className={`-mx-3 rounded-2xl px-3 py-4 transition-colors ${
                       targeted && drag.state?.from !== meal ? 'bg-accent-soft' : ''
                     }`}
                   >
@@ -439,7 +439,7 @@ export function Today() {
                     )}
 
                     {adding === meal && (
-                      <div className="border-line mt-3 border-t pt-3">
+                      <div className="mt-4">
                         <FoodPicker
                           date={date}
                           meal={meal}

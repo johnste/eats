@@ -69,7 +69,7 @@ export function Disclosure({
   children: ReactNode;
 }) {
   return (
-    <details className="border-line group border-b last:border-b-0" open={defaultOpen}>
+    <details className="group" open={defaultOpen}>
       <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 py-3 [&::-webkit-details-marker]:hidden">
         <span className="text-ink flex-1 text-[15px] font-semibold">{title}</span>
         {hint && <span className="text-muted nums text-[13px]">{hint}</span>}
