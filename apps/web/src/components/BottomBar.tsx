@@ -15,8 +15,12 @@ export function BottomBar({ children }: { children: ReactNode }) {
   return (
     <div
       className="bg-raised border-line fixed inset-x-0 z-20 border-t"
-      // Clears the tab bar (min-h-14) and the home indicator beneath it.
-      style={{ bottom: 'calc(3.5rem + env(safe-area-inset-bottom))' }}
+      // Whichever is taller: the tab bar it has to clear, or the keyboard
+      // covering the bottom of the viewport. When the keyboard is up the tab
+      // bar is behind it anyway, so stacking both offsets would leave a gap.
+      style={{
+        bottom: 'max(var(--tabbar-h, 3.5rem), var(--keyboard-inset, 0px))',
+      }}
     >
       <div className="mx-auto max-w-lg px-4 py-3">{children}</div>
     </div>

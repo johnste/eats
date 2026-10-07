@@ -4,6 +4,7 @@ import { UpdatePrompt } from './components/UpdatePrompt.tsx';
 import { TabBar } from './components/TabBar.tsx';
 import { Button, Spinner } from './components/ui.tsx';
 import { ApiError } from './lib/api.ts';
+import { useBottomInsets } from './lib/useBottomInsets.ts';
 import { useMe, useWarmCache } from './lib/queries.ts';
 import { Login } from './routes/Login.tsx';
 import { Today } from './routes/Today.tsx';
@@ -63,6 +64,7 @@ const Settings = lazyRoute(() =>
 
 function Shell() {
   useWarmCache(true);
+  useBottomInsets();
 
   return (
     <>

@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router';
 
 const TABS = [
@@ -19,9 +20,28 @@ const TABS = [
 export function TabBar() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  const ref = useRef<HTMLElement>(null);
+
+  // Published rather than assumed: the bar above this one needs to clear it,
+  // and its real height depends on the border, the safe-area inset and
+  // whatever the system font size does to the labels.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const publish = () =>
+      document.documentElement.style.setProperty(
+        '--tabbar-h',
+        `${Math.round(el.getBoundingClientRect().height)}px`,
+      );
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <nav
+      ref={ref}
       aria-label="Main"
       className="bg-raised border-line fixed inset-x-0 bottom-0 z-20 border-t"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
