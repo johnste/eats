@@ -20,7 +20,7 @@ export function Toast({
     <div
       role="status"
       aria-live="polite"
-      className="fixed inset-x-0 z-40 mx-auto flex max-w-lg items-center gap-3 px-4"
+      className="fixed inset-x-0 z-50 mx-auto flex max-w-lg items-center gap-3 px-4"
       style={{ bottom: 'calc(4.5rem + env(safe-area-inset-bottom))' }}
     >
       <div className="bg-raised border-line flex w-full items-center gap-3 rounded-xl border p-3 shadow-lg">

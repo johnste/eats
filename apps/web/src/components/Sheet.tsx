@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 
 /** A bottom sheet: reachable with a thumb, and dismissable with Escape. */
 export function Sheet({
@@ -24,8 +25,14 @@ export function Sheet({
     };
   }, [onClose]);
 
-  return (
-    <div className="fixed inset-0 z-30 flex flex-col justify-end">
+  // Rendered into the body, not where it was written. The day view wraps its
+  // content in a positioned, z-indexed element so the swipe glow can sit
+  // behind it, and that makes a stacking context: a sheet opened from inside
+  // it was trapped below the tab bar however high its own z-index went, so
+  // the tab bar painted over the button at the bottom of the sheet and no
+  // amount of scrolling could reach it.
+  return createPortal(
+    <div className="fixed inset-0 z-40 flex flex-col justify-end">
       <button
         type="button"
         aria-label="Close"
@@ -37,12 +44,16 @@ export function Sheet({
         aria-modal="true"
         aria-label={title}
         className="bg-raised border-line relative max-h-[85dvh] overflow-y-auto rounded-t-2xl border-t p-5"
-        style={{ paddingBottom: 'calc(1.25rem + env(safe-area-inset-bottom))' }}
+        style={{
+          paddingBottom:
+            'calc(1.25rem + max(env(safe-area-inset-bottom), var(--keyboard-inset, 0px)))',
+        }}
       >
         <div className="bg-line mx-auto mb-4 h-1 w-9 rounded-full" aria-hidden />
         <h2 className="text-ink mb-4 text-base font-semibold">{title}</h2>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
