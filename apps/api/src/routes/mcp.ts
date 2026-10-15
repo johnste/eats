@@ -6,6 +6,7 @@ import type { AppDeps } from '../app.ts';
 import type { Database } from '../db/client.ts';
 import { foods, logEntries } from '../db/schema.ts';
 import {
+  foodSources,
   insertCustomFood,
   recordFoodView,
   searchLocal,
@@ -310,7 +311,8 @@ async function callTool(
     if (!parsed.success)
       return text(`Invalid arguments: ${parsed.error.message}`, true);
 
-    const rows = await searchLocal(db, owner.id, parsed.data.query, 10);
+    const sources = await foodSources(db, owner.id);
+    const rows = await searchLocal(db, owner.id, parsed.data.query, 10, sources);
     const found = await withServings(db, rows);
     if (found.length === 0) {
       return text(
@@ -366,6 +368,9 @@ async function callTool(
       // search_foods invents macros for something already in the database,
       // and a week later there are four Havregryn with four different
       // numbers. Refuse the obvious case and hand back the ids instead.
+      // Deliberately unfiltered: a source you have hidden is still a
+      // place this food already exists, and creating a second copy of it
+      // would be a duplicate the moment you switched the source back on.
       const existing = await searchLocal(db, owner.id, a.name as string, 10);
       const already = existing.filter((f) => sameName(f.name, a.name as string));
       let similar = existing.filter((f) => !sameName(f.name, a.name as string));

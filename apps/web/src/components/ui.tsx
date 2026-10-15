@@ -94,6 +94,55 @@ export function Disclosure({
   );
 }
 
+/**
+ * An on/off switch.
+ *
+ * role="switch" rather than a styled checkbox: it is announced as on or off
+ * rather than checked, which is what this actually means, and the whole row
+ * is the target so there is no small knob to hit.
+ */
+export function Toggle({
+  label,
+  hint,
+  checked,
+  onChange,
+  disabled,
+}: {
+  label: string;
+  hint?: string;
+  checked: boolean;
+  onChange: (next: boolean) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className="flex min-h-11 w-full items-center gap-3 py-1 text-left disabled:opacity-50"
+    >
+      <span className="min-w-0 flex-1">
+        <span className="text-ink block text-[13px] font-medium">{label}</span>
+        {hint && <span className="text-faint block text-[11px]">{hint}</span>}
+      </span>
+      <span
+        aria-hidden
+        className={`relative inline-block h-6 w-10 shrink-0 rounded-full transition-colors ${
+          checked ? 'bg-accent' : 'bg-line'
+        }`}
+      >
+        <span
+          className={`bg-raised absolute top-0.5 size-5 rounded-full transition-[left] ${
+            checked ? 'left-[1.125rem]' : 'left-0.5'
+          }`}
+        />
+      </span>
+    </button>
+  );
+}
+
 export function Field({
   label,
   hint,

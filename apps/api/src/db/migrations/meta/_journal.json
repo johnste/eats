@@ -50,6 +50,13 @@
       "when": 1790058947211,
       "tag": "0006_brown_black_widow",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792052867361,
+      "tag": "0007_flat_sally_floyd",
+      "breakpoints": true
     }
   ]
 }

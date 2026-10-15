@@ -39,6 +39,10 @@ export const profileBody = z.object({
   heightCm: z.number().min(50).max(260).nullable(),
   activityLevel: activityLevelSchema.nullable(),
   targetWeightKg: z.number().min(20).max(400).nullable(),
+  /** Consult Open Food Facts when searching and when scanning a barcode. */
+  useOff: z.boolean(),
+  /** Show the seeded Livsmedelsverket foods in search results. */
+  useSlv: z.boolean(),
 });
 
 export const goalBody = z.object({

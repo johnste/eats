@@ -45,6 +45,8 @@ const profileShape = z.object({
   heightCm: z.number().nullable(),
   activityLevel: activityLevelSchema.nullable(),
   targetWeightKg: z.number().nullable(),
+  useOff: z.boolean(),
+  useSlv: z.boolean(),
 });
 
 const weightShape = z.object({ measuredOn: dateKey, weightKg: z.number() });
@@ -65,6 +67,8 @@ export const meRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
       heightCm: row.heightCm,
       activityLevel: row.activityLevel,
       targetWeightKg: row.targetWeightKg,
+      useOff: row.useOff,
+      useSlv: row.useSlv,
     };
   });
 
@@ -85,6 +89,8 @@ export const meRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
         heightCm: row.heightCm,
         activityLevel: row.activityLevel,
         targetWeightKg: row.targetWeightKg,
+        useOff: row.useOff,
+        useSlv: row.useSlv,
       };
     },
   );

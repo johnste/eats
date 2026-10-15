@@ -31,6 +31,7 @@ const MERGE_ERRORS: Record<MergeFailure, [400 | 404, string]> = {
 import { foods, foodServings } from '../db/schema.ts';
 import {
   findByBarcode,
+  foodSources,
   insertCustomFood,
   isStale,
   knownBrands,
@@ -57,7 +58,8 @@ export const foodRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
       const user = await requireUser(req);
       const { q, limit } = req.query;
 
-      const localRows = await searchLocal(db, user.id, q, limit);
+      const sources = await foodSources(db, user.id);
+      const localRows = await searchLocal(db, user.id, q, limit, sources);
       const local = await withServings(db, localRows);
 
       // Don't offer a remote result we already hold locally.
@@ -65,6 +67,9 @@ export const foodRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
 
       let offHits: { barcode: string; name: string; brand: string | null }[] = [];
       let offUnavailable = false;
+      // Switched off means not asked, not asked-and-ignored: no request
+      // leaves the server at all.
+      if (!sources.useOff) return { local, off: offHits, offUnavailable };
       try {
         offHits = (await off.search(q, limit)).filter((c) => !seen.has(c.barcode));
       } catch (err) {
@@ -154,15 +159,41 @@ export const foodRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
       const user = await requireUser(req);
       const { code } = req.params;
 
-      // Serve from our own table unless the cached copy has aged out.
-      const cached = await findByBarcode(db, code);
-      if (cached && !isStale(cached.offFetchedAt)) {
+      // Every path that answers from our own table answers the same way.
+      type Cached = NonNullable<Awaited<ReturnType<typeof findByBarcode>>>;
+      const serveCached = async (food: Cached) => {
         const servings = await db
           .select()
           .from(foodServings)
-          .where(eq(foodServings.foodId, cached.id));
-        await recordFoodView(db, user.id, cached.id);
-        return { status: 'ok' as const, food: toFoodResponse(cached, servings) };
+          .where(eq(foodServings.foodId, food.id));
+        await recordFoodView(db, user.id, food.id);
+        return { status: 'ok' as const, food: toFoodResponse(food, servings) };
+      };
+
+      // Serve from our own table unless the cached copy has aged out.
+      const cached = await findByBarcode(db, code);
+      if (cached && !isStale(cached.offFetchedAt)) {
+        return serveCached(cached);
+      }
+
+      // With Open Food Facts switched off a barcode can still match something
+      // already in the table -- including a copy that has aged out, since a
+      // stale local answer beats refusing one. Beyond that there is nowhere
+      // to look, so offer manual entry with the barcode attached.
+      if (!(await foodSources(db, user.id)).useOff) {
+        if (cached) {
+          return serveCached(cached);
+        }
+        return {
+          status: 'incomplete' as const,
+          prefill: {
+            barcode: code,
+            name: '',
+            brand: null,
+            servingG: null,
+            missing: ['Open Food Facts is switched off'],
+          },
+        };
       }
 
       let product;
@@ -172,12 +203,7 @@ export const foodRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
         if (!(err instanceof OffUnavailableError)) throw err;
         // A stale local copy beats no answer at all.
         if (cached) {
-          const servings = await db
-            .select()
-            .from(foodServings)
-            .where(eq(foodServings.foodId, cached.id));
-          await recordFoodView(db, user.id, cached.id);
-          return { status: 'ok' as const, food: toFoodResponse(cached, servings) };
+          return serveCached(cached);
         }
         return reply.status(503).send({ error: err.message });
       }

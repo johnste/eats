@@ -10,7 +10,14 @@ import {
 } from '@eats/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useId, useState } from 'react';
-import { Button, Card, Disclosure, ErrorNote, Field } from '../components/ui.tsx';
+import {
+  Button,
+  Card,
+  Disclosure,
+  ErrorNote,
+  Field,
+  Toggle,
+} from '../components/ui.tsx';
 import { api, ApiError } from '../lib/api.ts';
 import { keys, useGoals, useMe, useProfile } from '../lib/queries.ts';
 
@@ -34,6 +41,8 @@ export function Settings() {
         <ProfileCard />
 
         <AgentAccessCard />
+
+        <FoodSourcesCard />
 
         <DuplicatesCard />
 
@@ -289,6 +298,78 @@ function AgentAccessCard() {
             </li>
           ))}
         </ul>
+      )}
+    </Disclosure>
+  );
+}
+
+/**
+ * Which shelves search looks on, besides the foods you added yourself.
+ *
+ * The two are not symmetrical. Open Food Facts is a live request to someone
+ * else's server, so switching it off stops the request being made at all,
+ * rather than making it and hiding the answer. Livsmedelsverket was copied
+ * into this database when it was seeded, so switching it off only hides rows.
+ *
+ * Neither touches what you have already eaten: an entry keeps the macros it
+ * was logged with, and recents are not filtered by source.
+ */
+function FoodSourcesCard() {
+  const qc = useQueryClient();
+  const profile = useProfile();
+
+  const save = useMutation({
+    mutationFn: (patch: { useOff?: boolean; useSlv?: boolean }) => {
+      const p = profile.data;
+      if (!p) throw new Error('Profile not loaded yet.');
+      return api.saveProfile({
+        sex: p.sex,
+        birthDate: p.birthDate,
+        heightCm: p.heightCm,
+        activityLevel: p.activityLevel,
+        targetWeightKg: p.targetWeightKg,
+        useOff: p.useOff,
+        useSlv: p.useSlv,
+        ...patch,
+      });
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.profile });
+      // Anything that asked the server which foods exist is now stale.
+      void qc.invalidateQueries({ queryKey: ['search'] });
+    },
+  });
+
+  const useOff = profile.data?.useOff ?? true;
+  const useSlv = profile.data?.useSlv ?? true;
+  const on = [useOff, useSlv].filter(Boolean).length;
+
+  return (
+    <Disclosure
+      title="Food sources"
+      hint={on === 2 ? undefined : `${on} of 2`}
+      description="Where search looks besides your own foods. Food you have already logged is unaffected."
+    >
+      <div className="space-y-1">
+        <Toggle
+          label="Open Food Facts"
+          hint="Branded products and barcode scanning. Off means no request leaves your server."
+          checked={useOff}
+          disabled={!profile.data || save.isPending}
+          onChange={(next) => save.mutate({ useOff: next })}
+        />
+        <Toggle
+          label="Livsmedelsverket"
+          hint="Swedish staples, already stored here. Off hides them from search."
+          checked={useSlv}
+          disabled={!profile.data || save.isPending}
+          onChange={(next) => save.mutate({ useSlv: next })}
+        />
+      </div>
+      {save.error instanceof ApiError && (
+        <p className="mt-3">
+          <ErrorNote>{save.error.message}</ErrorNote>
+        </p>
       )}
     </Disclosure>
   );
@@ -728,6 +809,10 @@ function ProfileCard() {
         // Empty clears the goal, which is how you turn the projection off.
         targetWeightKg:
           targetWeight.trim() === '' ? null : Number(targetWeight.replace(',', '.')),
+        // Carried through untouched: they belong to Food sources, and a PUT of
+        // the whole profile would otherwise reset them whenever this is saved.
+        useOff: profile.data?.useOff ?? true,
+        useSlv: profile.data?.useSlv ?? true,
       }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: keys.profile });

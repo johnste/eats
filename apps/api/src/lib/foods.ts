@@ -1,7 +1,7 @@
 import type { FoodResponse, Meal } from '@eats/shared';
 import { and, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm';
 import type { Database, Executor } from '../db/client.ts';
-import { foods, foodServings, foodViews, logEntries } from '../db/schema.ts';
+import { foods, foodServings, foodViews, logEntries, users } from '../db/schema.ts';
 import type { OffProduct } from './off.ts';
 
 /** Re-pull a cached Open Food Facts product after this long. */
@@ -119,6 +119,26 @@ export async function upsertOffFood(
 }
 
 /**
+ * Which shared sources this user wants consulted. Your own foods are always
+ * searched -- they are yours, and there is nothing external about them.
+ */
+export interface FoodSources {
+  useOff: boolean;
+  useSlv: boolean;
+}
+
+export async function foodSources(db: Database, userId: string): Promise<FoodSources> {
+  const [row] = await db
+    .select({ useOff: users.useOff, useSlv: users.useSlv })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  // A missing row cannot happen behind requireUser, but defaulting to on
+  // matches what a new account gets.
+  return { useOff: row?.useOff ?? true, useSlv: row?.useSlv ?? true };
+}
+
+/**
  * Local search: the user's own foods, Livsmedelsverket's Swedish staples, and
  * anything already pulled from Open Food Facts.
  *
@@ -129,12 +149,17 @@ export async function upsertOffFood(
  *
  * Matches name or brand; ILIKE is fine at this table size and avoids needing
  * the pg_trgm extension.
+ *
+ * `sources` drops the shared shelves the user has switched off in settings.
+ * It defaults to both on so callers that have no user context -- and tests --
+ * keep seeing everything.
  */
 export async function searchLocal(
   db: Database,
   userId: string,
   query: string,
   limit: number,
+  sources: FoodSources = { useOff: true, useSlv: true },
 ): Promise<FoodRow[]> {
   const pattern = `%${query.replace(/[%_]/g, (c) => `\\${c}`)}%`;
   return db
@@ -143,11 +168,12 @@ export async function searchLocal(
     .where(
       and(
         or(ilike(foods.name, pattern), ilike(foods.brand, pattern)),
-        // Shared sources, plus your own foods -- but not another user's.
+        // Your own foods always, plus whichever shared sources are switched
+        // on. `or` needs at least one arm, and your own foods are it.
         or(
-          eq(foods.source, 'off'),
-          eq(foods.source, 'slv'),
           eq(foods.createdBy, userId),
+          ...(sources.useOff ? [eq(foods.source, 'off')] : []),
+          ...(sources.useSlv ? [eq(foods.source, 'slv')] : []),
         ),
       ),
     )

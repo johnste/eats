@@ -7,7 +7,7 @@ import { BottomBar, BottomBarSpacer } from './BottomBar.tsx';
 import { Sheet } from './Sheet.tsx';
 import { Button, Empty, ErrorNote, Field, Spinner } from './ui.tsx';
 import { api, ApiError } from '../lib/api.ts';
-import { keys, useLogMutations, useRecentFoods } from '../lib/queries.ts';
+import { keys, useLogMutations, useProfile, useRecentFoods } from '../lib/queries.ts';
 
 /**
  * Search, scan, recents and the amount sheet -- everything needed to put a
@@ -208,6 +208,10 @@ function SearchResults({
   onPickOff: (barcode: string) => void;
   onAddManually: () => void;
 }) {
+  // Only consulted when nothing was found: a search that worked does not
+  // need to explain itself.
+  const profile = useProfile();
+
   if (state.isPending) return <Spinner />;
   if (state.isError) return <ErrorNote>Search failed. Try again.</ErrorNote>;
   const data = state.data;
@@ -218,6 +222,17 @@ function SearchResults({
     return (
       <Empty title="No matches">
         <p className="mb-3">Try a shorter search, or enter it yourself.</p>
+        {profile.data && !(profile.data.useOff && profile.data.useSlv) && (
+          <p className="text-faint mb-3 text-xs">
+            Some food sources are switched off in Settings, so this searched
+            {profile.data.useOff
+              ? ' your own foods and Open Food Facts'
+              : profile.data.useSlv
+                ? ' your own foods and Livsmedelsverket'
+                : ' only your own foods'}
+            .
+          </p>
+        )}
         {/* Offered here as well as in the bar, because a search that found
             nothing is exactly when you want it. */}
         <Button variant="ghost" onClick={onAddManually}>

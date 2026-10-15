@@ -1,4 +1,5 @@
 import {
+  boolean,
   date,
   index,
   integer,
@@ -44,6 +45,13 @@ export const users = pgTable('users', {
   activityLevel: activityLevelEnum('activity_level'),
   /** What the weight chart projects towards. Null means no goal set. */
   targetWeightKg: real('target_weight_kg'),
+  /**
+   * Which food sources beyond your own are consulted. Open Food Facts is a
+   * live external API; Livsmedelsverket is seeded locally, so turning it off
+   * hides those foods rather than stopping a request.
+   */
+  useOff: boolean('use_off').notNull().default(true),
+  useSlv: boolean('use_slv').notNull().default(true),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
