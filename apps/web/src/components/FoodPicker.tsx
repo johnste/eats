@@ -333,7 +333,12 @@ function QuantitySheet({
   onDone: () => void;
 }) {
   const navigate = useNavigate();
-  const [grams, setGrams] = useState('100');
+  // A food with a portion saved is nearly always eaten by the portion -- one
+  // slice, one tub, one scoop -- so offer that. 100 g is the fallback for
+  // foods that have no portion worth naming.
+  const [grams, setGrams] = useState(
+    food.servings[0] ? String(round(food.servings[0].grams)) : '100',
+  );
   const [meal, setMeal] = useState<Meal>(initialMeal);
   const { add } = useLogMutations(date);
 
@@ -349,8 +354,7 @@ function QuantitySheet({
           value={grams}
           onChange={(e) => setGrams(e.target.value)}
           // Selected rather than cleared, so the number is still there to
-          // nudge down from -- but typing replaces it, because 100 g is
-          // almost never what you actually ate.
+          // nudge up or down from, while typing replaces it outright.
           autoSelect
           inputMode="decimal"
           suffix="g"
@@ -360,16 +364,24 @@ function QuantitySheet({
 
         {food.servings.length > 0 && (
           <div className="flex flex-wrap gap-2">
-            {food.servings.map((s) => (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => setGrams(String(s.grams))}
-                className="border-line text-muted active:bg-surface rounded-full border px-3 py-1.5 text-[13px]"
-              >
-                {s.label} · {round(s.grams)} g
-              </button>
-            ))}
+            {food.servings.map((s) => {
+              const current = valid && Math.abs(value - s.grams) < 0.05;
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  aria-pressed={current}
+                  onClick={() => setGrams(String(round(s.grams)))}
+                  className={`active:bg-surface rounded-full border px-3 py-1.5 text-[13px] ${
+                    current
+                      ? 'border-accent bg-accent-soft text-accent font-medium'
+                      : 'border-line text-muted'
+                  }`}
+                >
+                  {s.label} · {round(s.grams)} g
+                </button>
+              );
+            })}
           </div>
         )}
 
