@@ -40,6 +40,25 @@ export interface Macros {
   fatG: number;
 }
 
+/**
+ * Whether a food carries any nutrition at all.
+ *
+ * Open Food Facts is crowd-sourced, and a product nobody has filled in often
+ * arrives as four zeros rather than four blanks: a record that looks complete
+ * and tells you nothing. Logging one adds nothing to the day, so there is no
+ * point offering it. Genuinely zero foods -- water, most sugar-free drinks --
+ * fall on the same side of this line, which costs nothing for the same
+ * reason: logging them would also add nothing.
+ */
+export function hasNutrition(f: {
+  kcal100g: number;
+  protein100g: number;
+  carbs100g: number;
+  fat100g: number;
+}): boolean {
+  return f.kcal100g > 0 || f.protein100g > 0 || f.carbs100g > 0 || f.fat100g > 0;
+}
+
 export const kjToKcal = (kj: number): number => kj / KJ_PER_KCAL;
 export const kcalToKj = (kcal: number): number => kcal * KJ_PER_KCAL;
 

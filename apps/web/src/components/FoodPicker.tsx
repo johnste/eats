@@ -60,10 +60,15 @@ export function FoodPicker({
     mutationFn: async (barcode: string) => {
       const res = await api.barcode(barcode);
       if (res.status === 'ok') return res.food;
+      // Everything Open Food Facts did have is worth carrying over, including
+      // what it was missing: landing on a blank form with no explanation is
+      // the part that makes a dud scan feel like a dead end.
       navigate(
         `/foods/new?barcode=${res.prefill.barcode}` +
           `&name=${encodeURIComponent(res.prefill.name)}` +
           `&brand=${encodeURIComponent(res.prefill.brand ?? '')}` +
+          `&missing=${encodeURIComponent(res.prefill.missing.join(','))}` +
+          (res.prefill.servingG ? `&serving=${res.prefill.servingG}` : '') +
           `&meal=${meal}&date=${date}`,
       );
       return null;

@@ -6,6 +6,7 @@ import {
   foodSearchQuery,
   duplicateGroupResponse,
   foodSearchResponse,
+  hasNutrition,
   mealSchema,
   mergeFoodsBody,
   updateFoodBody,
@@ -170,10 +171,14 @@ export const foodRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
         return { status: 'ok' as const, food: toFoodResponse(food, servings) };
       };
 
-      // Serve from our own table unless the cached copy has aged out.
+      // Serve from our own table unless the cached copy has aged out -- or
+      // has nothing in it. A row of zeros is what we stored the last time Open
+      // Food Facts had no nutrition for this barcode; somebody may have filled
+      // it in since, and if not we are no worse off asking.
       const cached = await findByBarcode(db, code);
-      if (cached && !isStale(cached.offFetchedAt)) {
-        return serveCached(cached);
+      const usableCache = cached && hasNutrition(cached) ? cached : null;
+      if (usableCache && !isStale(usableCache.offFetchedAt)) {
+        return serveCached(usableCache);
       }
 
       // With Open Food Facts switched off a barcode can still match something
@@ -181,8 +186,8 @@ export const foodRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
       // stale local answer beats refusing one. Beyond that there is nowhere
       // to look, so offer manual entry with the barcode attached.
       if (!(await foodSources(db, user.id)).useOff) {
-        if (cached) {
-          return serveCached(cached);
+        if (usableCache) {
+          return serveCached(usableCache);
         }
         return {
           status: 'incomplete' as const,
@@ -201,9 +206,9 @@ export const foodRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
         product = await off.product(code);
       } catch (err) {
         if (!(err instanceof OffUnavailableError)) throw err;
-        // A stale local copy beats no answer at all.
-        if (cached) {
-          return serveCached(cached);
+        // A stale local copy beats no answer at all -- an empty one does not.
+        if (usableCache) {
+          return serveCached(usableCache);
         }
         return reply.status(503).send({ error: err.message });
       }

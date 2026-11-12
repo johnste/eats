@@ -8,6 +8,7 @@ import {
   bmr,
   daysBetween,
   guessMeal,
+  hasNutrition,
   kjToKcal,
   MEALS,
   projectWeight,
@@ -409,5 +410,24 @@ describe('daysBetween', () => {
 
   it('goes negative when the range is backwards, so callers can tell', () => {
     assert.ok(daysBetween('2026-10-04', '2026-10-01') < 0);
+  });
+});
+
+describe('hasNutrition', () => {
+  const food = (
+    kcal100g: number,
+    protein100g: number,
+    carbs100g: number,
+    fat100g: number,
+  ) => ({ kcal100g, protein100g, carbs100g, fat100g });
+
+  it('is false only when every value is zero', () => {
+    assert.equal(hasNutrition(food(0, 0, 0, 0)), false);
+    assert.equal(hasNutrition(food(466, 6.3, 68, 17)), true);
+  });
+
+  it('keeps a food that is zero in some values but not all', () => {
+    assert.equal(hasNutrition(food(0, 0, 0, 0.1)), true, 'a trace of fat is data');
+    assert.equal(hasNutrition(food(4, 0, 1, 0)), true, 'so is a near-zero drink');
   });
 });

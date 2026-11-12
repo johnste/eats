@@ -1,4 +1,4 @@
-import { kjToKcal, round } from '@eats/shared';
+import { hasNutrition, kjToKcal, round } from '@eats/shared';
 import { z } from 'zod';
 
 /**
@@ -39,9 +39,13 @@ const nutrimentsSchema = z
  * returns `brands` as a comma-separated string, the search index returns it as
  * an array. Accept both rather than letting one shape fail the whole parse.
  */
-const brandsField = z
-  .union([z.string(), z.array(z.string())])
-  .optional();
+const brandsField = z.union([z.string(), z.array(z.string())]).optional();
+
+/** OFF writes checkbox flags as the string "on", not as a boolean. */
+const looseBool = z.preprocess(
+  (v) => v === true || v === 'on' || v === '1' || v === 1,
+  z.boolean(),
+);
 
 const productSchema = z.object({
   code: z.string(),
@@ -50,6 +54,7 @@ const productSchema = z.object({
   brands: brandsField,
   quantity: z.string().optional(),
   serving_size: z.string().optional(),
+  no_nutrition_data: looseBool.optional(),
   nutriments: nutrimentsSchema.optional(),
 });
 
@@ -72,10 +77,24 @@ export interface OffMacros {
 }
 
 export type OffProduct =
-  | { status: 'ok'; barcode: string; name: string; brand: string | null; servingG: number | null; macros: OffMacros }
+  | {
+      status: 'ok';
+      barcode: string;
+      name: string;
+      brand: string | null;
+      servingG: number | null;
+      macros: OffMacros;
+    }
   /** Found, but the nutrition data is missing or unusable. The name and brand
    *  are still worth returning: they prefill the manual entry form. */
-  | { status: 'incomplete'; barcode: string; name: string; brand: string | null; servingG: number | null; missing: string[] }
+  | {
+      status: 'incomplete';
+      barcode: string;
+      name: string;
+      brand: string | null;
+      servingG: number | null;
+      missing: string[];
+    }
   | { status: 'not_found'; barcode: string };
 
 export class OffUnavailableError extends Error {}
@@ -158,7 +177,8 @@ export function createOffClient(opts: OffClientOptions) {
 
     async product(barcode: string): Promise<OffProduct> {
       const fields =
-        'code,product_name,product_name_en,brands,quantity,serving_size,nutriments';
+        'code,product_name,product_name_en,brands,quantity,serving_size,' +
+        'no_nutrition_data,nutriments';
       const url = `${PRODUCT_URL}/${encodeURIComponent(barcode)}.json?fields=${fields}`;
       const body = await call(url);
       if (!body || typeof body !== 'object') return { status: 'not_found', barcode };
@@ -180,6 +200,19 @@ export function createOffClient(opts: OffClientOptions) {
         (n['energy-kj_100g'] !== undefined
           ? round(kjToKcal(n['energy-kj_100g']), 0)
           : undefined);
+
+      // OFF's own flag for "this package declares no nutrition table". When
+      // it is set, the zeros below are placeholders, not measurements.
+      if (p.no_nutrition_data) {
+        return {
+          status: 'incomplete',
+          barcode: p.code,
+          name,
+          brand,
+          servingG,
+          missing: name ? ['nutrition data'] : ['nutrition data', 'name'],
+        };
+      }
 
       const missing: string[] = [];
       if (kcal === undefined) missing.push('calories');
@@ -204,6 +237,19 @@ export function createOffClient(opts: OffClientOptions) {
         carbs100g: n.carbohydrates_100g as number,
         fat100g: n.fat_100g as number,
       };
+
+      // All four at zero is how an unfilled product arrives: present, parseable
+      // and worth nothing. Treat it as no data rather than as a food.
+      if (!hasNutrition(macros)) {
+        return {
+          status: 'incomplete',
+          barcode: p.code,
+          name,
+          brand,
+          servingG,
+          missing: ['nutrition data'],
+        };
+      }
 
       // Guard against transcription errors in the source data (a per-serving
       // figure filed as per-100g, a decimal point in the wrong place).

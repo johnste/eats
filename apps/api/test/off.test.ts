@@ -100,6 +100,42 @@ describe('off.product', () => {
     assert.equal(r.status, 'ok');
   });
 
+  it('treats a product filled in with zeros as having no data', async () => {
+    const body = structuredClone(PRODUCT_OK);
+    body.product.nutriments = {
+      'energy-kcal_100g': 0,
+      'energy-kj_100g': 0,
+      proteins_100g: 0,
+      carbohydrates_100g: 0,
+      fat_100g: 0,
+    };
+    const r = await clientReturning(body).product('x');
+    // Four parseable zeros is what an unfilled product looks like. Logging it
+    // would add nothing, so it is offered as something to fill in instead.
+    assert.equal(r.status, 'incomplete');
+    if (r.status !== 'incomplete') return;
+    assert.deepEqual(r.missing, ['nutrition data']);
+    assert.equal(r.name, 'Prince');
+  });
+
+  it('honours OFF\'s own no-nutrition-table flag, which it writes as "on"', async () => {
+    const body = structuredClone(PRODUCT_OK) as Record<string, any>;
+    body.product.no_nutrition_data = 'on';
+    const r = await clientReturning(body).product('x');
+    assert.equal(r.status, 'incomplete');
+    if (r.status !== 'incomplete') return;
+    assert.deepEqual(r.missing, ['nutrition data']);
+    // The declared portion is still worth carrying to the manual form.
+    assert.equal(r.servingG, 250);
+  });
+
+  it('keeps a product that is zero in one macro but not all of them', async () => {
+    const body = structuredClone(PRODUCT_OK);
+    body.product.nutriments.fat_100g = 0;
+    const r = await clientReturning(body).product('x');
+    assert.equal(r.status, 'ok', 'a fat-free food is still a food');
+  });
+
   it('treats an unknown barcode as not found', async () => {
     const r = await clientReturning({ status: 0 }).product('0000000000000');
     assert.equal(r.status, 'not_found');

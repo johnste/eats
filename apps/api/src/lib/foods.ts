@@ -1,5 +1,5 @@
 import type { FoodResponse, Meal } from '@eats/shared';
-import { and, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, ilike, inArray, or, sql } from 'drizzle-orm';
 import type { Database, Executor } from '../db/client.ts';
 import { foods, foodServings, foodViews, logEntries, users } from '../db/schema.ts';
 import type { OffProduct } from './off.ts';
@@ -174,6 +174,17 @@ export async function searchLocal(
           eq(foods.createdBy, userId),
           ...(sources.useOff ? [eq(foods.source, 'off')] : []),
           ...(sources.useSlv ? [eq(foods.source, 'slv')] : []),
+        ),
+        // Shared rows with nothing in them are not worth offering: they are
+        // what Open Food Facts gives us for a product nobody has filled in,
+        // and picking one logs four zeros. Your own foods are exempt -- if you
+        // entered zeros you meant them.
+        or(
+          eq(foods.createdBy, userId),
+          gt(foods.kcal100g, 0),
+          gt(foods.protein100g, 0),
+          gt(foods.carbs100g, 0),
+          gt(foods.fat100g, 0),
         ),
       ),
     )

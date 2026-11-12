@@ -20,6 +20,12 @@ const NUMERIC: { name: FieldName; label: string; suffix: string }[] = [
 /** Anything the parser wasn't sure about gets flagged for a human look. */
 const UNCERTAIN = 0.8;
 
+/** "calories, protein and fat" -- a list a sentence can hold. */
+function listed(items: string[]): string {
+  if (items.length <= 1) return items[0] ?? '';
+  return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
+}
+
 /**
  * What the scan actually saw. Shown after every scan, not just failures: when
  * a number comes out wrong the recognised text is nearly always the
@@ -69,12 +75,24 @@ export function NewFood() {
   const date = params.get('date') ?? toDateKey();
   const fileRef = useRef<HTMLInputElement>(null);
 
+  /** What the barcode lookup came back without, if it came back short. */
+  const missing = (params.get('missing') ?? '')
+    .split(',')
+    .map((m) => m.trim())
+    .filter(Boolean);
+
   const [name, setName] = useState(params.get('name') ?? '');
   const [brand, setBrand] = useState(params.get('brand') ?? '');
   const [barcode, setBarcode] = useState(params.get('barcode') ?? '');
   const [scanningBarcode, setScanningBarcode] = useState(false);
   /** label + grams pairs, e.g. "1 egg" -> 60. */
-  const [servings, setServings] = useState<{ label: string; grams: string }[]>([]);
+  const [servings, setServings] = useState<{ label: string; grams: string }[]>(() => {
+    // A portion Open Food Facts declared for a barcode it had nothing else
+    // for. It is the one useful thing in an otherwise empty record, and it
+    // becomes the default amount once this food is saved.
+    const declared = params.get('serving');
+    return declared ? [{ label: '1 portion', grams: declared }] : [];
+  });
   /** The photo the macros came from, kept only to check them against. */
   const [photo, setPhoto] = useState<string | null>(null);
   const [values, setValues] = useState<Record<FieldName, string>>({
@@ -204,6 +222,16 @@ export function NewFood() {
       <p className="text-muted mb-4 text-[13px]">
         Values are per 100 g, the way labels state them.
       </p>
+
+      {missing.length > 0 && (
+        <p className="text-muted bg-surface mb-4 rounded-xl p-3 text-[13px]">
+          {missing.some((m) => m.startsWith('plausible'))
+            ? "Open Food Facts has numbers for this barcode, but they don't look like per-100 g values."
+            : `Open Food Facts knows this barcode but not its ${listed(missing)}.`}{' '}
+          Scan the nutrition table above, or type the numbers in yourself — they are
+          saved against the barcode, so the next scan will find them.
+        </p>
+      )}
 
       {existing.isError && (
         <p className="mb-4">
