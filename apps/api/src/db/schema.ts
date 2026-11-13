@@ -120,6 +120,12 @@ export const foods = pgTable(
     protein100g: real('protein_100g').notNull(),
     carbs100g: real('carbs_100g').notNull(),
     fat100g: real('fat_100g').notNull(),
+    /**
+     * The numbers are a guess -- a home-cooked dish, a slice of cake at
+     * someone's house -- not read off a label. Shown as a mark beside the
+     * name, so a guess is never mistaken for a measurement.
+     */
+    estimated: boolean('estimated').notNull().default(false),
     createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
     /** When this was last pulled from Open Food Facts; null for custom foods. */
     offFetchedAt: timestamp('off_fetched_at', { withTimezone: true }),

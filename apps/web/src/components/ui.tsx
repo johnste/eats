@@ -101,6 +101,23 @@ export function Disclosure({
  * rather than checked, which is what this actually means, and the whole row
  * is the target so there is no small knob to hit.
  */
+/**
+ * Beside the name of a food whose numbers are a guess rather than read off a
+ * label. One accent-coloured character, so it marks the name without
+ * crowding it; screen readers hear "estimated" instead of "star".
+ */
+export function EstimatedMark({ show = true }: { show?: boolean }) {
+  if (!show) return null;
+  return (
+    <>
+      <span aria-hidden className="text-accent ml-0.5 font-semibold">
+        *
+      </span>
+      <span className="sr-only"> (estimated)</span>
+    </>
+  );
+}
+
 export function Toggle({
   label,
   hint,

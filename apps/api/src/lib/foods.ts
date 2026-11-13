@@ -21,6 +21,7 @@ export function toFoodResponse(
     name: food.name,
     brand: food.brand,
     barcode: food.barcode,
+    estimated: food.estimated,
     kcal100g: food.kcal100g,
     protein100g: food.protein100g,
     carbs100g: food.carbs100g,
@@ -400,6 +401,7 @@ export async function insertCustomFood(
     carbs100g: number;
     fat100g: number;
     servings?: { label: string; grams: number }[] | undefined;
+    estimated?: boolean | undefined;
   },
 ): Promise<FoodRow> {
   const [row] = await tx
@@ -413,6 +415,7 @@ export async function insertCustomFood(
       protein100g: input.protein100g,
       carbs100g: input.carbs100g,
       fat100g: input.fat100g,
+      estimated: input.estimated ?? false,
       createdBy: userId,
     })
     .returning();

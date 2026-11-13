@@ -1,4 +1,11 @@
-import { addDays, MEALS, scaleMacros, toDateKey, type Meal } from '@eats/shared';
+import {
+  addDays,
+  MEALS,
+  scaleMacros,
+  stripEstimateMarker,
+  toDateKey,
+  type Meal,
+} from '@eats/shared';
 import { and, eq } from 'drizzle-orm';
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
@@ -93,6 +100,8 @@ export const logArgs = z.object({
   brand: z.string().max(120).optional(),
   /** Log a second food under a name that already exists. */
   createNew: z.boolean().optional(),
+  /** The per-100g values are a guess, not read off a label. */
+  estimated: z.boolean().optional(),
   kcal100g: z.number().min(0).max(900).optional(),
   protein100g: z.number().min(0).max(100).optional(),
   carbs100g: z.number().min(0).max(100).optional(),
@@ -149,7 +158,10 @@ export const TOOLS = [
       'describe a food not in the database by giving name plus all four per-100g ' +
       'values (kcal100g, protein100g, carbs100g, fat100g) — a new food is then ' +
       'created and logged. Amount is always in grams. Only give macros you are ' +
-      'confident about; ask the user rather than guessing at a packet you cannot see.',
+      'confident about; ask the user rather than guessing at a packet you cannot see. ' +
+      'For something with no label -- home cooking, a dish out -- a reasoned ' +
+      'estimate is fine: set estimated: true, and keep the name plain (no ' +
+      '"(estimated)" in it; the app marks estimates itself).',
     inputSchema: {
       type: 'object',
       properties: {
@@ -178,6 +190,12 @@ export const TOOLS = [
           description: 'Carbohydrate grams per 100g',
         },
         fat100g: { type: 'number', description: 'Fat grams per 100g' },
+        estimated: {
+          type: 'boolean',
+          description:
+            'When creating a food: true if the per-100g values are your ' +
+            'estimate rather than read from a label or a database.',
+        },
       },
       required: ['grams', 'meal'],
     },
@@ -282,8 +300,10 @@ const describe = (f: {
   brand: string | null;
   id: string;
   kcal100g: number;
+  estimated: boolean;
 }) =>
-  `${f.name}${f.brand ? ` (${f.brand})` : ''} — id ${f.id}, ${Math.round(f.kcal100g)} kcal/100g`;
+  `${f.name}${f.brand ? ` (${f.brand})` : ''} — id ${f.id}, ` +
+  `${Math.round(f.kcal100g)} kcal/100g${f.estimated ? ' (values estimated)' : ''}`;
 
 const MERGE_REFUSALS: Record<MergeFailure, string> = {
   'same-food': 'Those are the same food.',
@@ -324,7 +344,9 @@ async function callTool(
       found
         .map(
           (f) =>
-            `${f.name}${f.brand ? ` (${f.brand})` : ''} — id ${f.id} — per 100g: ` +
+            `${f.name}${f.brand ? ` (${f.brand})` : ''} — id ${f.id} — ` +
+            (f.estimated ? 'values estimated — ' : '') +
+            'per 100g: ' +
             `${Math.round(f.kcal100g)} kcal, ${f.protein100g}g protein, ` +
             `${f.carbs100g}g carbs, ${f.fat100g}g fat` +
             (f.servings.length
@@ -340,6 +362,14 @@ async function callTool(
     if (!parsed.success)
       return text(`Invalid arguments: ${parsed.error.message}`, true);
     const a = parsed.data;
+    // The habit from before foods had an estimated field: a guess said so in
+    // its name. Read the marker back out into the flag, so a plain name is
+    // what gets matched against the database and what gets stored.
+    if (a.name !== undefined) {
+      const plain = stripEstimateMarker(a.name);
+      a.name = plain.name;
+      if (plain.estimated) a.estimated = true;
+    }
 
     let food: typeof foods.$inferSelect | undefined;
     // Not identical, but close enough to mention once the entry is in: a nudge
@@ -407,6 +437,7 @@ async function callTool(
           protein100g: a.protein100g as number,
           carbs100g: a.carbs100g as number,
           fat100g: a.fat100g as number,
+          estimated: a.estimated ?? false,
         });
         await recordFoodView(tx, owner.id, row.id);
         return row;

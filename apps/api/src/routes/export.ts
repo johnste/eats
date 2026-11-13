@@ -2,7 +2,14 @@ import { asc, eq } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { type AppDeps, requireUser } from '../app.ts';
-import { foods, foodServings, goals, logEntries, users, weights } from '../db/schema.ts';
+import {
+  foods,
+  foodServings,
+  goals,
+  logEntries,
+  users,
+  weights,
+} from '../db/schema.ts';
 
 /**
  * Everything this user has put into the app, as one JSON document.
@@ -81,6 +88,7 @@ export const exportRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
           protein100g: foods.protein100g,
           carbs100g: foods.carbs100g,
           fat100g: foods.fat100g,
+          estimated: foods.estimated,
           createdAt: foods.createdAt,
         })
         .from(foods)

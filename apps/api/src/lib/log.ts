@@ -39,7 +39,7 @@ export interface DayEntry extends Macros {
   meal: Meal;
   grams: number;
   loggedOn: string;
-  food: { id: string; name: string; brand: string | null };
+  food: { id: string; name: string; brand: string | null; estimated: boolean };
 }
 
 export async function entriesForRange(
@@ -64,7 +64,12 @@ export async function entriesForRange(
     proteinG: entry.proteinG,
     carbsG: entry.carbsG,
     fatG: entry.fatG,
-    food: { id: food.id, name: food.name, brand: food.brand },
+    food: {
+      id: food.id,
+      name: food.name,
+      brand: food.brand,
+      estimated: food.estimated,
+    },
   }));
 }
 

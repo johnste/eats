@@ -16,6 +16,7 @@ export interface DuplicateFood {
   brand: string | null;
   source: 'off' | 'custom' | 'slv';
   kcal100g: number;
+  estimated: boolean;
   /** How many logged entries point at this food. */
   entries: number;
   /** Only your own foods can be folded away; shared ones can only be kept. */
@@ -46,6 +47,7 @@ export async function findDuplicates(
       brand: foods.brand,
       source: foods.source,
       kcal100g: foods.kcal100g,
+      estimated: foods.estimated,
       createdBy: foods.createdBy,
       entries: sql<number>`(
         select count(*)::int from ${logEntries}
@@ -67,6 +69,7 @@ export async function findDuplicates(
       brand: r.brand,
       source: r.source,
       kcal100g: r.kcal100g,
+      estimated: r.estimated,
       entries: r.entries,
       removable: r.source === 'custom' && r.createdBy === userId,
     });

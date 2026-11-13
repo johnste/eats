@@ -15,7 +15,7 @@ import {
   MacroSplit,
   type MacroFocus,
 } from '../components/Macros.tsx';
-import { Card, Empty, ErrorNote, Spinner } from '../components/ui.tsx';
+import { Card, Empty, ErrorNote, EstimatedMark, Spinner } from '../components/ui.tsx';
 import {
   useDay,
   useLogMutations,
@@ -319,6 +319,7 @@ export function Today() {
                             >
                               <span className="text-ink block truncate text-[13px] leading-tight">
                                 {entry.food.name}
+                                <EstimatedMark show={entry.food.estimated} />
                               </span>
                               <span className="text-faint nums block truncate text-[11px]">
                                 {round(entry.grams)} g

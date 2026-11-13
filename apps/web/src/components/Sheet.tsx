@@ -4,10 +4,13 @@ import { createPortal } from 'react-dom';
 /** A bottom sheet: reachable with a thumb, and dismissable with Escape. */
 export function Sheet({
   title,
+  titleMark,
   onClose,
   children,
 }: {
   title: string;
+  /** Drawn after the title, such as the mark on an estimated food. */
+  titleMark?: ReactNode;
   onClose: () => void;
   children: ReactNode;
 }) {
@@ -50,7 +53,10 @@ export function Sheet({
         }}
       >
         <div className="bg-line mx-auto mb-4 h-1 w-9 rounded-full" aria-hidden />
-        <h2 className="text-ink mb-4 text-base font-semibold">{title}</h2>
+        <h2 className="text-ink mb-4 text-base font-semibold">
+          {title}
+          {titleMark}
+        </h2>
         {children}
       </div>
     </div>,

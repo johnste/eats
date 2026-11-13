@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router';
 import { BarcodeScanner } from './BarcodeScanner.tsx';
 import { BottomBar, BottomBarSpacer } from './BottomBar.tsx';
 import { Sheet } from './Sheet.tsx';
-import { Button, Empty, ErrorNote, Field, Spinner } from './ui.tsx';
+import { Button, Empty, ErrorNote, EstimatedMark, Field, Spinner } from './ui.tsx';
 import { AddSplitButton } from './MealMenu.tsx';
 import { WeightChips, WeightsInput } from './WeighIn.tsx';
 import { api, ApiError } from '../lib/api.ts';
@@ -152,8 +152,11 @@ export function FoodPicker({
           </span>
           <span className="text-muted min-w-0 flex-1 truncate">
             <span className="nums text-ink">{round(last.slot.grams)} g</span>{' '}
-            <span className="text-ink">{last.food.name}</span> added to{' '}
-            {MEAL_LABELS[meal].toLowerCase()}
+            <span className="text-ink">
+              {last.food.name}
+              <EstimatedMark show={last.food.estimated} />
+            </span>{' '}
+            added to {MEAL_LABELS[meal].toLowerCase()}
           </span>
           <button
             type="button"
@@ -387,10 +390,21 @@ const ROW =
   'bg-raised border-line active:bg-surface flex min-h-11 w-full items-center rounded-xl border px-3 text-left';
 
 /** "Bregott · Arla" on a single line; the brand gives way first. */
-function FoodName({ name, brand }: { name: string; brand: string | null }) {
+function FoodName({
+  name,
+  brand,
+  estimated = false,
+}: {
+  name: string;
+  brand: string | null;
+  estimated?: boolean;
+}) {
   return (
     <span className="flex min-w-0 items-baseline gap-1.5 text-sm">
-      <span className="text-ink truncate">{name}</span>
+      <span className="text-ink truncate">
+        {name}
+        <EstimatedMark show={estimated} />
+      </span>
       {brand && <span className="text-faint min-w-0 shrink-[2] truncate">{brand}</span>}
     </span>
   );
@@ -408,7 +422,7 @@ function FoodList({
       {foods.map((f) => (
         <li key={f.id}>
           <button type="button" onClick={() => onPick(f)} className={ROW}>
-            <FoodName name={f.name} brand={f.brand} />
+            <FoodName name={f.name} brand={f.brand} estimated={f.estimated} />
           </button>
         </li>
       ))}
@@ -443,7 +457,11 @@ function QuantitySheet({
   const factor = valid ? value / 100 : 0;
 
   return (
-    <Sheet title={food.name} onClose={onClose}>
+    <Sheet
+      title={food.name}
+      titleMark={<EstimatedMark show={food.estimated} />}
+      onClose={onClose}
+    >
       <div className="space-y-4">
         <Field
           label="Amount"
@@ -504,6 +522,12 @@ function QuantitySheet({
           <p className="text-faint nums border-line border-t pt-2 text-center text-[11px]">
             Per 100 g: {Math.round(food.kcal100g)} kcal · {round(food.protein100g)} g
             protein · {round(food.carbs100g)} g carbs · {round(food.fat100g)} g fat
+            {food.estimated && (
+              <>
+                <br />
+                <span className="text-accent">*</span> Estimated, not from a label
+              </>
+            )}
           </p>
         </div>
 

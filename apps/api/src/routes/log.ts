@@ -130,7 +130,12 @@ export const logRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
         proteinG: row.proteinG,
         carbsG: row.carbsG,
         fatG: row.fatG,
-        food: { id: food.id, name: food.name, brand: food.brand },
+        food: {
+          id: food.id,
+          name: food.name,
+          brand: food.brand,
+          estimated: food.estimated,
+        },
       };
     },
   );
@@ -192,7 +197,12 @@ export const logRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
           proteinG: row.proteinG,
           carbsG: row.carbsG,
           fatG: row.fatG,
-          food: { id: food.id, name: food.name, brand: food.brand },
+          food: {
+            id: food.id,
+            name: food.name,
+            brand: food.brand,
+            estimated: food.estimated,
+          },
         };
       });
     },
@@ -256,6 +266,7 @@ export const logRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
           id: existing.food.id,
           name: existing.food.name,
           brand: existing.food.brand,
+          estimated: existing.food.estimated,
         },
       };
     },

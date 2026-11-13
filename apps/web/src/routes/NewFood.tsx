@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { BarcodeScanner } from '../components/BarcodeScanner.tsx';
 import { CameraSheet } from '../components/CameraSheet.tsx';
-import { Button, Card, ErrorNote, Field } from '../components/ui.tsx';
+import { Button, Card, ErrorNote, Field, Toggle } from '../components/ui.tsx';
 import { api, ApiError } from '../lib/api.ts';
 import { useBrands } from '../lib/queries.ts';
 
@@ -84,6 +84,8 @@ export function NewFood() {
   const [name, setName] = useState(params.get('name') ?? '');
   const [brand, setBrand] = useState(params.get('brand') ?? '');
   const [barcode, setBarcode] = useState(params.get('barcode') ?? '');
+  /** The numbers are a guess rather than read off a label. */
+  const [estimated, setEstimated] = useState(false);
   const [scanningBarcode, setScanningBarcode] = useState(false);
   /** label + grams pairs, e.g. "1 egg" -> 60. */
   const [servings, setServings] = useState<{ label: string; grams: string }[]>(() => {
@@ -126,6 +128,7 @@ export function NewFood() {
       fat100g: String(food.fat100g),
     });
     setServings(food.servings.map((s) => ({ label: s.label, grams: String(s.grams) })));
+    setEstimated(food.estimated);
   }, [existing.data]);
 
   const ocr = useMutation({
@@ -151,6 +154,8 @@ export function NewFood() {
       }
       setValues(next);
       setFlagged(flags);
+      // Read off a label, so not a guess any more.
+      setEstimated(false);
     },
   });
 
@@ -189,6 +194,7 @@ export function NewFood() {
         protein100g: parsed.protein100g,
         carbs100g: parsed.carbs100g,
         fat100g: parsed.fat100g,
+        estimated,
         servings: [
           ...servings.flatMap((s) => {
             const grams = Number.parseFloat(s.grams.replace(',', '.'));
@@ -348,6 +354,13 @@ export function NewFood() {
             />
           ))}
         </div>
+
+        <Toggle
+          label="Estimated"
+          hint="A guess, not read off a label. Marked with * wherever this food appears."
+          checked={estimated}
+          onChange={setEstimated}
+        />
 
         {complete && !reconciles && (
           <p className="text-muted text-[13px]">

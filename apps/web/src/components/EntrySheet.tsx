@@ -9,7 +9,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Sheet } from './Sheet.tsx';
-import { Button, ErrorNote, Field } from './ui.tsx';
+import { Button, ErrorNote, EstimatedMark, Field } from './ui.tsx';
 import { api, ApiError } from '../lib/api.ts';
 import { useLogMutations } from '../lib/queries.ts';
 
@@ -50,7 +50,11 @@ export function EntrySheet({
   const error = [update.error, copy.error].find((e) => e instanceof ApiError);
 
   return (
-    <Sheet title={entry.food.name} onClose={onClose}>
+    <Sheet
+      title={entry.food.name}
+      titleMark={<EstimatedMark show={entry.food.estimated} />}
+      onClose={onClose}
+    >
       <div className="space-y-4">
         <Field
           label="Amount"

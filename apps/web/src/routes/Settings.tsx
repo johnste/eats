@@ -15,6 +15,7 @@ import {
   Card,
   Disclosure,
   ErrorNote,
+  EstimatedMark,
   Field,
   Toggle,
 } from '../components/ui.tsx';
@@ -426,6 +427,7 @@ function DuplicatesCard() {
                     <span className="min-w-0">
                       <span className="text-ink block truncate text-[13px]">
                         {food.brand ?? sourceLabel(food.source)}
+                        <EstimatedMark show={food.estimated} />
                       </span>
                       <span className="text-faint nums block text-[11px]">
                         {Math.round(food.kcal100g)} kcal/100g · {food.entries}{' '}

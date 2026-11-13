@@ -81,6 +81,8 @@ export const createFoodBody = macrosPer100g.extend({
     .nullable()
     .optional(),
   servings: z.array(servingInput).max(10).optional(),
+  /** The values are a guess, not read off a label. */
+  estimated: z.boolean().optional(),
 });
 
 export const updateFoodBody = createFoodBody.partial();
@@ -94,6 +96,8 @@ export const foodResponse = macrosPer100g.extend({
   name: z.string(),
   brand: z.string().nullable(),
   barcode: z.string().nullable(),
+  /** The values are a guess, not read off a label; shown as a mark. */
+  estimated: z.boolean(),
   servings: z.array(servingInput.extend({ id: z.string() })),
   /**
    * How much of this you usually log: the median of your last few entries.
@@ -191,6 +195,7 @@ export const logEntryResponse = macrosResponse.extend({
     id: z.string(),
     name: z.string(),
     brand: z.string().nullable(),
+    estimated: z.boolean(),
   }),
 });
 
@@ -217,6 +222,7 @@ export const duplicateGroupResponse = z.object({
       brand: z.string().nullable(),
       source: foodSource,
       kcal100g: z.number(),
+      estimated: z.boolean(),
       entries: z.number(),
       removable: z.boolean(),
     }),
