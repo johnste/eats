@@ -1,16 +1,15 @@
 import { parseWeight, round, type Meal } from '@eats/shared';
-import { Button, ErrorNote } from './ui.tsx';
+import { AddSplitButton } from './MealMenu.tsx';
+import { ErrorNote } from './ui.tsx';
 import { ApiError } from '../lib/api.ts';
 import { useLogMutations } from '../lib/queries.ts';
-import { MEAL_LABELS } from '../lib/labels.ts';
 import type { WeighIn } from '../lib/useWeighIn.ts';
 
 /**
- * Where weights go in: a numeric field, and the weights still waiting for a
- * food as chips beside it. The active chip is the one the next food you pick
- * will take; tap another to send the next pick there instead.
+ * Where weights go in. Small enough to share a row with search: the numbers
+ * it holds move out into chips as soon as each one is finished.
  */
-export function WeightsField({
+export function WeightsInput({
   weighIn,
   onNext,
 }: {
@@ -19,79 +18,86 @@ export function WeightsField({
   onNext: () => void;
 }) {
   return (
-    <div className="flex items-center gap-2">
-      <input
-        value={weighIn.text}
-        onChange={(e) => weighIn.setText(e.target.value)}
-        onKeyDown={(e) => {
-          // Enter is the separator every keypad has; Android's number pad
-          // often has no space key at all.
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            // Enter after a number finishes it; Enter on an empty field
-            // means that was the last one, so on to search.
-            if (weighIn.text.trim() === '') onNext();
-            else weighIn.commit();
-          } else if (e.key === 'Backspace' && weighIn.text === '') {
-            weighIn.removeLastSlot();
-          }
-        }}
-        onBlur={() => weighIn.commit()}
-        inputMode="decimal"
-        enterKeyHint="next"
-        autoComplete="off"
-        aria-label="Weights in grams, separated by spaces"
-        placeholder="45 13 12"
-        className="bg-raised border-line text-ink placeholder:text-faint focus:border-accent nums min-h-11 w-28 shrink-0 rounded-full border px-4 focus:outline-none"
-      />
-      {weighIn.slots.length > 0 ? (
-        <ul
-          aria-label="Weights waiting for a food"
-          className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto"
-        >
-          {weighIn.slots.map((s) => {
-            const active = weighIn.active?.id === s.id;
-            return (
-              <li
-                key={s.id}
-                className={`flex shrink-0 items-center rounded-full border ${
-                  active
-                    ? 'border-accent bg-accent-soft text-accent'
-                    : 'border-line text-muted'
-                }`}
-              >
-                <button
-                  type="button"
-                  aria-pressed={active}
-                  aria-label={`${round(s.grams)} grams${active ? ', next food goes here' : ''}`}
-                  onClick={() => {
-                    weighIn.activate(s.id);
-                    // Choosing where the next food goes is choosing to go
-                    // and find it.
-                    onNext();
-                  }}
-                  className="nums min-h-11 pr-1 pl-3 text-[13px] font-medium"
-                >
-                  {round(s.grams)} g
-                </button>
-                <button
-                  type="button"
-                  aria-label={`Remove ${round(s.grams)} grams`}
-                  onClick={() => weighIn.removeSlot(s.id)}
-                  className="min-h-11 pr-3 pl-1 text-[15px] leading-none opacity-70"
-                >
-                  ×
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      ) : (
-        <p className="text-faint min-w-0 flex-1 text-xs leading-snug">
-          Weighed several things? Type each weight, then pick its food.
-        </p>
-      )}
-    </div>
+    <input
+      value={weighIn.text}
+      onChange={(e) => weighIn.setText(e.target.value)}
+      onKeyDown={(e) => {
+        // Enter is the separator every keypad has; Android's number pad
+        // often has no space key at all.
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          // Enter after a number finishes it; Enter on an empty field
+          // means that was the last one, so on to search.
+          if (weighIn.text.trim() === '') onNext();
+          else weighIn.commit();
+        } else if (e.key === 'Backspace' && weighIn.text === '') {
+          weighIn.removeLastSlot();
+        }
+      }}
+      onBlur={() => weighIn.commit()}
+      inputMode="decimal"
+      enterKeyHint="next"
+      autoComplete="off"
+      aria-label="Weights in grams, separated by spaces"
+      placeholder="45 13 12"
+      className="bg-raised border-line text-ink placeholder:text-faint focus:border-accent nums min-h-11 w-24 shrink-0 rounded-full border px-3 focus:outline-none"
+    />
+  );
+}
+
+/**
+ * The weights still waiting for a food. The active one is where the next
+ * food you pick goes; tap another to send it there instead.
+ */
+export function WeightChips({
+  weighIn,
+  onNext,
+}: {
+  weighIn: WeighIn;
+  onNext: () => void;
+}) {
+  return (
+    <ul
+      aria-label="Weights waiting for a food"
+      className="flex gap-1.5 overflow-x-auto"
+    >
+      {weighIn.slots.map((s) => {
+        const active = weighIn.active?.id === s.id;
+        return (
+          <li
+            key={s.id}
+            className={`flex shrink-0 items-center rounded-full border ${
+              active
+                ? 'border-accent bg-accent-soft text-accent'
+                : 'border-line text-muted'
+            }`}
+          >
+            <button
+              type="button"
+              aria-pressed={active}
+              aria-label={`${round(s.grams)} grams${active ? ', next food goes here' : ''}`}
+              onClick={() => {
+                weighIn.activate(s.id);
+                // Choosing where the next food goes is choosing to go and
+                // find it.
+                onNext();
+              }}
+              className="nums min-h-11 pr-1 pl-3 text-[13px] font-medium"
+            >
+              {round(s.grams)} g
+            </button>
+            <button
+              type="button"
+              aria-label={`Remove ${round(s.grams)} grams`}
+              onClick={() => weighIn.removeSlot(s.id)}
+              className="min-h-11 pr-3 pl-1 text-[15px] leading-none opacity-70"
+            >
+              ×
+            </button>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
@@ -188,9 +194,6 @@ export function WeighInReview({
           </li>
         ))}
       </ul>
-      <p className="text-faint mt-1 text-[11px]">
-        Tap a name to pick a different food.
-      </p>
 
       {addMany.error instanceof ApiError && (
         <p className="mt-3">
@@ -198,32 +201,32 @@ export function WeighInReview({
         </p>
       )}
 
-      <Button
-        className="mt-3 w-full"
-        disabled={!valid || addMany.isPending}
-        onClick={() =>
-          addMany.mutate(
-            {
-              entries: rows.map((r) => ({
-                foodId: r.food.id,
-                grams: r.g as number,
-                meal,
-                loggedOn: date,
-              })),
-            },
-            {
-              onSuccess: () => {
-                weighIn.clearRows(rows.map((r) => r.id));
-                onAdded();
+      <div className="mt-3">
+        <AddSplitButton
+          meal={meal}
+          label={(m) => `Add ${rows.length} to ${m}`}
+          disabled={!valid}
+          pending={addMany.isPending}
+          onAdd={(to) =>
+            addMany.mutate(
+              {
+                entries: rows.map((r) => ({
+                  foodId: r.food.id,
+                  grams: r.g as number,
+                  meal: to,
+                  loggedOn: date,
+                })),
               },
-            },
-          )
-        }
-      >
-        {addMany.isPending
-          ? 'Adding…'
-          : `Add ${rows.length} to ${MEAL_LABELS[meal].toLowerCase()}`}
-      </Button>
+              {
+                onSuccess: () => {
+                  weighIn.clearRows(rows.map((r) => r.id));
+                  onAdded();
+                },
+              },
+            )
+          }
+        />
+      </div>
     </section>
   );
 }

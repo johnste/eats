@@ -1,7 +1,8 @@
 import { guessMeal, MEALS, type Meal } from '@eats/shared';
 import { useNavigate, useSearchParams } from 'react-router';
 import { FoodPicker } from '../components/FoodPicker.tsx';
-import { humanDate, MEAL_LABELS } from '../lib/labels.ts';
+import { MealSwitch } from '../components/MealMenu.tsx';
+import { humanDate } from '../lib/labels.ts';
 import { useToday } from '../lib/useToday.ts';
 
 /**
@@ -38,34 +39,27 @@ export function Add() {
   return (
     <>
       <header
-        className="bg-surface sticky z-10 -mx-4 -mt-4 mb-4 px-4 pt-4 pb-3"
+        className="bg-surface sticky z-10 -mx-4 -mt-4 mb-2 px-4 pt-2"
         style={{ top: 'env(safe-area-inset-top, 0px)' }}
       >
-        <h1 className="text-ink mb-2 text-lg font-semibold">
-          Add to {MEAL_LABELS[meal].toLowerCase()}
+        {/* The heading reads as a sentence; the meal menu sits beside it
+            rather than inside it, so a screen reader announces the heading
+            as "Add to lunch, Today" and not as a list of every meal. */}
+        <div className="text-ink flex flex-wrap items-baseline gap-x-1.5 text-lg font-semibold">
+          <h1>
+            Add to
+            <span className="sr-only">
+              {' '}
+              {meal}, {day}
+            </span>
+          </h1>
+          <MealSwitch meal={meal} onChange={setMeal} />
           <span
-            className={`font-normal ${date === today ? 'text-muted' : 'text-accent font-semibold'}`}
+            aria-hidden
+            className={date === today ? 'text-muted font-normal' : 'text-accent'}
           >
-            {' '}
             · {day}
           </span>
-        </h1>
-        <div role="group" aria-label="Meal" className="grid grid-cols-4 gap-1.5">
-          {MEALS.map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => setMeal(m)}
-              aria-pressed={meal === m}
-              className={`min-h-11 rounded-lg border text-xs ${
-                meal === m
-                  ? 'border-accent bg-accent-soft text-accent font-medium'
-                  : 'border-line text-muted'
-              }`}
-            >
-              {MEAL_LABELS[m]}
-            </button>
-          ))}
         </div>
       </header>
 

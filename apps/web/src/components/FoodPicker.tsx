@@ -1,4 +1,4 @@
-import { MEALS, round, toDateKey, type FoodResponse, type Meal } from '@eats/shared';
+import { round, toDateKey, type FoodResponse, type Meal } from '@eats/shared';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
@@ -6,7 +6,8 @@ import { BarcodeScanner } from './BarcodeScanner.tsx';
 import { BottomBar, BottomBarSpacer } from './BottomBar.tsx';
 import { Sheet } from './Sheet.tsx';
 import { Button, Empty, ErrorNote, Field, Spinner } from './ui.tsx';
-import { WeighInReview, WeightsField } from './WeighIn.tsx';
+import { AddSplitButton } from './MealMenu.tsx';
+import { WeighInReview, WeightChips, WeightsInput } from './WeighIn.tsx';
 import { api, ApiError } from '../lib/api.ts';
 import {
   keys,
@@ -15,6 +16,7 @@ import {
   useProfile,
   useRecentFoods,
 } from '../lib/queries.ts';
+import { MEAL_LABELS } from '../lib/labels.ts';
 import { usualFor, useWeighIn } from '../lib/useWeighIn.ts';
 
 /**
@@ -110,16 +112,15 @@ export function FoodPicker({
 
   const controls = (
     <div className="space-y-2">
-      <WeightsField weighIn={weighIn} onNext={toSearch} />
+      {weighIn.slots.length > 0 && <WeightChips weighIn={weighIn} onNext={toSearch} />}
       <div className="flex gap-2">
+        <WeightsInput weighIn={weighIn} onNext={toSearch} />
         <input
           ref={searchRef}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={
-            weighIn.active
-              ? `Find food for ${round(weighIn.active.grams)} g…`
-              : 'Search foods…'
+            weighIn.active ? `${round(weighIn.active.grams)} g of…` : 'Search…'
           }
           type="search"
           autoComplete="off"
@@ -129,7 +130,7 @@ export function FoodPicker({
           variant="ghost"
           onClick={() => setScanning(true)}
           aria-label="Scan a barcode"
-          className="px-3"
+          className="grid w-11 shrink-0 place-items-center px-0!"
         >
           <svg
             viewBox="0 0 24 24"
@@ -149,7 +150,7 @@ export function FoodPicker({
           variant="ghost"
           onClick={manual}
           aria-label="Add a food that isn't listed"
-          className="px-3"
+          className="grid w-11 shrink-0 place-items-center px-0!"
         >
           <svg
             viewBox="0 0 24 24"
@@ -190,7 +191,7 @@ export function FoodPicker({
       )}
       <section>
         <h2 className="text-muted mb-2 text-[13px] font-medium">
-          Recent · <span className="capitalize">{meal}</span> first
+          Recent · {MEAL_LABELS[meal]} first
         </h2>
         {recent.isPending && <Spinner />}
         {recent.data?.length === 0 && (
@@ -222,7 +223,7 @@ export function FoodPicker({
 
       {results}
 
-      <BottomBarSpacer className="h-36" />
+      <BottomBarSpacer className={weighIn.slots.length > 0 ? 'h-36' : 'h-24'} />
       <BottomBar>{controls}</BottomBar>
 
       {scanning && (
@@ -306,7 +307,7 @@ function SearchResults({
       {data.off.length > 0 && (
         <section>
           <h2 className="text-muted mb-2 text-[13px] font-medium">Open Food Facts</h2>
-          <ul className="space-y-1.5">
+          <ul className="space-y-1">
             {data.off.map((c) => (
               <li key={c.barcode}>
                 <button
@@ -343,7 +344,7 @@ function SearchResults({
  * the one above it, and a list of mixed heights is hard to scan down.
  */
 const ROW =
-  'bg-raised border-line active:bg-surface flex min-h-14 w-full items-center justify-between gap-3 rounded-xl border px-3 py-2 text-left';
+  'bg-raised border-line active:bg-surface flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border px-3 py-1.5 text-left';
 
 function FoodList({
   foods,
@@ -353,7 +354,7 @@ function FoodList({
   onPick: (f: FoodResponse) => void;
 }) {
   return (
-    <ul className="space-y-1.5">
+    <ul className="space-y-1">
       {foods.map((f) => (
         <li key={f.id}>
           <button type="button" onClick={() => onPick(f)} className={ROW}>
@@ -398,7 +399,6 @@ function QuantitySheet({
   const [grams, setGrams] = useState(
     food.servings[0] ? String(round(food.servings[0].grams)) : '100',
   );
-  const [meal, setMeal] = useState<Meal>(initialMeal);
   const { add } = useLogMutations(date);
 
   const value = Number.parseFloat(grams.replace(',', '.'));
@@ -444,27 +444,6 @@ function QuantitySheet({
           </div>
         )}
 
-        <fieldset>
-          <legend className="text-muted mb-1.5 text-[13px] font-medium">Meal</legend>
-          <div className="grid grid-cols-4 gap-1.5">
-            {MEALS.map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => setMeal(m)}
-                aria-pressed={meal === m}
-                className={`min-h-11 rounded-lg border text-xs capitalize ${
-                  meal === m
-                    ? 'border-accent bg-accent-soft text-accent font-medium'
-                    : 'border-line text-muted'
-                }`}
-              >
-                {m}
-              </button>
-            ))}
-          </div>
-        </fieldset>
-
         <div className="bg-surface space-y-2 rounded-xl p-3">
           <p className="text-muted text-center text-[11px] font-medium">
             {valid ? `In ${round(value)} g` : 'Enter an amount'}
@@ -493,18 +472,18 @@ function QuantitySheet({
 
         {add.error instanceof ApiError && <ErrorNote>{add.error.message}</ErrorNote>}
 
-        <Button
-          className="w-full"
-          disabled={!valid || add.isPending}
-          onClick={() =>
+        <AddSplitButton
+          meal={initialMeal}
+          label={(m) => `Add to ${m}`}
+          disabled={!valid}
+          pending={add.isPending}
+          onAdd={(to) =>
             add.mutate(
-              { foodId: food.id, grams: value, meal, loggedOn: date },
+              { foodId: food.id, grams: value, meal: to, loggedOn: date },
               { onSuccess: onDone },
             )
           }
-        >
-          {add.isPending ? 'Adding…' : 'Add to log'}
-        </Button>
+        />
 
         {/* Only your own foods are editable: the other sources are shared
             reference data, and this is where you notice a value is wrong. */}
