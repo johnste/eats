@@ -17,7 +17,7 @@ import {
   useRecentFoods,
 } from '../lib/queries.ts';
 import { MEAL_LABELS } from '../lib/labels.ts';
-import { usualFor, useWeighIn, type Slot } from '../lib/useWeighIn.ts';
+import { useWeighIn, type Slot } from '../lib/useWeighIn.ts';
 
 /**
  * Search, scan, recents and the amount sheet -- everything needed to put a
@@ -362,14 +362,7 @@ function SearchResults({
                   onClick={() => onPickOff(c.barcode)}
                   className={ROW}
                 >
-                  <span className="min-w-0">
-                    <span className="text-ink block truncate text-sm">{c.name}</span>
-                    {c.brand && (
-                      <span className="text-faint block truncate text-xs">
-                        {c.brand}
-                      </span>
-                    )}
-                  </span>
+                  <FoodName name={c.name} brand={c.brand} />
                 </button>
               </li>
             ))}
@@ -386,12 +379,22 @@ function SearchResults({
 }
 
 /**
- * One row of either list. The height is fixed because the second line is
- * optional -- a food with no brand would otherwise make a row shorter than
- * the one above it, and a list of mixed heights is hard to scan down.
+ * One row of either list: one line, name then brand, cut short rather than
+ * wrapped so every row is the same height and the list scans straight down.
+ * 44px tall, the smallest a thumb can hit reliably.
  */
 const ROW =
-  'bg-raised border-line active:bg-surface flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border px-3 py-1.5 text-left';
+  'bg-raised border-line active:bg-surface flex min-h-11 w-full items-center rounded-xl border px-3 text-left';
+
+/** "Bregott · Arla" on a single line; the brand gives way first. */
+function FoodName({ name, brand }: { name: string; brand: string | null }) {
+  return (
+    <span className="flex min-w-0 items-baseline gap-1.5 text-sm">
+      <span className="text-ink truncate">{name}</span>
+      {brand && <span className="text-faint min-w-0 shrink-[2] truncate">{brand}</span>}
+    </span>
+  );
+}
 
 function FoodList({
   foods,
@@ -405,20 +408,7 @@ function FoodList({
       {foods.map((f) => (
         <li key={f.id}>
           <button type="button" onClick={() => onPick(f)} className={ROW}>
-            <span className="min-w-0">
-              <span className="text-ink block truncate text-sm">{f.name}</span>
-              {f.brand && (
-                <span className="text-faint block truncate text-xs">{f.brand}</span>
-              )}
-            </span>
-            <span className="nums shrink-0 text-right text-xs">
-              {usualFor(f) !== null && (
-                <span className="text-muted block">
-                  ~{round(usualFor(f) as number)} g
-                </span>
-              )}
-              <span className="text-faint block">{Math.round(f.kcal100g)} /100g</span>
-            </span>
+            <FoodName name={f.name} brand={f.brand} />
           </button>
         </li>
       ))}
