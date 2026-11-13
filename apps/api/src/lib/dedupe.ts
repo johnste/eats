@@ -49,9 +49,12 @@ export async function findDuplicates(
       kcal100g: foods.kcal100g,
       estimated: foods.estimated,
       createdBy: foods.createdBy,
+      // Table names spelled out: inside a hand-written subquery Drizzle leaves
+      // column references unqualified, and "id" resolved to the log entry's
+      // own id, so every food showed 0 entries.
       entries: sql<number>`(
-        select count(*)::int from ${logEntries}
-        where ${logEntries.foodId} = ${foods.id} and ${logEntries.userId} = ${userId}
+        select count(*)::int from log_entries le
+        where le.food_id = foods.id and le.user_id = ${userId}
       )`,
     })
     .from(foods)
