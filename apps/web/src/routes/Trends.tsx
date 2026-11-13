@@ -256,7 +256,7 @@ function IntakeChart({
   return asBars ? (
     <BarChart data={rows} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
       {marks}
-      <Bar dataKey="kcal" fill="var(--color-accent)" radius={[4, 4, 0, 0]} />
+      <Bar dataKey="kcal" fill="var(--color-mark)" radius={[4, 4, 0, 0]} />
     </BarChart>
   ) : (
     <LineChart data={rows} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
@@ -266,7 +266,7 @@ function IntakeChart({
       <Line
         type="monotone"
         dataKey="kcal"
-        stroke="var(--color-accent)"
+        stroke="var(--color-mark)"
         strokeWidth={2}
         dot={false}
         isAnimationActive={false}

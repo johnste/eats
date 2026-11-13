@@ -25,73 +25,57 @@
 }
 
 /**
- * Soft, not stark. Surfaces carry a faint cool tint instead of being white or
- * cream, shapes are rounder than they were, and weights are lighter.
+ * Jewel tones on aubergine. One scheme, dark, whatever the phone is set to:
+ * a food diary is mostly opened in a kitchen in the evening, and the colours
+ * were chosen against this background rather than flipped onto it.
  *
- * The three macro hues are a categorical set and were chosen with the dataviz
- * validator, not by eye. Indigo, apricot and rose sit closer together than the
- * teal/mustard/coral they replace, which is the point -- but closer together
- * is exactly where a palette stops being distinguishable, so the numbers are
- * what decided it. Light: CVD dE 16.2, normal-vision 19.7. Dark is its own
- * selection for its own lightness band (0.48-0.67): 16.0 and 19.1.
+ * The background is a deep plum rather than grey-black, so the page has a
+ * colour of its own; text is a faintly lavender white to match.
  *
- * Light-mode carbs sits at 2.2:1 against the card, below the 3:1 line. That is
- * allowed only because every macro bar carries a visible text label. Do not
- * drop those labels without re-running the validator.
+ * Two turquoises, on purpose. --color-accent is the bright one, for buttons,
+ * links and anything you press. --color-mark is the same hue stepped down into
+ * the lightness band chart marks share (OKLCH L 0.48-0.67), for calories
+ * wherever calories are drawn as data, so it sits evenly beside the macros
+ * instead of glowing over them.
+ *
+ * Calories, protein, carbs and fat are one categorical set and were picked by
+ * a search over the dataviz validator, not by eye: turquoise, periwinkle,
+ * amber, raspberry. Every pair holds apart under colour-blind simulation
+ * (worst dE 11.7, deutan; target 8) and in normal vision (worst 20.3), and all
+ * four clear 3:1 against the background. A lime accent was tried first and
+ * looked identical to amber for deuteranopes (dE 2.1). Re-run the validator
+ * before moving any of the four.
  */
 @theme {
   --font-sans:
     'Nunito', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
 
-  --color-surface: oklch(0.97 0.008 265);
-  --color-raised: oklch(0.995 0.004 265);
-  --color-ink: oklch(0.27 0.02 280);
-  --color-muted: oklch(0.52 0.025 280);
-  --color-faint: oklch(0.56 0.03 280);
-  --color-line: oklch(0.91 0.012 275);
+  --color-surface: oklch(0.19 0.03 300);
+  --color-raised: oklch(0.24 0.035 300);
+  --color-ink: oklch(0.955 0.012 300);
+  --color-muted: oklch(0.78 0.03 300);
+  --color-faint: oklch(0.68 0.035 300);
+  --color-line: oklch(0.335 0.035 300);
 
-  --color-accent: oklch(0.51 0.1 170);
-  --color-accent-soft: oklch(0.93 0.04 170);
+  --color-accent: oklch(0.84 0.12 188);
+  --color-accent-soft: oklch(0.32 0.06 188);
+  --color-mark: oklch(0.66 0.17 185);
 
-  --color-protein: oklch(0.55 0.13 275);
-  --color-carbs: oklch(0.76 0.12 75);
-  --color-fat: oklch(0.62 0.14 10);
+  --color-protein: oklch(0.62 0.16 275);
+  --color-carbs: oklch(0.67 0.15 65);
+  --color-fat: oklch(0.54 0.18 5);
 
-  --color-danger: oklch(0.55 0.17 25);
+  --color-danger: oklch(0.7 0.17 22);
 
   /* Rounder than before, and the softer radius is what carries the tone. */
   --radius-card: 1.25rem;
 
-  /* Back, but diffuse and tinted rather than grey: depth without edges. */
-  --shadow-card:
-    0 1px 2px oklch(0.4 0.05 280 / 0.05), 0 6px 20px -6px oklch(0.4 0.05 280 / 0.1);
+  --shadow-card: 0 1px 2px oklch(0 0 0 / 0.3), 0 8px 24px -8px oklch(0 0 0 / 0.45);
 }
 
 @layer theme {
   :root {
-    color-scheme: light dark;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --color-surface: oklch(0.21 0.015 265);
-      --color-raised: oklch(0.26 0.016 265);
-      --color-ink: oklch(0.95 0.008 280);
-      --color-muted: oklch(0.72 0.02 280);
-      --color-faint: oklch(0.66 0.022 280);
-      --color-line: oklch(0.35 0.016 275);
-
-      --shadow-card: 0 1px 2px oklch(0 0 0 / 0.22);
-
-      --color-accent: oklch(0.74 0.11 170);
-      --color-accent-soft: oklch(0.33 0.05 170);
-
-      --color-protein: oklch(0.62 0.13 278);
-      --color-carbs: oklch(0.665 0.13 72);
-      --color-fat: oklch(0.58 0.14 8);
-
-      --color-danger: oklch(0.68 0.16 25);
-    }
+    color-scheme: dark;
   }
 }
 

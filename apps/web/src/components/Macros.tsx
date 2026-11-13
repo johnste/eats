@@ -11,7 +11,7 @@ export const MACRO_META: Record<
   MacroFocus,
   { label: string; color: string; unit: string }
 > = {
-  kcal: { label: 'Calories', color: 'var(--color-accent)', unit: 'kcal' },
+  kcal: { label: 'Calories', color: 'var(--color-mark)', unit: 'kcal' },
   proteinG: { label: 'Protein', color: 'var(--color-protein)', unit: 'g' },
   carbsG: { label: 'Carbs', color: 'var(--color-carbs)', unit: 'g' },
   fatG: { label: 'Fat', color: 'var(--color-fat)', unit: 'g' },
@@ -112,7 +112,7 @@ function BarRow({
       onClick={onSelect}
       aria-pressed={selected}
       className={`flex min-h-11 w-full items-center gap-3 rounded-lg px-1 py-2 text-left transition-colors ${
-        selected ? 'bg-surface' : ''
+        selected ? 'bg-raised' : ''
       }`}
     >
       <span className="text-muted w-14 shrink-0 text-[13px]">{label}</span>
@@ -222,7 +222,7 @@ export function DaySummary({
         <span
           className={`bg-line block h-2 w-full overflow-hidden rounded-full ${
             focus === 'kcal'
-              ? 'ring-accent/40 ring-2 ring-offset-2 ring-offset-transparent'
+              ? 'ring-accent/30 ring-1 ring-offset-4 ring-offset-surface'
               : ''
           }`}
         >
@@ -230,7 +230,7 @@ export function DaySummary({
             className="block h-full rounded-full transition-[width] duration-500"
             style={{
               width: `${pct}%`,
-              background: alarmed ? 'var(--color-danger)' : 'var(--color-accent)',
+              background: alarmed ? 'var(--color-danger)' : 'var(--color-mark)',
             }}
           />
         </span>
