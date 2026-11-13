@@ -19,24 +19,18 @@ import { usualFor, useWeighIn } from '../lib/useWeighIn.ts';
 
 /**
  * Search, scan, recents and the amount sheet -- everything needed to put a
- * food on the log.
- *
- * Two layouts over one implementation. `page` is the Add tab: results fill
- * the screen and the controls sit in the fixed bar under your thumb. `inline`
- * is the panel that opens under a meal on the day view, where the controls
- * come first and the results are a short scrolling list, because the meal you
- * are adding to has to stay visible above it.
+ * food on the log. Results fill the screen and the controls sit in the fixed
+ * bar under your thumb; which day and meal it all goes to is the page's to
+ * show, and it passes them in.
  */
 export function FoodPicker({
   date,
   meal,
-  variant,
   autoFocusToken,
   onDone,
 }: {
   date: string;
   meal: Meal;
-  variant: 'page' | 'inline';
   /** Changing this refocuses the search field; undefined never focuses. */
   autoFocusToken?: string | number;
   onDone: () => void;
@@ -48,23 +42,24 @@ export function FoodPicker({
   const [picked, setPicked] = useState<FoodResponse | null>(null);
   const weighIn = useWeighIn(date);
 
+  /** Back to search, empty, ready for the next thing on the plate. */
+  const toSearch = () => {
+    setQuery('');
+    searchRef.current?.focus();
+  };
+
   /**
    * Picking a food. With nothing weighed this is the familiar amount sheet;
-   * with weights waiting, the food takes one of them and the search clears
-   * for the next thing on the plate. Focus goes back to search only if you
-   * were searching -- popping the keyboard over a list you were tapping in
-   * would hide the very list you were using.
+   * with weights waiting, the food takes one of them and you are put straight
+   * back in an empty search -- tapping a row in the list takes focus away
+   * from it, and the next food is the next thing you will type.
    */
   const choose = (food: FoodResponse) => {
-    const searching = query.trim() !== '';
     if (!weighIn.pick(food)) {
       setPicked(food);
       return;
     }
-    if (searching) {
-      setQuery('');
-      searchRef.current?.focus();
-    }
+    toSearch();
   };
 
   // What you have eaten with what is already on the plate: butter and
@@ -115,7 +110,7 @@ export function FoodPicker({
 
   const controls = (
     <div className="space-y-2">
-      <WeightsField weighIn={weighIn} />
+      <WeightsField weighIn={weighIn} onNext={toSearch} />
       <div className="flex gap-2">
         <input
           ref={searchRef}
@@ -208,33 +203,27 @@ export function FoodPicker({
     </div>
   );
 
-  const review = weighIn.rows.length > 0 && (
-    <WeighInReview weighIn={weighIn} date={date} initialMeal={meal} onAdded={onDone} />
-  );
-
   return (
     <>
-      {variant === 'inline' && <div className="mb-3">{controls}</div>}
-      {review}
+      {weighIn.rows.length > 0 && (
+        <WeighInReview
+          weighIn={weighIn}
+          date={date}
+          meal={meal}
+          onRepick={toSearch}
+          onAdded={onDone}
+        />
+      )}
 
       {resolve.isPending && <Spinner label="Looking it up…" />}
       {resolve.error instanceof ApiError && (
         <ErrorNote>{resolve.error.message}</ErrorNote>
       )}
 
-      {variant === 'inline' ? (
-        // Capped so the meal it belongs to stays on screen above it.
-        <div className="max-h-72 overflow-y-auto">{results}</div>
-      ) : (
-        results
-      )}
+      {results}
 
-      {variant === 'page' && (
-        <>
-          <BottomBarSpacer className="h-36" />
-          <BottomBar>{controls}</BottomBar>
-        </>
-      )}
+      <BottomBarSpacer className="h-36" />
+      <BottomBar>{controls}</BottomBar>
 
       {scanning && (
         <BarcodeScanner

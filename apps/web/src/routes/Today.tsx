@@ -9,7 +9,6 @@ import {
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { EntrySheet } from '../components/EntrySheet.tsx';
-import { FoodPicker } from '../components/FoodPicker.tsx';
 import {
   DaySummary,
   MACRO_META,
@@ -25,6 +24,7 @@ import {
 } from '../lib/queries.ts';
 import { useMealDrag } from '../lib/useMealDrag.ts';
 import { useSwipe } from '../lib/useSwipe.ts';
+import { humanDate, MEAL_LABELS } from '../lib/labels.ts';
 import { useToday } from '../lib/useToday.ts';
 
 const COLLAPSED_KEY = 'eats:collapsed-meals';
@@ -44,25 +44,6 @@ function loadCollapsed(): Meal[] {
     // Unavailable or corrupt. Not worth failing a screen over.
     return [];
   }
-}
-
-const MEAL_LABELS: Record<Meal, string> = {
-  breakfast: 'Breakfast',
-  lunch: 'Lunch',
-  dinner: 'Dinner',
-  snack: 'Snacks',
-};
-
-function humanDate(date: string, today: string): string {
-  if (date === today) return 'Today';
-  if (date === addDays(today, -1)) return 'Yesterday';
-  if (date === addDays(today, 1)) return 'Tomorrow';
-  const [y, m, d] = date.split('-').map(Number) as [number, number, number];
-  return new Date(y, m - 1, d).toLocaleDateString(undefined, {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-  });
 }
 
 export function Today() {
@@ -94,9 +75,6 @@ export function Today() {
   // first tap only arms it. Nothing is removed until the second.
   const [confirming, setConfirming] = useState<string | null>(null);
   const [editing, setEditing] = useState<LogEntryResponse | null>(null);
-  // Which meal has the add panel open, if any. One at a time: two open
-  // panels would push the day off the screen and neither would be in view.
-  const [adding, setAdding] = useState<Meal | null>(null);
   const [collapsed, setCollapsed] = useState<Meal[]>(loadCollapsed);
 
   const setFolded = (meal: Meal, folded: boolean) =>
@@ -114,12 +92,6 @@ export function Today() {
   // Which measure the meal sections are reported in. Calories by default,
   // because that is the question most days.
   const [focus, setFocus] = useState<MacroFocus>('kcal');
-
-  // Swiping to another day keeps this component mounted, so an open panel
-  // would follow you there and add to the wrong date.
-  useEffect(() => {
-    setAdding(null);
-  }, [date]);
 
   // Disarm on its own, so a stray tap does not leave a live delete button
   // sitting under your finger.
@@ -305,21 +277,16 @@ export function Today() {
                         )}
                         <button
                           type="button"
-                          aria-label={
-                            adding === meal
-                              ? `Close adding to ${MEAL_LABELS[meal]}`
-                              : `Add to ${MEAL_LABELS[meal]}`
-                          }
-                          aria-expanded={adding === meal}
+                          aria-label={`Add to ${MEAL_LABELS[meal]}`}
                           onClick={() => {
-                            if (adding !== meal) setFolded(meal, false);
-                            setAdding(adding === meal ? null : meal);
+                            // Unfolded, so what you add is in view when
+                            // you come back to it.
+                            setFolded(meal, false);
+                            navigate(
+                              `/add?date=${date}&meal=${meal}&focus=${Date.now()}`,
+                            );
                           }}
-                          className={`grid size-11 shrink-0 place-items-center rounded-full text-lg leading-none transition-transform ${
-                            adding === meal
-                              ? 'bg-accent text-surface rotate-45'
-                              : 'text-accent bg-accent-soft'
-                          }`}
+                          className="text-accent bg-accent-soft grid size-11 shrink-0 place-items-center rounded-full text-lg leading-none"
                         >
                           +
                         </button>
@@ -436,21 +403,6 @@ export function Today() {
                           </li>
                         ))}
                       </ul>
-                    )}
-
-                    {adding === meal && (
-                      <div className="mt-4">
-                        <FoodPicker
-                          date={date}
-                          meal={meal}
-                          variant="inline"
-                          // A fresh token each time the panel opens, so the
-                          // keyboard comes up on every tap of + rather than
-                          // only the first.
-                          autoFocusToken={`${meal}-${adding}`}
-                          onDone={() => setAdding(null)}
-                        />
-                      </div>
                     )}
                   </section>
                 );

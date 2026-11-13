@@ -1,8 +1,8 @@
-import { MEALS, parseWeight, round, type Meal } from '@eats/shared';
-import { useState } from 'react';
+import { parseWeight, round, type Meal } from '@eats/shared';
 import { Button, ErrorNote } from './ui.tsx';
 import { ApiError } from '../lib/api.ts';
 import { useLogMutations } from '../lib/queries.ts';
+import { MEAL_LABELS } from '../lib/labels.ts';
 import type { WeighIn } from '../lib/useWeighIn.ts';
 
 /**
@@ -10,7 +10,14 @@ import type { WeighIn } from '../lib/useWeighIn.ts';
  * food as chips beside it. The active chip is the one the next food you pick
  * will take; tap another to send the next pick there instead.
  */
-export function WeightsField({ weighIn }: { weighIn: WeighIn }) {
+export function WeightsField({
+  weighIn,
+  onNext,
+}: {
+  weighIn: WeighIn;
+  /** Done typing weights: go and find the foods. */
+  onNext: () => void;
+}) {
   return (
     <div className="flex items-center gap-2">
       <input
@@ -21,7 +28,10 @@ export function WeightsField({ weighIn }: { weighIn: WeighIn }) {
           // often has no space key at all.
           if (e.key === 'Enter') {
             e.preventDefault();
-            weighIn.commit();
+            // Enter after a number finishes it; Enter on an empty field
+            // means that was the last one, so on to search.
+            if (weighIn.text.trim() === '') onNext();
+            else weighIn.commit();
           } else if (e.key === 'Backspace' && weighIn.text === '') {
             weighIn.removeLastSlot();
           }
@@ -54,7 +64,12 @@ export function WeightsField({ weighIn }: { weighIn: WeighIn }) {
                   type="button"
                   aria-pressed={active}
                   aria-label={`${round(s.grams)} grams${active ? ', next food goes here' : ''}`}
-                  onClick={() => weighIn.activate(s.id)}
+                  onClick={() => {
+                    weighIn.activate(s.id);
+                    // Choosing where the next food goes is choosing to go
+                    // and find it.
+                    onNext();
+                  }}
                   className="nums min-h-11 pr-1 pl-3 text-[13px] font-medium"
                 >
                   {round(s.grams)} g
@@ -88,15 +103,18 @@ export function WeightsField({ weighIn }: { weighIn: WeighIn }) {
 export function WeighInReview({
   weighIn,
   date,
-  initialMeal,
+  meal,
+  onRepick,
   onAdded,
 }: {
   weighIn: WeighIn;
   date: string;
-  initialMeal: Meal;
+  /** Chosen at the top of the page, which is where it stays visible. */
+  meal: Meal;
+  /** A food was taken off; its replacement is the next search. */
+  onRepick: () => void;
   onAdded: () => void;
 }) {
-  const [meal, setMeal] = useState<Meal>(initialMeal);
   const { addMany } = useLogMutations(date);
 
   const rows = weighIn.rows.map((r) => {
@@ -147,7 +165,10 @@ export function WeighInReview({
             </label>
             <button
               type="button"
-              onClick={() => weighIn.unpair(r.id)}
+              onClick={() => {
+                weighIn.unpair(r.id);
+                onRepick();
+              }}
               aria-label={`${r.food.name}: pick a different food for this weight`}
               className="min-h-11 min-w-0 flex-1 text-left"
             >
@@ -170,27 +191,6 @@ export function WeighInReview({
       <p className="text-faint mt-1 text-[11px]">
         Tap a name to pick a different food.
       </p>
-
-      <fieldset className="mt-3">
-        <legend className="sr-only">Meal</legend>
-        <div className="grid grid-cols-4 gap-1.5">
-          {MEALS.map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => setMeal(m)}
-              aria-pressed={meal === m}
-              className={`min-h-11 rounded-lg border text-xs capitalize ${
-                meal === m
-                  ? 'border-accent bg-accent-soft text-accent font-medium'
-                  : 'border-line text-muted'
-              }`}
-            >
-              {m}
-            </button>
-          ))}
-        </div>
-      </fieldset>
 
       {addMany.error instanceof ApiError && (
         <p className="mt-3">
@@ -220,7 +220,9 @@ export function WeighInReview({
           )
         }
       >
-        {addMany.isPending ? 'Adding…' : `Add ${rows.length} to ${meal}`}
+        {addMany.isPending
+          ? 'Adding…'
+          : `Add ${rows.length} to ${MEAL_LABELS[meal].toLowerCase()}`}
       </Button>
     </section>
   );
