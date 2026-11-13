@@ -1,6 +1,6 @@
 import type { MyFoodResponse } from '@eats/shared';
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { DuplicatesCard } from '../components/DuplicatesCard.tsx';
 import { Button, Empty, ErrorNote, EstimatedMark, Spinner } from '../components/ui.tsx';
@@ -19,6 +19,36 @@ const FILTERS: { key: Filter; label: string; keep: (f: MyFoodResponse) => boolea
   ];
 
 /**
+ * State that outlives the page. Leaving Foods -- to edit one, or for another
+ * tab -- unmounts it, and coming back to an unfiltered list at the top is
+ * what made working through the estimated ones a chore.
+ *
+ * Storage can be missing or throw (private windows, cleared site data); this
+ * is a convenience, so a failure just means starting from the default.
+ */
+function useRemembered<T>(key: string, initial: T, storage: () => Storage) {
+  const [value, setValue] = useState<T>(() => {
+    try {
+      const raw = storage().getItem(key);
+      return raw === null ? initial : (JSON.parse(raw) as T);
+    } catch {
+      return initial;
+    }
+  });
+  const set = (next: T) => {
+    setValue(next);
+    try {
+      storage().setItem(key, JSON.stringify(next));
+    } catch {
+      // Remembered for this visit only.
+    }
+  };
+  return [value, set] as const;
+}
+
+const SCROLL_KEY = 'eats.foods.scroll';
+
+/**
  * The foods you have added -- by hand, from a scanned label, or by an agent
  * logging for you -- in one place to look over, correct and tidy up.
  *
@@ -27,13 +57,51 @@ const FILTERS: { key: Filter; label: string; keep: (f: MyFoodResponse) => boolea
  */
 export function Foods() {
   const navigate = useNavigate();
-  const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState<Filter>('all');
+  // Which list you were looking at is a preference, so it survives the app
+  // closing; what you had typed is only worth keeping for this session.
+  const [filter, setFilter] = useRemembered<Filter>(
+    'eats.foods.filter',
+    'all',
+    () => localStorage,
+  );
+  const [query, setQuery] = useRemembered('eats.foods.query', '', () => sessionStorage);
   const mine = useQuery({ queryKey: keys.myFoods, queryFn: api.myFoods });
+
+  // Back to where you were in the list. Saved as you scroll rather than on
+  // the way out: by the time a page is told it is leaving, the next page has
+  // replaced it and the browser has clamped the scroll to the top, so all
+  // that could be read then was 0. The listener comes off in a layout
+  // effect, synchronously, so that clamp's own scroll event is never heard.
+  useLayoutEffect(() => {
+    const onScroll = () => {
+      try {
+        sessionStorage.setItem(SCROLL_KEY, String(Math.round(window.scrollY)));
+      } catch {
+        // Not remembered.
+      }
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // Restored once the list is there to scroll, before paint so it does not
+  // visibly jump.
+  const restored = useRef(false);
+  useLayoutEffect(() => {
+    if (restored.current || !mine.data) return;
+    restored.current = true;
+    try {
+      const y = Number(sessionStorage.getItem(SCROLL_KEY));
+      if (y > 0) window.scrollTo(0, y);
+    } catch {
+      // Starts at the top.
+    }
+  }, [mine.data]);
 
   const foods = mine.data ?? [];
   const needle = query.trim().toLowerCase();
-  const keep = FILTERS.find((f) => f.key === filter)!.keep;
+  const active = FILTERS.find((f) => f.key === filter) ?? FILTERS[0]!;
+  const keep = active.keep;
   const shown = foods.filter(
     (f) =>
       keep(f) &&
@@ -79,15 +147,15 @@ export function Foods() {
           <div role="group" aria-label="Show" className="mb-3 flex flex-wrap gap-1.5">
             {FILTERS.map((f) => {
               const count = foods.filter(f.keep).length;
-              const active = filter === f.key;
+              const on = active.key === f.key;
               return (
                 <button
                   key={f.key}
                   type="button"
-                  aria-pressed={active}
+                  aria-pressed={on}
                   onClick={() => setFilter(f.key)}
                   className={`min-h-11 rounded-full border px-3.5 text-[13px] ${
-                    active
+                    on
                       ? 'border-accent bg-accent-soft text-accent font-medium'
                       : 'border-line text-muted'
                   }`}
