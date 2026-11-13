@@ -7,7 +7,7 @@ import { BottomBar, BottomBarSpacer } from './BottomBar.tsx';
 import { Sheet } from './Sheet.tsx';
 import { Button, Empty, ErrorNote, Field, Spinner } from './ui.tsx';
 import { AddSplitButton } from './MealMenu.tsx';
-import { WeighInReview, WeightChips, WeightsInput } from './WeighIn.tsx';
+import { WeightChips, WeightsInput } from './WeighIn.tsx';
 import { api, ApiError } from '../lib/api.ts';
 import {
   keys,
@@ -17,7 +17,7 @@ import {
   useRecentFoods,
 } from '../lib/queries.ts';
 import { MEAL_LABELS } from '../lib/labels.ts';
-import { usualFor, useWeighIn } from '../lib/useWeighIn.ts';
+import { usualFor, useWeighIn, type Slot } from '../lib/useWeighIn.ts';
 
 /**
  * Search, scan, recents and the amount sheet -- everything needed to put a
@@ -50,26 +50,59 @@ export function FoodPicker({
     searchRef.current?.focus();
   };
 
+  const { add, remove } = useLogMutations(date);
+  /** Foods logged from this screen this visit, most recent last. */
+  const [plate, setPlate] = useState<FoodResponse[]>([]);
+  /** The last thing logged by weight, while it can still be undone. */
+  const [last, setLast] = useState<{
+    entryId: string;
+    food: FoodResponse;
+    slot: Slot;
+  } | null>(null);
+
   /**
-   * Picking a food. With nothing weighed this is the familiar amount sheet;
-   * with weights waiting, the food takes one of them and you are put straight
-   * back in an empty search -- tapping a row in the list takes focus away
-   * from it, and the next food is the next thing you will type.
+   * Picking a food. With nothing weighed this is the familiar amount sheet.
+   * With a weight waiting, the weight is already known, so the food goes on
+   * the log there and then and you are put straight back in an empty search
+   * -- tapping a row in the list takes focus away from it, and the next food
+   * is the next thing you will type.
    */
   const choose = (food: FoodResponse) => {
-    if (!weighIn.pick(food)) {
+    const slot = weighIn.take(food);
+    if (!slot) {
       setPicked(food);
       return;
     }
+    toSearch();
+    add.mutate(
+      { foodId: food.id, grams: slot.grams, meal, loggedOn: date },
+      {
+        onSuccess: (entry) => {
+          setLast({ entryId: entry.id, food, slot });
+          setPlate((prev) => [...prev.filter((f) => f.id !== food.id), food]);
+        },
+        // Not logged, so the weight is still waiting for a food.
+        onError: () => weighIn.putBack(slot),
+      },
+    );
+  };
+
+  /** Wrong food: off the log, and its weight back first in line. */
+  const undo = () => {
+    if (!last) return;
+    remove.mutate(last.entryId);
+    weighIn.putBack(last.slot);
+    setPlate((prev) => prev.filter((f) => f.id !== last.food.id));
+    setLast(null);
     toSearch();
   };
 
   // What you have eaten with what is already on the plate: butter and
   // cheese, once the bread is in.
-  const plated = [...new Set(weighIn.rows.map((r) => r.food.id))];
+  const plated = plate.map((f) => f.id);
   const companions = useCompanions(plated);
   const companionList = (companions.data ?? []).filter((f) => !plated.includes(f.id));
-  const lastPlated = weighIn.rows[weighIn.rows.length - 1]?.food;
+  const lastPlated = plate[plate.length - 1];
 
   // Runs again on every repeat tap, because the token changes each time.
   useEffect(() => {
@@ -112,6 +145,25 @@ export function FoodPicker({
 
   const controls = (
     <div className="space-y-2">
+      {last && (
+        <p role="status" className="flex min-h-11 items-center gap-2 text-[13px]">
+          <span className="text-accent" aria-hidden>
+            ✓
+          </span>
+          <span className="text-muted min-w-0 flex-1 truncate">
+            <span className="nums text-ink">{round(last.slot.grams)} g</span>{' '}
+            <span className="text-ink">{last.food.name}</span> added to{' '}
+            {MEAL_LABELS[meal].toLowerCase()}
+          </span>
+          <button
+            type="button"
+            onClick={undo}
+            className="text-accent min-h-11 shrink-0 px-1 font-medium underline underline-offset-4"
+          >
+            Undo
+          </button>
+        </p>
+      )}
       {weighIn.slots.length > 0 && <WeightChips weighIn={weighIn} onNext={toSearch} />}
       <div className="flex gap-2">
         <WeightsInput weighIn={weighIn} onNext={toSearch} />
@@ -206,24 +258,19 @@ export function FoodPicker({
 
   return (
     <>
-      {weighIn.rows.length > 0 && (
-        <WeighInReview
-          weighIn={weighIn}
-          date={date}
-          meal={meal}
-          onRepick={toSearch}
-          onAdded={onDone}
-        />
-      )}
-
       {resolve.isPending && <Spinner label="Looking it up…" />}
       {resolve.error instanceof ApiError && (
         <ErrorNote>{resolve.error.message}</ErrorNote>
       )}
+      {add.error instanceof ApiError && <ErrorNote>{add.error.message}</ErrorNote>}
 
       {results}
 
-      <BottomBarSpacer className={weighIn.slots.length > 0 ? 'h-36' : 'h-24'} />
+      <BottomBarSpacer
+        className={
+          ['h-24', 'h-36', 'h-48'][(weighIn.slots.length > 0 ? 1 : 0) + (last ? 1 : 0)]
+        }
+      />
       <BottomBar>{controls}</BottomBar>
 
       {scanning && (

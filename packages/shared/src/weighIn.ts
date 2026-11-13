@@ -5,31 +5,32 @@
  */
 
 /** Grams the log accepts for one entry. */
-const MIN_G = 0.1;
+const MIN_G = 1;
 const MAX_G = 5000;
 
 /**
  * Split typed weights into finished numbers and whatever is still being
  * typed.
  *
- * Space, `+`, `;` and newlines separate; a comma is a decimal mark, the way
- * Swedish scales and labels write it. The last token is only finished once a
- * separator follows it, so "45 1" yields 45 and leaves "1" in the field for
- * the 13 you are halfway through typing. Tokens that are not a usable weight
- * are dropped rather than kept as a chip nobody can pick a food for.
+ * Anything that is not a digit separates -- space, comma, full stop, plus,
+ * whatever the keyboard to hand offers. A phone's number pad often has no
+ * space key but always has a comma or a full stop, and a kitchen scale reads
+ * in whole grams, so there are no decimals worth keeping. The last number is
+ * only finished once something follows it, so "45 1" yields 45 and leaves
+ * "1" in the field for the 13 you are halfway through typing.
  */
 export function splitWeights(text: string): { done: number[]; rest: string } {
-  const parts = text.split(/[\s+;]+/);
+  const parts = text.split(/\D+/);
   const rest = parts.pop() ?? '';
   return { done: parts.flatMap((t) => parseWeight(t) ?? []), rest };
 }
 
-/** One weight, or null when it isn't one. */
+/** One weight in whole grams, or null when it isn't one. */
 export function parseWeight(token: string): number | null {
-  const t = token.trim().replace(',', '.');
-  if (!/^\d+(\.\d+)?$/.test(t) && !/^\.\d+$/.test(t)) return null;
-  const g = Number.parseFloat(t);
-  return Number.isFinite(g) && g >= MIN_G && g <= MAX_G ? g : null;
+  const t = token.trim();
+  if (!/^\d+$/.test(t)) return null;
+  const g = Number.parseInt(t, 10);
+  return g >= MIN_G && g <= MAX_G ? g : null;
 }
 
 /**

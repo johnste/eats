@@ -3,34 +3,38 @@ import { describe, it } from 'node:test';
 import { parseWeight, pickSlot, splitWeights } from '@eats/shared';
 
 describe('splitWeights', () => {
-  it('finishes every number a separator follows, and leaves the last alone', () => {
+  it('finishes every number something follows, and leaves the last alone', () => {
     assert.deepEqual(splitWeights('45 13 1'), { done: [45, 13], rest: '1' });
     assert.deepEqual(splitWeights('45 13 12 '), { done: [45, 13, 12], rest: '' });
   });
 
-  it('reads a comma as a decimal mark, not a separator', () => {
-    assert.deepEqual(splitWeights('12,5 '), { done: [12.5], rest: '' });
+  it('splits on anything that is not a digit', () => {
+    // A number pad has a comma and a full stop even when it has no space.
+    assert.deepEqual(splitWeights('45,13.12-'), { done: [45, 13, 12], rest: '' });
+    assert.deepEqual(splitWeights('45+13;12x'), { done: [45, 13, 12], rest: '' });
+    assert.deepEqual(splitWeights('45abc13 '), { done: [45, 13], rest: '' });
   });
 
-  it('accepts plus and semicolons, and runs of separators', () => {
-    assert.deepEqual(splitWeights('45+13;;12  '), { done: [45, 13, 12], rest: '' });
+  it('treats a run of separators as one, and ignores a leading one', () => {
+    assert.deepEqual(splitWeights(' ,45  ,, 13 '), { done: [45, 13], rest: '' });
   });
 
-  it('drops tokens that are not a weight', () => {
-    assert.deepEqual(splitWeights('45 abc 0 9000 13 '), { done: [45, 13], rest: '' });
+  it('drops numbers that are not a weight', () => {
+    assert.deepEqual(splitWeights('45 0 9000 13 '), { done: [45, 13], rest: '' });
   });
 });
 
 describe('parseWeight', () => {
-  it('takes either decimal mark', () => {
-    assert.equal(parseWeight('12.5'), 12.5);
-    assert.equal(parseWeight('12,5'), 12.5);
+  it('reads whole grams', () => {
+    assert.equal(parseWeight('45'), 45);
+    assert.equal(parseWeight(' 7 '), 7);
   });
 
-  it('refuses nothing, zero and the absurd', () => {
+  it('refuses nothing, zero, the absurd and anything not a whole number', () => {
     assert.equal(parseWeight(''), null);
     assert.equal(parseWeight('0'), null);
     assert.equal(parseWeight('6000'), null);
+    assert.equal(parseWeight('12,5'), null);
     assert.equal(parseWeight('1e3'), null);
   });
 });

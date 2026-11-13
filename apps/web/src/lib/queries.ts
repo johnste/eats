@@ -176,7 +176,6 @@ export function useLogMutations(date: string) {
   };
 
   const add = useMutation({ mutationFn: api.addEntry, onSuccess: settle });
-  const addMany = useMutation({ mutationFn: api.addEntries, onSuccess: settle });
 
   /**
    * Editing can move an entry to another day, so both the day it left and the
@@ -258,5 +257,5 @@ export function useLogMutations(date: string) {
     onSettled: settle,
   });
 
-  return { add, addMany, update, copy, remove };
+  return { add, update, copy, remove };
 }

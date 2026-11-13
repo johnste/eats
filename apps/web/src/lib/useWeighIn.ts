@@ -5,9 +5,9 @@ import { useEffect, useRef, useState } from 'react';
  * Weighing several things in a row: bread, butter, cheese, each read off the
  * scale and remembered, then matched to foods one search at a time.
  *
- * Weights you have typed but not yet given a food are slots; a slot with a
- * food is a row, ready to add. The active slot is the one the next pick goes
- * to, unless the food's usual amount clearly belongs to another (pickSlot).
+ * Weights you have typed but not yet given a food are slots. Picking a food
+ * takes one -- the active slot, unless the food's usual amount clearly
+ * belongs to another (pickSlot) -- and the caller logs it there and then.
  */
 
 export interface Slot {
@@ -15,24 +15,16 @@ export interface Slot {
   grams: number;
 }
 
-export interface Row {
-  id: string;
-  /** Kept as typed, so a half-edited "12," is not snapped back to 12. */
-  grams: string;
-  food: FoodResponse;
-}
-
 interface State {
   /** Whatever is still being typed after the last separator. */
   text: string;
   slots: Slot[];
-  rows: Row[];
   activeId: string | null;
   /** The active slot was tapped, so the next pick goes there regardless. */
   forced: boolean;
 }
 
-const EMPTY: State = { text: '', slots: [], rows: [], activeId: null, forced: false };
+const EMPTY: State = { text: '', slots: [], activeId: null, forced: false };
 
 /** How much of a food you usually have, or its portion, or nothing. */
 export const usualFor = (food: FoodResponse): number | null =>
@@ -44,10 +36,11 @@ const newId = (): string =>
     : Math.random().toString(36).slice(2);
 
 /**
- * The draft lives in localStorage, per day, so a phone call halfway through
- * dinner does not cost you the numbers you had already read off the scale.
- * Storage can be missing or throw (private windows, cleared site data); the
- * draft is a convenience, so any failure just means starting empty.
+ * Weights not yet matched to a food live in localStorage, per day, so a phone
+ * call halfway through dinner does not cost you the numbers you had already
+ * read off the scale. Storage can be missing or throw (private windows,
+ * cleared site data); this is a convenience, so any failure just means
+ * starting empty.
  */
 const storageKey = (date: string) => `eats.weighin.${date}`;
 
@@ -60,7 +53,6 @@ function load(date: string): State {
       ...EMPTY,
       text: typeof saved.text === 'string' ? saved.text : '',
       slots: Array.isArray(saved.slots) ? saved.slots : [],
-      rows: Array.isArray(saved.rows) ? saved.rows : [],
     };
   } catch {
     return EMPTY;
@@ -69,12 +61,12 @@ function load(date: string): State {
 
 function save(date: string, state: State) {
   try {
-    const empty = !state.text && state.slots.length === 0 && state.rows.length === 0;
-    if (empty) localStorage.removeItem(storageKey(date));
+    if (!state.text && state.slots.length === 0)
+      localStorage.removeItem(storageKey(date));
     else
       localStorage.setItem(
         storageKey(date),
-        JSON.stringify({ text: state.text, slots: state.slots, rows: state.rows }),
+        JSON.stringify({ text: state.text, slots: state.slots }),
       );
   } catch {
     // Unsaved is fine; see load().
@@ -98,19 +90,17 @@ function committed(s: State): State {
 export function useWeighIn(date: string) {
   const [state, setState] = useState<State>(() => load(date));
   // Handlers read and write through this, so two actions in one event (commit
-  // the typed weight, then pick a food) see each other's result rather than
-  // the render they were both created in.
+  // the typed weight, then take it for a food) see each other's result rather
+  // than the render they were both created in.
   const ref = useRef(state);
-  // Which day the draft in `ref` belongs to, and so which key it is saved
-  // under.
+  // Which day the weights in `ref` belong to, and so which key they are
+  // saved under.
   const forDate = useRef(date);
 
   /**
    * Every change is saved as it is made, not from an effect after the next
-   * render. Adding from the panel under a meal empties the draft and closes
-   * the panel in the same update; the picker is gone before any effect of
-   * its could run, so an effect-based save never happened and the rows you
-   * had just added came back the next time it opened.
+   * render: a change that also closes or leaves the screen would otherwise
+   * be unmounted before its save ran.
    */
   const apply = (next: State) => {
     ref.current = next;
@@ -118,7 +108,7 @@ export function useWeighIn(date: string) {
     setState(next);
   };
 
-  // A different day is a different draft.
+  // A different day is a different set of weights.
   useEffect(() => {
     if (forDate.current === date) return;
     forDate.current = date;
@@ -130,7 +120,6 @@ export function useWeighIn(date: string) {
   return {
     text: state.text,
     slots: state.slots,
-    rows: state.rows,
     active: activeOf(state),
 
     setText(text: string) {
@@ -160,90 +149,35 @@ export function useWeighIn(date: string) {
     },
 
     /**
-     * Give a food a weight. Returns false when nothing has been weighed at
-     * all, which is the caller's cue to ask for an amount the usual way.
+     * The weight this food should be logged at, taken out of the waiting
+     * list. Null when nothing is waiting, which is the caller's cue to ask
+     * for an amount the usual way.
      */
-    pick(food: FoodResponse): boolean {
+    take(food: FoodResponse): Slot | null {
       const s = committed(ref.current);
-      const usual = usualFor(food);
-
       if (s.slots.length === 0) {
-        if (s.rows.length === 0) {
-          apply(s);
-          return false;
-        }
-        // Weighing is under way but every number has a food: add this one
-        // at its usual amount, to be corrected in the list if need be.
-        const row = { id: newId(), grams: String(Math.round(usual ?? 100)), food };
-        apply({ ...s, rows: [...s.rows, row] });
-        return true;
+        apply(s);
+        return null;
       }
-
-      const slot = pickSlot(s.slots, activeOf(s)?.id ?? null, usual, s.forced)!;
+      const slot = pickSlot(
+        s.slots,
+        activeOf(s)?.id ?? null,
+        usualFor(food),
+        s.forced,
+      )!;
       const slots = s.slots.filter((x) => x.id !== slot.id);
-      apply({
-        ...s,
-        slots,
-        rows: [...s.rows, { id: slot.id, grams: String(slot.grams), food }],
-        // Back to the order you weighed in.
-        activeId: slots[0]?.id ?? null,
-        forced: false,
-      });
-      return true;
-    },
-
-    setRowGrams(id: string, grams: string) {
-      const s = ref.current;
-      apply({ ...s, rows: s.rows.map((r) => (r.id === id ? { ...r, grams } : r)) });
+      // Back to the order you weighed in.
+      apply({ ...s, slots, activeId: slots[0]?.id ?? null, forced: false });
+      return slot;
     },
 
     /**
-     * Wrong food: take it off and put its weight back, first in line and
-     * active, so the very next pick replaces it.
+     * A weight back in line, first and active -- after an undo, or a failed
+     * add -- so the very next pick takes it.
      */
-    unpair(id: string) {
+    putBack(slot: Slot) {
       const s = ref.current;
-      const row = s.rows.find((r) => r.id === id);
-      if (!row) return;
-      const g = parseWeight(row.grams);
-      const rows = s.rows.filter((r) => r.id !== id);
-      if (g === null) {
-        apply({ ...s, rows });
-        return;
-      }
-      apply({
-        ...s,
-        rows,
-        slots: [{ id: row.id, grams: g }, ...s.slots],
-        activeId: row.id,
-        forced: true,
-      });
-    },
-
-    removeRow(id: string) {
-      const s = ref.current;
-      apply({ ...s, rows: s.rows.filter((r) => r.id !== id) });
-    },
-
-    /**
-     * After adding: exactly the rows that went on the log come off. Any you
-     * added while the request was in flight, and any unmatched weights, stay.
-     */
-    clearRows(ids: string[]) {
-      const s = ref.current;
-      apply({ ...s, rows: s.rows.filter((r) => !ids.includes(r.id)) });
-    },
-
-    /** Throw the whole draft away. */
-    discard() {
-      apply({
-        ...ref.current,
-        text: '',
-        slots: [],
-        rows: [],
-        activeId: null,
-        forced: false,
-      });
+      apply({ ...s, slots: [slot, ...s.slots], activeId: slot.id, forced: true });
     },
   };
 }
