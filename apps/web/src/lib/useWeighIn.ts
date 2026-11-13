@@ -101,24 +101,30 @@ export function useWeighIn(date: string) {
   // the typed weight, then pick a food) see each other's result rather than
   // the render they were both created in.
   const ref = useRef(state);
+  // Which day the draft in `ref` belongs to, and so which key it is saved
+  // under.
+  const forDate = useRef(date);
 
+  /**
+   * Every change is saved as it is made, not from an effect after the next
+   * render. Adding from the panel under a meal empties the draft and closes
+   * the panel in the same update; the picker is gone before any effect of
+   * its could run, so an effect-based save never happened and the rows you
+   * had just added came back the next time it opened.
+   */
   const apply = (next: State) => {
     ref.current = next;
+    save(forDate.current, next);
     setState(next);
   };
 
-  // Which day `state` belongs to. Saving is declared before loading on
-  // purpose: when the day changes, this render still holds the old day's
-  // draft, and it must not be written under the new day's key before that
-  // day's own draft has been read.
-  const forDate = useRef(date);
-  useEffect(() => {
-    if (forDate.current === date) save(date, state);
-  }, [date, state]);
+  // A different day is a different draft.
   useEffect(() => {
     if (forDate.current === date) return;
     forDate.current = date;
-    apply(load(date));
+    const loaded = load(date);
+    ref.current = loaded;
+    setState(loaded);
   }, [date]);
 
   return {
@@ -219,9 +225,25 @@ export function useWeighIn(date: string) {
       apply({ ...s, rows: s.rows.filter((r) => r.id !== id) });
     },
 
-    /** After adding: the rows are on the log, any unmatched weights stay. */
-    clearRows() {
-      apply({ ...ref.current, rows: [] });
+    /**
+     * After adding: exactly the rows that went on the log come off. Any you
+     * added while the request was in flight, and any unmatched weights, stay.
+     */
+    clearRows(ids: string[]) {
+      const s = ref.current;
+      apply({ ...s, rows: s.rows.filter((r) => !ids.includes(r.id)) });
+    },
+
+    /** Throw the whole draft away. */
+    discard() {
+      apply({
+        ...ref.current,
+        text: '',
+        slots: [],
+        rows: [],
+        activeId: null,
+        forced: false,
+      });
     },
   };
 }

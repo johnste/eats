@@ -112,9 +112,18 @@ export function WeighInReview({
 
   return (
     <section aria-label="Ready to add" className="mb-5">
-      <div className="mb-1 flex items-baseline justify-between">
+      <div className="mb-1 flex items-center justify-between gap-3">
         <h2 className="text-muted text-[13px] font-medium">Ready to add</h2>
-        <span className="nums text-ink text-[13px] font-semibold">{total} kcal</span>
+        <span className="nums text-ink ml-auto text-[13px] font-semibold">
+          {total} kcal
+        </span>
+        <button
+          type="button"
+          onClick={() => weighIn.discard()}
+          className="text-muted min-h-11 text-[13px] underline underline-offset-4"
+        >
+          Clear
+        </button>
       </div>
 
       <ul className="divide-line divide-y">
@@ -204,7 +213,7 @@ export function WeighInReview({
             },
             {
               onSuccess: () => {
-                weighIn.clearRows();
+                weighIn.clearRows(rows.map((r) => r.id));
                 onAdded();
               },
             },
