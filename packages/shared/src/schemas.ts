@@ -95,6 +95,12 @@ export const foodResponse = macrosPer100g.extend({
   brand: z.string().nullable(),
   barcode: z.string().nullable(),
   servings: z.array(servingInput.extend({ id: z.string() })),
+  /**
+   * How much of this you usually log: the median of your last few entries.
+   * Only on lists meant for picking (recents, search, companions), and null
+   * for a food you have never logged.
+   */
+  usualGrams: z.number().nullable().optional(),
 });
 
 /**
@@ -135,6 +141,14 @@ export const barcodeLookupResponse = z.discriminatedUnion('status', [
   }),
 ]);
 
+/** Foods you have eaten in the same meal as these, most often first. */
+export const companionsQuery = z.object({
+  ids: z
+    .string()
+    .transform((v) => v.split(',').filter(Boolean))
+    .pipe(z.array(z.uuid()).min(1).max(20)),
+});
+
 export const foodSearchQuery = z.object({
   q: z.string().min(1).max(100),
   limit: z.coerce.number().int().min(1).max(50).default(20),
@@ -147,6 +161,11 @@ export const createLogBody = z.object({
   grams: z.number().min(0.1).max(5000),
   meal: mealSchema,
   loggedOn: dateKey,
+});
+
+/** Several entries at once, all or nothing -- one weighed sandwich. */
+export const createLogBatchBody = z.object({
+  entries: z.array(createLogBody).min(1).max(20),
 });
 
 export const updateLogBody = z.object({
@@ -284,6 +303,7 @@ export type CreateFoodBody = z.infer<typeof createFoodBody>;
 export type UpdateFoodBody = z.infer<typeof updateFoodBody>;
 export type FoodResponse = z.infer<typeof foodResponse>;
 export type CreateLogBody = z.infer<typeof createLogBody>;
+export type CreateLogBatchBody = z.infer<typeof createLogBatchBody>;
 export type UpdateLogBody = z.infer<typeof updateLogBody>;
 export type LogEntryResponse = z.infer<typeof logEntryResponse>;
 export type DayResponse = z.infer<typeof dayResponse>;

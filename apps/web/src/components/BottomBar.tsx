@@ -27,6 +27,7 @@ export function BottomBar({ children }: { children: ReactNode }) {
   );
 }
 
-export function BottomBarSpacer() {
-  return <div aria-hidden className="h-24" />;
+/** Height to match the bar above it; a taller bar passes a taller class. */
+export function BottomBarSpacer({ className = 'h-24' }: { className?: string }) {
+  return <div aria-hidden className={className} />;
 }

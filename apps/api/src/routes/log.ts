@@ -1,4 +1,5 @@
 import {
+  createLogBatchBody,
   createLogBody,
   dateKey,
   daysBetween,
@@ -9,7 +10,7 @@ import {
   rangeQuery,
   updateLogBody,
 } from '@eats/shared';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
@@ -131,6 +132,69 @@ export const logRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
         fatG: row.fatG,
         food: { id: food.id, name: food.name, brand: food.brand },
       };
+    },
+  );
+
+  /**
+   * A weighed run -- bread, butter, cheese -- added in one go. All or nothing:
+   * half a sandwich on the log is worse than none, because it looks finished.
+   */
+  r.post(
+    '/batch',
+    {
+      schema: {
+        body: createLogBatchBody,
+        response: { 200: z.array(logEntryResponse), 404: errorResponse },
+      },
+    },
+    async (req, reply) => {
+      const user = await requireUser(req);
+      const { entries } = req.body;
+
+      const ids = [...new Set(entries.map((e) => e.foodId))];
+      const found = await db.select().from(foods).where(inArray(foods.id, ids));
+      const byId = new Map(found.map((f) => [f.id, f]));
+      if (byId.size !== ids.length) {
+        return reply
+          .status(404)
+          .send({ error: 'One of those foods no longer exists.' });
+      }
+
+      const rows = await db
+        .insert(logEntries)
+        .values(
+          entries.map((e) => {
+            const food = byId.get(e.foodId)!;
+            const macros = snapshotFor(food, e.grams);
+            return {
+              userId: user.id,
+              foodId: food.id,
+              loggedOn: e.loggedOn,
+              meal: e.meal,
+              grams: e.grams,
+              kcal: macros.kcal,
+              proteinG: macros.proteinG,
+              carbsG: macros.carbsG,
+              fatG: macros.fatG,
+            };
+          }),
+        )
+        .returning();
+
+      return rows.map((row) => {
+        const food = byId.get(row.foodId)!;
+        return {
+          id: row.id,
+          meal: row.meal,
+          grams: row.grams,
+          loggedOn: row.loggedOn,
+          kcal: row.kcal,
+          proteinG: row.proteinG,
+          carbsG: row.carbsG,
+          fatG: row.fatG,
+          food: { id: food.id, name: food.name, brand: food.brand },
+        };
+      });
     },
   );
 

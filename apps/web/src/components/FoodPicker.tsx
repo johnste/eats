@@ -6,8 +6,16 @@ import { BarcodeScanner } from './BarcodeScanner.tsx';
 import { BottomBar, BottomBarSpacer } from './BottomBar.tsx';
 import { Sheet } from './Sheet.tsx';
 import { Button, Empty, ErrorNote, Field, Spinner } from './ui.tsx';
+import { WeighInReview, WeightsField } from './WeighIn.tsx';
 import { api, ApiError } from '../lib/api.ts';
-import { keys, useLogMutations, useProfile, useRecentFoods } from '../lib/queries.ts';
+import {
+  keys,
+  useCompanions,
+  useLogMutations,
+  useProfile,
+  useRecentFoods,
+} from '../lib/queries.ts';
+import { usualFor, useWeighIn } from '../lib/useWeighIn.ts';
 
 /**
  * Search, scan, recents and the amount sheet -- everything needed to put a
@@ -38,6 +46,33 @@ export function FoodPicker({
   const [query, setQuery] = useState('');
   const [scanning, setScanning] = useState(false);
   const [picked, setPicked] = useState<FoodResponse | null>(null);
+  const weighIn = useWeighIn(date);
+
+  /**
+   * Picking a food. With nothing weighed this is the familiar amount sheet;
+   * with weights waiting, the food takes one of them and the search clears
+   * for the next thing on the plate. Focus goes back to search only if you
+   * were searching -- popping the keyboard over a list you were tapping in
+   * would hide the very list you were using.
+   */
+  const choose = (food: FoodResponse) => {
+    const searching = query.trim() !== '';
+    if (!weighIn.pick(food)) {
+      setPicked(food);
+      return;
+    }
+    if (searching) {
+      setQuery('');
+      searchRef.current?.focus();
+    }
+  };
+
+  // What you have eaten with what is already on the plate: butter and
+  // cheese, once the bread is in.
+  const plated = [...new Set(weighIn.rows.map((r) => r.food.id))];
+  const companions = useCompanions(plated);
+  const companionList = (companions.data ?? []).filter((f) => !plated.includes(f.id));
+  const lastPlated = weighIn.rows[weighIn.rows.length - 1]?.food;
 
   // Runs again on every repeat tap, because the token changes each time.
   useEffect(() => {
@@ -73,72 +108,91 @@ export function FoodPicker({
       );
       return null;
     },
-    onSuccess: (food) => food && setPicked(food),
+    onSuccess: (food) => food && choose(food),
   });
 
   const manual = () => navigate(`/foods/new?meal=${meal}&date=${date}`);
 
   const controls = (
-    <div className="flex gap-2">
-      <input
-        ref={searchRef}
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search foods…"
-        type="search"
-        autoComplete="off"
-        className="bg-raised border-line text-ink placeholder:text-faint focus:border-accent min-h-11 flex-1 rounded-full border px-4 focus:outline-none"
-      />
-      <Button
-        variant="ghost"
-        onClick={() => setScanning(true)}
-        aria-label="Scan a barcode"
-        className="px-3"
-      >
-        <svg
-          viewBox="0 0 24 24"
-          className="size-5"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          aria-hidden
+    <div className="space-y-2">
+      <WeightsField weighIn={weighIn} />
+      <div className="flex gap-2">
+        <input
+          ref={searchRef}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={
+            weighIn.active
+              ? `Find food for ${round(weighIn.active.grams)} g…`
+              : 'Search foods…'
+          }
+          type="search"
+          autoComplete="off"
+          className="bg-raised border-line text-ink placeholder:text-faint focus:border-accent min-h-11 min-w-0 flex-1 rounded-full border px-4 focus:outline-none"
+        />
+        <Button
+          variant="ghost"
+          onClick={() => setScanning(true)}
+          aria-label="Scan a barcode"
+          className="px-3"
         >
-          <path
-            d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 8v8M11 8v8M15 8v8"
+          <svg
+            viewBox="0 0 24 24"
+            className="size-5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            aria-hidden
+          >
+            <path
+              d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 8v8M11 8v8M15 8v8"
+              strokeLinecap="round"
+            />
+          </svg>
+        </Button>
+        <Button
+          variant="ghost"
+          onClick={manual}
+          aria-label="Add a food that isn't listed"
+          className="px-3"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            className="size-5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
             strokeLinecap="round"
-          />
-        </svg>
-      </Button>
-      <Button
-        variant="ghost"
-        onClick={manual}
-        aria-label="Add a food that isn't listed"
-        className="px-3"
-      >
-        <svg
-          viewBox="0 0 24 24"
-          className="size-5"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          aria-hidden
-        >
-          <path d="M12 5v14M5 12h14" />
-        </svg>
-      </Button>
+            aria-hidden
+          >
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+        </Button>
+      </div>
     </div>
   );
 
-  const results =
-    debounced.trim().length >= 2 ? (
-      <SearchResults
-        state={search}
-        onPickLocal={setPicked}
-        onPickOff={(barcode) => resolve.mutate(barcode)}
-        onAddManually={manual}
-      />
-    ) : (
+  // Both, not just the debounced copy: when a pick clears the search, the
+  // list should go back to recents at once rather than 300 ms later.
+  const searching = query.trim().length >= 2 && debounced.trim().length >= 2;
+
+  const results = searching ? (
+    <SearchResults
+      state={search}
+      onPickLocal={choose}
+      onPickOff={(barcode) => resolve.mutate(barcode)}
+      onAddManually={manual}
+    />
+  ) : (
+    <div className="space-y-5">
+      {lastPlated && companionList.length > 0 && (
+        <section>
+          <h2 className="text-muted mb-2 truncate text-[13px] font-medium">
+            Goes with {plated.length > 1 ? 'these' : lastPlated.name}
+          </h2>
+          <FoodList foods={companionList} onPick={choose} />
+        </section>
+      )}
       <section>
         <h2 className="text-muted mb-2 text-[13px] font-medium">
           Recent · <span className="capitalize">{meal}</span> first
@@ -149,13 +203,19 @@ export function FoodPicker({
             Search, scan a barcode, or add a food yourself.
           </Empty>
         )}
-        <FoodList foods={recent.data ?? []} onPick={setPicked} />
+        <FoodList foods={recent.data ?? []} onPick={choose} />
       </section>
-    );
+    </div>
+  );
+
+  const review = weighIn.rows.length > 0 && (
+    <WeighInReview weighIn={weighIn} date={date} initialMeal={meal} onAdded={onDone} />
+  );
 
   return (
     <>
       {variant === 'inline' && <div className="mb-3">{controls}</div>}
+      {review}
 
       {resolve.isPending && <Spinner label="Looking it up…" />}
       {resolve.error instanceof ApiError && (
@@ -171,7 +231,7 @@ export function FoodPicker({
 
       {variant === 'page' && (
         <>
-          <BottomBarSpacer />
+          <BottomBarSpacer className="h-36" />
           <BottomBar>{controls}</BottomBar>
         </>
       )}
@@ -314,8 +374,13 @@ function FoodList({
                 <span className="text-faint block truncate text-xs">{f.brand}</span>
               )}
             </span>
-            <span className="nums text-faint shrink-0 text-xs">
-              {Math.round(f.kcal100g)} /100g
+            <span className="nums shrink-0 text-right text-xs">
+              {usualFor(f) !== null && (
+                <span className="text-muted block">
+                  ~{round(usualFor(f) as number)} g
+                </span>
+              )}
+              <span className="text-faint block">{Math.round(f.kcal100g)} /100g</span>
             </span>
           </button>
         </li>

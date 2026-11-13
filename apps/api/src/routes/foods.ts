@@ -1,5 +1,6 @@
 import {
   barcodeLookupResponse,
+  companionsQuery,
   createFoodBody,
   errorResponse,
   foodResponse,
@@ -32,7 +33,9 @@ const MERGE_ERRORS: Record<MergeFailure, [400 | 404, string]> = {
 import { foods, foodServings } from '../db/schema.ts';
 import {
   findByBarcode,
+  companionFoods,
   foodSources,
+  forPicking,
   insertCustomFood,
   isStale,
   knownBrands,
@@ -61,7 +64,7 @@ export const foodRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
 
       const sources = await foodSources(db, user.id);
       const localRows = await searchLocal(db, user.id, q, limit, sources);
-      const local = await withServings(db, localRows);
+      const local = await forPicking(db, user.id, localRows);
 
       // Don't offer a remote result we already hold locally.
       const seen = new Set(local.map((f) => f.barcode).filter(Boolean));
@@ -94,7 +97,25 @@ export const foodRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
     },
     async (req) => {
       const user = await requireUser(req);
-      return withServings(db, await recentFoods(db, user.id, 30, req.query.meal));
+      return forPicking(
+        db,
+        user.id,
+        await recentFoods(db, user.id, 30, req.query.meal),
+      );
+    },
+  );
+
+  r.get(
+    '/companions',
+    {
+      schema: {
+        querystring: companionsQuery,
+        response: { 200: z.array(foodResponse) },
+      },
+    },
+    async (req) => {
+      const user = await requireUser(req);
+      return forPicking(db, user.id, await companionFoods(db, user.id, req.query.ids));
     },
   );
 

@@ -1,6 +1,7 @@
 import type {
   BarcodeLookupResponse,
   CreateFoodBody,
+  CreateLogBatchBody,
   CreateLogBody,
   DayResponse,
   DaySummaryResponse,
@@ -108,6 +109,8 @@ export const api = {
   summary: (from: string, to: string) =>
     get<DaySummaryResponse[]>(`/log/summary?from=${from}&to=${to}`),
   addEntry: (body: CreateLogBody) => send<LogEntryResponse>('POST', '/log', body),
+  addEntries: (body: CreateLogBatchBody) =>
+    send<LogEntryResponse[]>('POST', '/log/batch', body),
   updateEntry: (
     id: string,
     body: { grams?: number; meal?: string; loggedOn?: string },
@@ -118,6 +121,8 @@ export const api = {
     get<FoodSearchResponse>(`/foods/search?q=${encodeURIComponent(q)}`),
   recentFoods: (meal?: Meal) =>
     get<FoodResponse[]>(`/foods/recent${meal ? `?meal=${meal}` : ''}`),
+  companions: (ids: string[]) =>
+    get<FoodResponse[]>(`/foods/companions?ids=${ids.join(',')}`),
   barcode: (code: string) => get<BarcodeLookupResponse>(`/foods/barcode/${code}`),
   food: (id: string) => get<FoodResponse>(`/foods/${id}`),
   createFood: (body: CreateFoodBody) => send<FoodResponse>('POST', '/foods', body),

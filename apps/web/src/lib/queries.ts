@@ -32,6 +32,8 @@ export const keys = {
   me: ['me'] as const,
   day: (date: string) => ['day', date] as const,
   recent: (meal?: Meal) => ['recent', meal ?? 'any'] as const,
+  // Under 'recent' so that logging anything refreshes it along with recents.
+  companions: (ids: string[]) => ['recent', 'companions', ...ids] as const,
   brands: ['brands'] as const,
   search: (q: string) => ['search', q] as const,
   goals: ['goals'] as const,
@@ -66,6 +68,17 @@ export const useRecentFoods = (meal?: Meal) =>
   useQuery({
     queryKey: keys.recent(meal),
     queryFn: () => api.recentFoods(meal),
+  });
+
+/** What you have eaten alongside these foods before; idle until there are some. */
+export const useCompanions = (ids: string[]) =>
+  useQuery({
+    queryKey: keys.companions(ids),
+    queryFn: () => api.companions(ids),
+    enabled: ids.length > 0,
+    // Keeps the old list on screen while the next one loads, so the section
+    // does not blink out and back each time another food is picked.
+    placeholderData: (previous) => previous,
   });
 
 /** Brands change only when a food is added, so this can sit cached a long while. */
@@ -163,6 +176,7 @@ export function useLogMutations(date: string) {
   };
 
   const add = useMutation({ mutationFn: api.addEntry, onSuccess: settle });
+  const addMany = useMutation({ mutationFn: api.addEntries, onSuccess: settle });
 
   /**
    * Editing can move an entry to another day, so both the day it left and the
@@ -244,5 +258,5 @@ export function useLogMutations(date: string) {
     onSettled: settle,
   });
 
-  return { add, update, copy, remove };
+  return { add, addMany, update, copy, remove };
 }

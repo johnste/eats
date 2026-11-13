@@ -1,5 +1,6 @@
 import type { FoodResponse, Meal } from '@eats/shared';
-import { and, desc, eq, gt, ilike, inArray, or, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, ilike, inArray, notInArray, or, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import type { Database, Executor } from '../db/client.ts';
 import { foods, foodServings, foodViews, logEntries, users } from '../db/schema.ts';
 import type { OffProduct } from './off.ts';
@@ -47,6 +48,113 @@ export async function withServings(
     else byFood.set(s.foodId, [s]);
   }
   return rows.map((r) => toFoodResponse(r, byFood.get(r.id) ?? []));
+}
+
+/** Entries per food that count towards its usual amount. */
+const USUAL_FROM_LAST = 10;
+
+/**
+ * How much of each food this user usually logs: the median of their last few
+ * entries. The median, because one double portion should not drag the answer
+ * up, and only the last few, because what you eat changes.
+ */
+export async function usualGrams(
+  db: Database,
+  userId: string,
+  foodIds: string[],
+): Promise<Map<string, number>> {
+  if (foodIds.length === 0) return new Map();
+  const latest = db
+    .select({
+      foodId: logEntries.foodId,
+      grams: logEntries.grams,
+      n: sql<number>`row_number() over (
+        partition by ${logEntries.foodId} order by ${logEntries.createdAt} desc
+      )`.as('n'),
+    })
+    .from(logEntries)
+    .where(and(eq(logEntries.userId, userId), inArray(logEntries.foodId, foodIds)))
+    .as('latest');
+
+  const rows = await db
+    .select({
+      foodId: latest.foodId,
+      usual: sql<number>`percentile_cont(0.5) within group (order by ${latest.grams})`,
+    })
+    .from(latest)
+    .where(sql`${latest.n} <= ${USUAL_FROM_LAST}`)
+    .groupBy(latest.foodId);
+  return new Map(rows.map((r) => [r.foodId, Math.round(Number(r.usual))]));
+}
+
+/** Servings and usual amounts together: what a list you pick from needs. */
+export async function forPicking(
+  db: Database,
+  userId: string,
+  rows: FoodRow[],
+): Promise<FoodResponse[]> {
+  const [withS, usual] = await Promise.all([
+    withServings(db, rows),
+    usualGrams(
+      db,
+      userId,
+      rows.map((r) => r.id),
+    ),
+  ]);
+  return withS.map((f) => ({ ...f, usualGrams: usual.get(f.id) ?? null }));
+}
+
+/**
+ * Foods you have eaten in the same meal as any of these, most often first.
+ *
+ * A meal is a (day, meal) pair, and each one counts once however many of the
+ * given foods were in it -- bread and butter on the same plate is one
+ * sandwich, not two votes for the cheese that was also on it.
+ */
+export async function companionFoods(
+  db: Database,
+  userId: string,
+  foodIds: string[],
+  limit = 8,
+): Promise<FoodRow[]> {
+  const mine = alias(logEntries, 'mine');
+  const other = alias(logEntries, 'other');
+  const meals = sql<number>`count(distinct (${other.loggedOn}, ${other.meal}))`;
+
+  const ranked = await db
+    .select({ foodId: other.foodId })
+    .from(mine)
+    .innerJoin(
+      other,
+      and(
+        eq(other.userId, mine.userId),
+        eq(other.loggedOn, mine.loggedOn),
+        eq(other.meal, mine.meal),
+      ),
+    )
+    .where(
+      and(
+        eq(mine.userId, userId),
+        inArray(mine.foodId, foodIds),
+        notInArray(other.foodId, foodIds),
+      ),
+    )
+    .groupBy(other.foodId)
+    .orderBy(desc(meals), desc(sql`max(${other.createdAt})`))
+    .limit(limit);
+  if (ranked.length === 0) return [];
+
+  const rows = await db
+    .select()
+    .from(foods)
+    .where(
+      inArray(
+        foods.id,
+        ranked.map((r) => r.foodId),
+      ),
+    );
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  return ranked.flatMap((r) => byId.get(r.foodId) ?? []);
 }
 
 export const isStale = (fetchedAt: Date | null): boolean =>
