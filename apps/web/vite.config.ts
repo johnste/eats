@@ -18,6 +18,18 @@ function commitSha(): string {
     return 'unknown';
   }
 }
+/**
+ * When the last commit was made. Only knowable where git is: in the Docker
+ * build there is no history, and the app falls back to the build time,
+ * which in production is within a minute of the push that triggered it.
+ */
+function commitTime(): string {
+  try {
+    return execSync('git log -1 --format=%cI', { encoding: 'utf8' }).trim();
+  } catch {
+    return '';
+  }
+}
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
@@ -93,6 +105,7 @@ export default defineConfig({
   define: {
     __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
     __COMMIT_SHA__: JSON.stringify(commitSha()),
+    __COMMIT_TIME__: JSON.stringify(commitTime()),
   },
   build: { outDir: 'dist', sourcemap: true },
 });

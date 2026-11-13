@@ -19,6 +19,7 @@ import {
   Toggle,
 } from '../components/ui.tsx';
 import { api, ApiError } from '../lib/api.ts';
+import { buildDate, commit, version } from '../lib/version.ts';
 import { keys, useGoals, useMe, useProfile } from '../lib/queries.ts';
 
 const ACTIVITY_LABELS: Record<ActivityLevel, string> = {
@@ -411,41 +412,35 @@ function ExportCard() {
 }
 
 function VersionCard() {
-  const built = new Date(__BUILD_TIME__);
-  const valid = !Number.isNaN(built.getTime());
-  // Coolify does not pass the commit to the build, so outside a local build
-  // there is nothing useful to show. A row reading "unknown" is worse than no
-  // row: the build time already identifies the deploy.
-  const commit = __COMMIT_SHA__ === 'unknown' ? null : __COMMIT_SHA__;
-
   // Nothing identifiable at all -- drop the card rather than show a shell.
-  if (!valid && !commit) return null;
+  if (!version && !commit) return null;
 
   return (
     <Card>
       <h2 className="text-ink mb-1 text-[15px] font-semibold">Version</h2>
+      <p className="text-ink nums text-xl font-semibold">{version ?? 'unknown'}</p>
+      <p className="text-faint text-xs">The date and time it was made.</p>
       <dl className="mt-3 space-y-1.5 text-[13px]">
-        <div className="flex justify-between gap-3">
-          <dt className="text-muted">Deployed</dt>
-          <dd className="text-ink nums text-right">
-            {valid ? (
-              <>
-                {relativeTime(built)}
-                <span className="text-faint block text-xs">
-                  {built.toLocaleString(undefined, {
-                    dateStyle: 'medium',
-                    timeStyle: 'short',
-                  })}
-                </span>
-              </>
-            ) : (
-              'unknown'
-            )}
-          </dd>
-        </div>
+        {buildDate && (
+          <div className="flex justify-between gap-3">
+            <dt className="text-muted">Deployed</dt>
+            <dd className="text-ink nums text-right">
+              {relativeTime(buildDate)}
+              <span className="text-faint block text-xs">
+                {buildDate.toLocaleString(undefined, {
+                  dateStyle: 'medium',
+                  timeStyle: 'short',
+                })}
+              </span>
+            </dd>
+          </div>
+        )}
+        {/* Coolify does not pass the commit to the build, so in production
+            this row is usually absent; a row reading "unknown" would be
+            worse than none, since the version already identifies it. */}
         {commit && (
           <div className="flex justify-between gap-3">
-            <dt className="text-muted">Build</dt>
+            <dt className="text-muted">Commit</dt>
             <dd className="text-ink nums">{commit}</dd>
           </div>
         )}
