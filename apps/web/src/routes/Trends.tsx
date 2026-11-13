@@ -5,6 +5,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  ComposedChart,
   Line,
   LineChart,
   ReferenceLine,
@@ -177,7 +178,10 @@ export function Trends() {
             <h2 className="text-ink mb-1 text-[15px]">Macros</h2>
             <p className="text-muted mb-3 text-[13px]">
               Grams a day. Averages: {stats.avgProtein} protein, {stats.avgCarbs} carbs,{' '}
-              {stats.avgFat} fat.
+              {stats.avgFat} fat
+              {stats.goal &&
+                ` — targets ${round(stats.goal.proteinG)}, ${round(stats.goal.carbsG)} and ${round(stats.goal.fatG)}`}
+              .
             </p>
             <div className="-ml-2 h-52">
               <ResponsiveContainer width="100%" height="100%">
@@ -185,10 +189,15 @@ export function Trends() {
               </ResponsiveContainer>
             </div>
             <Legend
-              items={(['proteinG', 'carbsG', 'fatG'] as const).map((k) => ({
-                label: MACRO_META[k].label,
-                color: MACRO_META[k].color,
-              }))}
+              items={[
+                ...MACRO_KEYS.map((k) => ({
+                  label: MACRO_META[k].label,
+                  color: MACRO_META[k].color,
+                })),
+                ...(stats.goal
+                  ? [{ label: 'Target', color: 'var(--color-faint)', dashed: true }]
+                  : []),
+              ]}
             />
           </Card>
         </div>
@@ -284,52 +293,85 @@ function IntakeChart({
   );
 }
 
+const MACRO_KEYS = ['proteinG', 'carbsG', 'fatG'] as const;
+type MacroKey = (typeof MACRO_KEYS)[number];
+
+/** "proteinG" -> "proteinTarget": the day's target for that macro. */
+const targetKey = (k: MacroKey) => `${k.slice(0, -1)}Target` as const;
+
+/**
+ * Grams of each macro a day, with each one's target as a dashed line in the
+ * same colour.
+ *
+ * The target is drawn per day rather than as one flat line, because goals
+ * change on a date: a range that spans a change shows the step where it
+ * happened, and a day before any goal was set shows none.
+ */
 function MacroChart({ rows, asBars }: { rows: DaySummaryResponse[]; asBars: boolean }) {
-  const keysOf = ['proteinG', 'carbsG', 'fatG'] as const;
-  const shared = (
-    <>
+  const data = rows.map((r) => ({
+    ...r,
+    proteinTarget: r.goal?.proteinG ?? null,
+    carbsTarget: r.goal?.carbsG ?? null,
+    fatTarget: r.goal?.fatG ?? null,
+  }));
+
+  const nameOf = (key: string) => {
+    const eaten = MACRO_KEYS.find((k) => k === key);
+    if (eaten) return MACRO_META[eaten].label;
+    const target = MACRO_KEYS.find((k) => targetKey(k) === key);
+    return target ? `${MACRO_META[target].label} target` : key;
+  };
+
+  return (
+    // Composed rather than a plain bar chart, because the targets are lines
+    // drawn over the bars.
+    <ComposedChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
       <CartesianGrid stroke="var(--color-line)" vertical={false} />
       <XAxis dataKey="date" tickFormatter={shortDate} minTickGap={24} {...axis} />
+      {/* The targets are series on this chart, so the scale already
+          reaches them and none is clipped off the top. */}
       <YAxis width={40} {...axis} />
       <Tooltip
         {...tooltip}
         labelFormatter={(d) => longDate(String(d))}
-        formatter={(v, name) => [
-          `${round(Number(v))} g`,
-          MACRO_META[name as (typeof keysOf)[number]].label,
-        ]}
+        formatter={(v, name) => [`${round(Number(v))} g`, nameOf(String(name))]}
       />
-    </>
-  );
-
-  return asBars ? (
-    <BarChart data={rows} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
-      {shared}
-      {keysOf.map((k) => (
-        <Bar
-          key={k}
-          dataKey={k}
-          fill={MACRO_META[k].color}
-          radius={[3, 3, 0, 0]}
-          isAnimationActive={false}
-        />
-      ))}
-    </BarChart>
-  ) : (
-    <LineChart data={rows} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
-      {shared}
-      {keysOf.map((k) => (
+      {MACRO_KEYS.map((k) =>
+        asBars ? (
+          <Bar
+            key={k}
+            dataKey={k}
+            fill={MACRO_META[k].color}
+            radius={[3, 3, 0, 0]}
+            isAnimationActive={false}
+          />
+        ) : (
+          <Line
+            key={k}
+            type="monotone"
+            dataKey={k}
+            stroke={MACRO_META[k].color}
+            strokeWidth={2}
+            dot={false}
+            isAnimationActive={false}
+          />
+        ),
+      )}
+      {MACRO_KEYS.map((k) => (
         <Line
-          key={k}
-          type="monotone"
-          dataKey={k}
+          key={targetKey(k)}
+          // A step, not a slope: a target holds until the day it changes.
+          type="stepAfter"
+          dataKey={targetKey(k)}
           stroke={MACRO_META[k].color}
-          strokeWidth={2}
+          strokeWidth={1.5}
+          strokeDasharray="5 4"
           dot={false}
+          activeDot={false}
           isAnimationActive={false}
         />
       ))}
-    </LineChart>
+    </ComposedChart>
   );
 }
 
@@ -401,6 +443,8 @@ function summarise(rows: DaySummaryResponse[]) {
     avgCarbs: round(mean((r) => r.carbsG)),
     avgFat: round(mean((r) => r.fatG)),
     goalKcal: rows.find((r) => r.goal)?.goal?.calories ?? null,
+    /** The most recent goal in the range: the one the averages answer to. */
+    goal: rows.findLast((r) => r.goal)?.goal ?? null,
   };
 }
 
