@@ -18,8 +18,13 @@ export function BottomBar({ children }: { children: ReactNode }) {
       // Whichever is taller: the tab bar it has to clear, or the keyboard
       // covering the bottom of the viewport. When the keyboard is up the tab
       // bar is behind it anyway, so stacking both offsets would leave a gap.
+      //
+      // Tucked a pixel under the tab bar, which is drawn on top and whose
+      // top border then reads as the line between them. Two edges meeting
+      // exactly at a fractional position can still be snapped to different
+      // device pixels and leave a seam; an overlap cannot.
       style={{
-        bottom: 'max(var(--tabbar-h, 3.5rem), var(--keyboard-inset, 0px))',
+        bottom: 'calc(max(var(--tabbar-h, 3.5rem), var(--keyboard-inset, 0px)) - 1px)',
       }}
     >
       <div className="mx-auto max-w-lg px-4 py-3">{children}</div>

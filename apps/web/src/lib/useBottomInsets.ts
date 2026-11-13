@@ -1,5 +1,8 @@
 import { useEffect } from 'react';
 
+/** Shorter than any on-screen keyboard, taller than any browser toolbar. */
+const MIN_KEYBOARD_PX = 120;
+
 /**
  * Publishes two lengths that the fixed bars position themselves against.
  *
@@ -22,9 +25,15 @@ export function useBottomInsets(): void {
 
     const update = () => {
       // Positive only when something is covering the bottom of the layout
-      // viewport; a browser that resizes for us reports 0 here.
-      const covered = Math.max(0, root.clientHeight - (vv.height + vv.offsetTop));
-      root.style.setProperty('--keyboard-inset', `${Math.round(covered)}px`);
+      // viewport; a browser that resizes for us reports 0 here. Anything
+      // short of a keyboard is ignored: Firefox's own toolbar, or a zoomed
+      // viewport's rounding, can report a few pixels covered, and acting on
+      // that would lift the bars clear of the tab bar for no reason.
+      const covered = root.clientHeight - (vv.height + vv.offsetTop);
+      root.style.setProperty(
+        '--keyboard-inset',
+        `${covered >= MIN_KEYBOARD_PX ? covered : 0}px`,
+      );
     };
 
     update();

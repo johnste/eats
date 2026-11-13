@@ -25,17 +25,24 @@ export function TabBar() {
   // Published rather than assumed: the bar above this one needs to clear it,
   // and its real height depends on the border, the safe-area inset and
   // whatever the system font size does to the labels.
+  //
+  // Exact, not rounded: on a phone the height is fractional (56.7px at a
+  // 2.75 pixel ratio), and rounding it up lifted the bar above by a fraction
+  // of a pixel -- a hairline of page showing between the two bars. And the
+  // border box is observed, not the default content box, because the
+  // safe-area inset is padding: rotating the phone changes it without
+  // changing the content, and the observer would never have fired.
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     const publish = () =>
       document.documentElement.style.setProperty(
         '--tabbar-h',
-        `${Math.round(el.getBoundingClientRect().height)}px`,
+        `${el.getBoundingClientRect().height}px`,
       );
     publish();
     const observer = new ResizeObserver(publish);
-    observer.observe(el);
+    observer.observe(el, { box: 'border-box' });
     return () => observer.disconnect();
   }, []);
 
