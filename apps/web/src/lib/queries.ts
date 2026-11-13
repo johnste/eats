@@ -35,6 +35,7 @@ export const keys = {
   // Under 'recent' so that logging anything refreshes it along with recents.
   companions: (ids: string[]) => ['recent', 'companions', ...ids] as const,
   brands: ['brands'] as const,
+  myFoods: ['foods', 'mine'] as const,
   search: (q: string) => ['search', q] as const,
   goals: ['goals'] as const,
   profile: ['profile'] as const,

@@ -9,6 +9,7 @@ import type {
   FoodSearchResponse,
   GoalBody,
   LogEntryResponse,
+  MyFoodResponse,
   Meal,
   OcrResponse,
   ProfileBody,
@@ -122,6 +123,8 @@ export const api = {
     get<FoodResponse[]>(`/foods/companions?ids=${ids.join(',')}`),
   barcode: (code: string) => get<BarcodeLookupResponse>(`/foods/barcode/${code}`),
   food: (id: string) => get<FoodResponse>(`/foods/${id}`),
+  myFoods: () => get<MyFoodResponse[]>('/foods/mine'),
+  deleteFood: (id: string) => send<{ ok: true }>('DELETE', `/foods/${id}`),
   createFood: (body: CreateFoodBody) => send<FoodResponse>('POST', '/foods', body),
   updateFood: (id: string, body: CreateFoodBody) =>
     send<FoodResponse>('PATCH', `/foods/${id}`, body),

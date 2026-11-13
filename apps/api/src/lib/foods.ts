@@ -88,6 +88,40 @@ export async function usualGrams(
   return new Map(rows.map((r) => [r.foodId, Math.round(Number(r.usual))]));
 }
 
+/**
+ * Every food this user has added, with how often it is on their log and
+ * when it last was -- the Foods tab, where they are looked after.
+ */
+export async function myFoods(db: Database, userId: string) {
+  const rows = await db
+    .select({
+      food: foods,
+      // Spelled out with table names: inside a hand-written subquery Drizzle
+      // renders column references unqualified, and "id" then resolves to the
+      // log entry's own id -- every count came back 0.
+      entries: sql<number>`(
+        select count(*)::int from log_entries le
+        where le.food_id = foods.id and le.user_id = ${userId}
+      )`,
+      lastLoggedOn: sql<string | null>`(
+        select max(le.logged_on)::text from log_entries le
+        where le.food_id = foods.id and le.user_id = ${userId}
+      )`,
+    })
+    .from(foods)
+    .where(and(eq(foods.source, 'custom'), eq(foods.createdBy, userId)))
+    .orderBy(sql`lower(${foods.name})`);
+  const withS = await withServings(
+    db,
+    rows.map((r) => r.food),
+  );
+  return withS.map((f, i) => ({
+    ...f,
+    entries: rows[i]!.entries,
+    lastLoggedOn: rows[i]!.lastLoggedOn,
+  }));
+}
+
 /** Servings and usual amounts together: what a list you pick from needs. */
 export async function forPicking(
   db: Database,

@@ -107,6 +107,13 @@ export const foodResponse = macrosPer100g.extend({
   usualGrams: z.number().nullable().optional(),
 });
 
+/** One of your own foods, with how much it is used, for managing them. */
+export const myFoodResponse = foodResponse.extend({
+  /** How many entries on your log point at it; deletable only at zero. */
+  entries: z.number(),
+  lastLoggedOn: dateKey.nullable(),
+});
+
 /**
  * A search hit from Open Food Facts. The search index carries names and
  * barcodes but no nutriments, so a candidate is not yet a food -- picking one
@@ -308,6 +315,7 @@ export type GoalBody = z.infer<typeof goalBody>;
 export type CreateFoodBody = z.infer<typeof createFoodBody>;
 export type UpdateFoodBody = z.infer<typeof updateFoodBody>;
 export type FoodResponse = z.infer<typeof foodResponse>;
+export type MyFoodResponse = z.infer<typeof myFoodResponse>;
 export type CreateLogBody = z.infer<typeof createLogBody>;
 export type CreateLogBatchBody = z.infer<typeof createLogBatchBody>;
 export type UpdateLogBody = z.infer<typeof updateLogBody>;

@@ -6,7 +6,7 @@ import { BarcodeScanner } from '../components/BarcodeScanner.tsx';
 import { CameraSheet } from '../components/CameraSheet.tsx';
 import { Button, Card, ErrorNote, Field, Toggle } from '../components/ui.tsx';
 import { api, ApiError } from '../lib/api.ts';
-import { useBrands } from '../lib/queries.ts';
+import { keys, useBrands } from '../lib/queries.ts';
 
 type FieldName = 'kcal100g' | 'protein100g' | 'carbs100g' | 'fat100g';
 
@@ -73,6 +73,8 @@ export function NewFood() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const date = params.get('date') ?? toDateKey();
+  // Back where you came from: the Foods tab, or the Add page you left.
+  const back = params.get('from') === 'foods' ? '/foods' : `/add?date=${date}`;
   const fileRef = useRef<HTMLInputElement>(null);
 
   /** What the barcode lookup came back without, if it came back short. */
@@ -216,8 +218,23 @@ export function NewFood() {
       void qc.invalidateQueries({ queryKey: ['food', editingId] });
       void qc.invalidateQueries({ queryKey: ['recent'] });
       void qc.invalidateQueries({ queryKey: ['search'] });
-      navigate(`/add?date=${date}`);
+      void qc.invalidateQueries({ queryKey: keys.myFoods });
+      navigate(back);
     },
+  });
+
+  // Two taps, like removing an entry: deleting cannot be undone.
+  const [arming, setArming] = useState(false);
+  const remove = useMutation({
+    mutationFn: () => api.deleteFood(editingId as string),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.myFoods });
+      void qc.invalidateQueries({ queryKey: ['recent'] });
+      void qc.invalidateQueries({ queryKey: ['search'] });
+      void qc.invalidateQueries({ queryKey: ['duplicates'] });
+      navigate(back);
+    },
+    onError: () => setArming(false),
   });
 
   return (
@@ -483,6 +500,38 @@ export function NewFood() {
           {save.isPending ? 'Saving…' : editingId ? 'Save changes' : 'Save food'}
         </Button>
       </form>
+
+      {editingId && (
+        <div className="mt-6 text-center">
+          {remove.error instanceof ApiError && (
+            <p className="mb-2 text-left">
+              <ErrorNote>{remove.error.message}</ErrorNote>
+            </p>
+          )}
+          {arming ? (
+            <div className="flex justify-center gap-2">
+              <Button variant="ghost" onClick={() => setArming(false)}>
+                Keep it
+              </Button>
+              <Button
+                variant="danger"
+                disabled={remove.isPending}
+                onClick={() => remove.mutate()}
+              >
+                {remove.isPending ? 'Deleting…' : 'Delete for good'}
+              </Button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setArming(true)}
+              className="text-danger min-h-11 text-[13px] underline underline-offset-4"
+            >
+              Delete this food
+            </button>
+          )}
+        </div>
+      )}
 
       {scanningBarcode && (
         <BarcodeScanner

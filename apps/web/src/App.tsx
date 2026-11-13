@@ -42,7 +42,7 @@ if (typeof sessionStorage !== 'undefined') {
 
 /**
  * Today is the screen the app opens on, so it ships in the main bundle.
- * The rest are split out: Weight pulls in Recharts and Add pulls in the
+ * The rest are split out: Trends pulls in Recharts and Add pulls in the
  * barcode detector's WebAssembly, neither of which should be downloaded
  * before they are needed on a phone connection.
  */
@@ -55,8 +55,8 @@ const NewFood = lazyRoute(() =>
 const Trends = lazyRoute(() =>
   import('./routes/Trends.tsx').then((m) => ({ default: m.Trends })),
 );
-const Weight = lazyRoute(() =>
-  import('./routes/Weight.tsx').then((m) => ({ default: m.Weight })),
+const Foods = lazyRoute(() =>
+  import('./routes/Foods.tsx').then((m) => ({ default: m.Foods })),
 );
 const Settings = lazyRoute(() =>
   import('./routes/Settings.tsx').then((m) => ({ default: m.Settings })),
@@ -79,7 +79,9 @@ function Shell() {
             {/* Same form, populated. */}
             <Route path="/foods/:id/edit" element={<NewFood />} />
             <Route path="/trends" element={<Trends />} />
-            <Route path="/weight" element={<Weight />} />
+            <Route path="/foods" element={<Foods />} />
+            {/* Weight is a card on Trends now; old links and installs land there. */}
+            <Route path="/weight" element={<Navigate to="/trends" replace />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

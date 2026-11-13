@@ -15,6 +15,7 @@ import {
 } from 'recharts';
 import { MACRO_META } from '../components/Macros.tsx';
 import { Card, Empty, ErrorNote, Field, Spinner } from '../components/ui.tsx';
+import { WeightCard } from '../components/WeightCard.tsx';
 import { api } from '../lib/api.ts';
 import { keys, useMaintenance } from '../lib/queries.ts';
 import { useToday } from '../lib/useToday.ts';
@@ -110,6 +111,14 @@ export function Trends() {
             </p>
           )}
         </Card>
+      )}
+
+      {/* First, because it is the one with something to type: today's
+          weight is a daily habit, the charts below are for looking back. */}
+      {valid && (
+        <div className="mb-6">
+          <WeightCard from={from} to={to} today={today} />
+        </div>
       )}
 
       {summary.isPending && valid && <Spinner />}

@@ -1,6 +1,7 @@
 import {
   barcodeLookupResponse,
   companionsQuery,
+  myFoodResponse,
   createFoodBody,
   errorResponse,
   foodResponse,
@@ -12,7 +13,7 @@ import {
   mergeFoodsBody,
   updateFoodBody,
 } from '@eats/shared';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
@@ -30,12 +31,13 @@ const MERGE_ERRORS: Record<MergeFailure, [400 | 404, string]> = {
       'Livsmedelsverket and Open Food Facts can be kept, not removed.',
   ],
 };
-import { foods, foodServings } from '../db/schema.ts';
+import { foods, foodServings, logEntries } from '../db/schema.ts';
 import {
   findByBarcode,
   companionFoods,
   foodSources,
   forPicking,
+  myFoods,
   insertCustomFood,
   isStale,
   knownBrands,
@@ -102,6 +104,62 @@ export const foodRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
         user.id,
         await recentFoods(db, user.id, 30, req.query.meal),
       );
+    },
+  );
+
+  r.get(
+    '/mine',
+    { schema: { response: { 200: z.array(myFoodResponse) } } },
+    async (req) => {
+      const user = await requireUser(req);
+      return myFoods(db, user.id);
+    },
+  );
+
+  /**
+   * Only your own foods, and only ones nothing on your log points at. A
+   * food that has been eaten is part of the record; to be rid of one, it is
+   * merged into the food it duplicates, which moves its entries across.
+   */
+  r.delete(
+    '/:id',
+    {
+      schema: {
+        params: idParam,
+        response: {
+          200: z.object({ ok: z.literal(true) }),
+          403: errorResponse,
+          404: errorResponse,
+          409: errorResponse,
+        },
+      },
+    },
+    async (req, reply) => {
+      const user = await requireUser(req);
+      const [food] = await db
+        .select()
+        .from(foods)
+        .where(eq(foods.id, req.params.id))
+        .limit(1);
+      if (!food) return reply.status(404).send({ error: 'No such food.' });
+      if (food.source !== 'custom' || food.createdBy !== user.id) {
+        return reply
+          .status(403)
+          .send({ error: 'Only a food you added can be deleted.' });
+      }
+      const [{ n } = { n: 0 }] = await db
+        .select({ n: sql<number>`count(*)::int` })
+        .from(logEntries)
+        .where(eq(logEntries.foodId, food.id));
+      if (n > 0) {
+        return reply.status(409).send({
+          error:
+            `It is on your log ${n === 1 ? 'once' : `${n} times`}, so it stays. ` +
+            'If it duplicates another food, merge it into that one under Duplicate foods.',
+        });
+      }
+      await db.delete(foods).where(eq(foods.id, food.id));
+      return { ok: true as const };
     },
   );
 

@@ -9,7 +9,12 @@ const TABS = [
   },
   { to: '/add', label: 'Add', icon: 'M12 5v14M5 12h14' },
   { to: '/trends', label: 'Trends', icon: 'M4 20V10M10 20V4M16 20v-7M22 20H2' },
-  { to: '/weight', label: 'Weight', icon: 'M3 17l6-6 4 4 8-8' },
+  {
+    to: '/foods',
+    label: 'Foods',
+    // A list: what the tab is, your foods one under the other.
+    icon: 'M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01',
+  },
   {
     to: '/settings',
     label: 'Settings',
