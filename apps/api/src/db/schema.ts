@@ -50,7 +50,14 @@ export const users = pgTable('users', {
    * live external API; Livsmedelsverket is seeded locally, so turning it off
    * hides those foods rather than stopping a request.
    */
+  /** Open Food Facts in search: its live search, and products cached from it. */
   useOff: boolean('use_off').notNull().default(true),
+  /**
+   * Open Food Facts for barcode scans, separately: someone can want the
+   * scanner without a shelf of foreign branded products in every search.
+   */
+  useOffBarcode: boolean('use_off_barcode').notNull().default(true),
+  /** Livsmedelsverket in search. It has no barcodes, so search is all it does. */
   useSlv: boolean('use_slv').notNull().default(true),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });

@@ -248,9 +248,11 @@ export function NewFood() {
 
       {missing.length > 0 && (
         <p className="text-muted bg-surface mb-4 rounded-xl p-3 text-[13px]">
-          {missing.some((m) => m.startsWith('plausible'))
-            ? "Open Food Facts has numbers for this barcode, but they don't look like per-100 g values."
-            : `Open Food Facts knows this barcode but not its ${listed(missing)}.`}{' '}
+          {missing.includes('lookup switched off')
+            ? 'This barcode is new here, and looking barcodes up in Open Food Facts is switched off in Settings.'
+            : missing.some((m) => m.startsWith('plausible'))
+              ? "Open Food Facts has numbers for this barcode, but they don't look like per-100 g values."
+              : `Open Food Facts knows this barcode but not its ${listed(missing)}.`}{' '}
           Scan the nutrition table above, or type the numbers in yourself — they are
           saved against the barcode, so the next scan will find them.
         </p>

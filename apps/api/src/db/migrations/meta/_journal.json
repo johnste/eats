@@ -64,6 +64,13 @@
       "when": 1794583660461,
       "tag": "0008_estimated_foods",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1795099978339,
+      "tag": "0009_off_barcode_switch",
+      "breakpoints": true
     }
   ]
 }

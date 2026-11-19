@@ -46,6 +46,7 @@ const profileShape = z.object({
   activityLevel: activityLevelSchema.nullable(),
   targetWeightKg: z.number().nullable(),
   useOff: z.boolean(),
+  useOffBarcode: z.boolean(),
   useSlv: z.boolean(),
 });
 
@@ -68,6 +69,7 @@ export const meRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
       activityLevel: row.activityLevel,
       targetWeightKg: row.targetWeightKg,
       useOff: row.useOff,
+      useOffBarcode: row.useOffBarcode,
       useSlv: row.useSlv,
     };
   });
@@ -90,6 +92,7 @@ export const meRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
         activityLevel: row.activityLevel,
         targetWeightKg: row.targetWeightKg,
         useOff: row.useOff,
+        useOffBarcode: row.useOffBarcode,
         useSlv: row.useSlv,
       };
     },

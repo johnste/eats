@@ -264,7 +264,7 @@ export const foodRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
       // already in the table -- including a copy that has aged out, since a
       // stale local answer beats refusing one. Beyond that there is nowhere
       // to look, so offer manual entry with the barcode attached.
-      if (!(await foodSources(db, user.id)).useOff) {
+      if (!(await foodSources(db, user.id)).useOffBarcode) {
         if (usableCache) {
           return serveCached(usableCache);
         }
@@ -275,7 +275,9 @@ export const foodRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
             name: '',
             brand: null,
             servingG: null,
-            missing: ['Open Food Facts is switched off'],
+            // A marker the form recognises, not a field that is missing:
+            // nothing was asked, so nothing is known to be missing.
+            missing: ['lookup switched off'],
           },
         };
       }

@@ -266,19 +266,30 @@ export async function upsertOffFood(
  * searched -- they are yours, and there is nothing external about them.
  */
 export interface FoodSources {
+  /** Open Food Facts in search. */
   useOff: boolean;
+  /** Open Food Facts for barcode scans. */
+  useOffBarcode: boolean;
   useSlv: boolean;
 }
 
 export async function foodSources(db: Database, userId: string): Promise<FoodSources> {
   const [row] = await db
-    .select({ useOff: users.useOff, useSlv: users.useSlv })
+    .select({
+      useOff: users.useOff,
+      useOffBarcode: users.useOffBarcode,
+      useSlv: users.useSlv,
+    })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
   // A missing row cannot happen behind requireUser, but defaulting to on
   // matches what a new account gets.
-  return { useOff: row?.useOff ?? true, useSlv: row?.useSlv ?? true };
+  return {
+    useOff: row?.useOff ?? true,
+    useOffBarcode: row?.useOffBarcode ?? true,
+    useSlv: row?.useSlv ?? true,
+  };
 }
 
 /**
@@ -302,7 +313,7 @@ export async function searchLocal(
   userId: string,
   query: string,
   limit: number,
-  sources: FoodSources = { useOff: true, useSlv: true },
+  sources: Pick<FoodSources, 'useOff' | 'useSlv'> = { useOff: true, useSlv: true },
 ): Promise<FoodRow[]> {
   const pattern = `%${query.replace(/[%_]/g, (c) => `\\${c}`)}%`;
   return db
@@ -315,7 +326,22 @@ export async function searchLocal(
         // on. `or` needs at least one arm, and your own foods are it.
         or(
           eq(foods.createdBy, userId),
-          ...(sources.useOff ? [eq(foods.source, 'off')] : []),
+          // With Open Food Facts out of search, products you have scanned or
+          // logged still come up by name: the scanner may be on, and a
+          // yoghurt scanned yesterday should not need scanning again to be
+          // found. Table names spelled out, as Drizzle leaves hand-written
+          // column references unqualified.
+          sources.useOff
+            ? eq(foods.source, 'off')
+            : and(
+                eq(foods.source, 'off'),
+                sql`(
+                  exists (select 1 from food_views fv
+                          where fv.food_id = foods.id and fv.user_id = ${userId})
+                  or exists (select 1 from log_entries le
+                             where le.food_id = foods.id and le.user_id = ${userId})
+                )`,
+              ),
           ...(sources.useSlv ? [eq(foods.source, 'slv')] : []),
         ),
         // Shared rows with nothing in them are not worth offering: they are

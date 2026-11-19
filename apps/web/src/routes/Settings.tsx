@@ -303,22 +303,27 @@ function AgentAccessCard() {
 }
 
 /**
- * Which shelves search looks on, besides the foods you added yourself.
+ * Where Eats looks for food besides what you added yourself, with search and
+ * barcode scanning set separately: the scanner is worth having even when
+ * search would rather not list every branded product in Europe.
  *
- * The two are not symmetrical. Open Food Facts is a live request to someone
- * else's server, so switching it off stops the request being made at all,
- * rather than making it and hiding the answer. Livsmedelsverket was copied
- * into this database when it was seeded, so switching it off only hides rows.
+ * The sources are not symmetrical. Open Food Facts is a live request to
+ * someone else's server, so switching it off stops the request being made at
+ * all, rather than making it and hiding the answer. Livsmedelsverket was
+ * copied into this database when it was seeded, so switching it off only
+ * hides rows -- and it has no barcodes, so search is all it is used for.
  *
- * Neither touches what you have already eaten: an entry keeps the macros it
- * was logged with, and recents are not filtered by source.
+ * None of this touches what you have already eaten: an entry keeps the
+ * macros it was logged with, and recents are not filtered by source.
  */
+type SourcePatch = { useOff?: boolean; useOffBarcode?: boolean; useSlv?: boolean };
+
 function FoodSourcesCard() {
   const qc = useQueryClient();
   const profile = useProfile();
 
   const save = useMutation({
-    mutationFn: (patch: { useOff?: boolean; useSlv?: boolean }) => {
+    mutationFn: (patch: SourcePatch) => {
       const p = profile.data;
       if (!p) throw new Error('Profile not loaded yet.');
       return api.saveProfile({
@@ -328,6 +333,7 @@ function FoodSourcesCard() {
         activityLevel: p.activityLevel,
         targetWeightKg: p.targetWeightKg,
         useOff: p.useOff,
+        useOffBarcode: p.useOffBarcode,
         useSlv: p.useSlv,
         ...patch,
       });
@@ -340,29 +346,42 @@ function FoodSourcesCard() {
   });
 
   const useOff = profile.data?.useOff ?? true;
+  const useOffBarcode = profile.data?.useOffBarcode ?? true;
   const useSlv = profile.data?.useSlv ?? true;
-  const on = [useOff, useSlv].filter(Boolean).length;
+  const on = [useOff, useOffBarcode, useSlv].filter(Boolean).length;
+  const busy = !profile.data || save.isPending;
 
   return (
     <Disclosure
       title="Food sources"
-      hint={on === 2 ? undefined : `${on} of 2`}
-      description="Where search looks besides your own foods. Food you have already logged is unaffected."
+      hint={on === 3 ? undefined : `${on} of 3 on`}
+      description="Where Eats looks besides your own foods. Food you have already logged is unaffected."
     >
-      <div className="space-y-1">
-        <Toggle
-          label="Open Food Facts"
-          hint="Branded products and barcode scanning. Off means no request leaves your server."
-          checked={useOff}
-          disabled={!profile.data || save.isPending}
-          onChange={(next) => save.mutate({ useOff: next })}
-        />
+      <p className="text-muted mb-1 text-[13px] font-medium">In search</p>
+      <div className="mb-4 space-y-1">
         <Toggle
           label="Livsmedelsverket"
           hint="Swedish staples, already stored here. Off hides them from search."
           checked={useSlv}
-          disabled={!profile.data || save.isPending}
+          disabled={busy}
           onChange={(next) => save.mutate({ useSlv: next })}
+        />
+        <Toggle
+          label="Open Food Facts"
+          hint="Branded products. Off means search sends nothing to it; products you have scanned or logged still turn up."
+          checked={useOff}
+          disabled={busy}
+          onChange={(next) => save.mutate({ useOff: next })}
+        />
+      </div>
+      <p className="text-muted mb-1 text-[13px] font-medium">Scanning a barcode</p>
+      <div className="space-y-1">
+        <Toggle
+          label="Open Food Facts"
+          hint="Looks the barcode up there. Off means only products already stored here are found; anything else goes to manual entry."
+          checked={useOffBarcode}
+          disabled={busy}
+          onChange={(next) => save.mutate({ useOffBarcode: next })}
         />
       </div>
       {save.error instanceof ApiError && (
@@ -694,6 +713,7 @@ function ProfileCard() {
         // Carried through untouched: they belong to Food sources, and a PUT of
         // the whole profile would otherwise reset them whenever this is saved.
         useOff: profile.data?.useOff ?? true,
+        useOffBarcode: profile.data?.useOffBarcode ?? true,
         useSlv: profile.data?.useSlv ?? true,
       }),
     onSuccess: () => {
