@@ -423,6 +423,50 @@ export async function knownBrands(db: Database, limit = 200): Promise<string[]> 
   return rows.flatMap((r) => (r.brand ? [r.brand] : []));
 }
 
+/**
+ * Add portions to a food, or correct ones it has. A portion whose label
+ * matches an existing one (ignoring case and surrounding space) changes that
+ * portion's weight instead of adding a second "1 slice" beside it; any other
+ * label is added. Nothing is removed. Returns the food's portions afterwards,
+ * read the same way the app reads them.
+ */
+export async function setPortions(
+  db: Database,
+  foodId: string,
+  portions: { label: string; grams: number }[],
+): Promise<ServingRow[]> {
+  const key = (label: string) => label.trim().toLowerCase();
+  return db.transaction(async (tx) => {
+    const existing = await tx
+      .select()
+      .from(foodServings)
+      .where(eq(foodServings.foodId, foodId));
+    const byLabel = new Map(existing.map((s) => [key(s.label), s]));
+
+    for (const p of portions) {
+      const label = p.label.trim();
+      const match = byLabel.get(key(label));
+      if (match) {
+        if (match.grams !== p.grams) {
+          await tx
+            .update(foodServings)
+            .set({ grams: p.grams })
+            .where(eq(foodServings.id, match.id));
+        }
+      } else {
+        const [row] = await tx
+          .insert(foodServings)
+          .values({ foodId, label, grams: p.grams })
+          .returning();
+        // A second portion of the same label in one call updates the first.
+        if (row) byLabel.set(key(label), row);
+      }
+    }
+
+    return tx.select().from(foodServings).where(eq(foodServings.foodId, foodId));
+  });
+}
+
 export async function insertCustomFood(
   tx: Executor,
   userId: string,

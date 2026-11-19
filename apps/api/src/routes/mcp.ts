@@ -2,6 +2,7 @@ import {
   addDays,
   MEALS,
   scaleMacros,
+  servingInput,
   stripEstimateMarker,
   toDateKey,
   type Meal,
@@ -17,6 +18,7 @@ import {
   insertCustomFood,
   recordFoodView,
   searchLocal,
+  setPortions,
   withServings,
 } from '../lib/foods.ts';
 import { entriesForRange, goalOn, snapshotFor, totalsOf } from '../lib/log.ts';
@@ -106,6 +108,13 @@ export const logArgs = z.object({
   protein100g: z.number().min(0).max(100).optional(),
   carbs100g: z.number().min(0).max(100).optional(),
   fat100g: z.number().min(0).max(100).optional(),
+  /** Portion sizes for a new food: "1 slice" = 35 g, and so on. */
+  portions: z.array(servingInput).max(10).optional(),
+});
+
+export const portionArgs = z.object({
+  foodId: z.uuid(),
+  portions: z.array(servingInput).min(1).max(10),
 });
 
 export const dayArgs = z.object({ date: dayArg });
@@ -125,6 +134,23 @@ export const mergeArgs = z.object({
   /** The food it folds into. */
   targetId: z.uuid(),
 });
+
+/** The shape of a portion list, written once for both tools that take one. */
+const PORTIONS_SCHEMA = {
+  type: 'array',
+  maxItems: 10,
+  items: {
+    type: 'object',
+    properties: {
+      label: {
+        type: 'string',
+        description: 'What the portion is, e.g. "1 slice", "1 dl", "1 bar"',
+      },
+      grams: { type: 'number', description: 'What one of it weighs, in grams' },
+    },
+    required: ['label', 'grams'],
+  },
+} as const;
 
 export const TOOLS = [
   {
@@ -196,6 +222,14 @@ export const TOOLS = [
             'When creating a food: true if the per-100g values are your ' +
             'estimate rather than read from a label or a database.',
         },
+        portions: {
+          ...PORTIONS_SCHEMA,
+          description:
+            'When creating a food: its natural portions, so the app can offer ' +
+            'them as shortcuts -- "1 slice" 35 g, "1 bar" 40 g. The first is ' +
+            'the amount the app suggests by default. Optional; skip it for ' +
+            'food that is only ever weighed.',
+        },
       },
       required: ['grams', 'meal'],
     },
@@ -237,6 +271,25 @@ export const TOOLS = [
         grams: { type: 'number', description: 'Correct the amount' },
       },
       required: ['entryId'],
+    },
+  },
+  {
+    name: 'set_portions',
+    title: 'Set portion sizes for a food',
+    description:
+      'Give one of the user\'s own foods portion sizes -- "1 slice" 35 g, ' +
+      '"1 glass" 200 g -- which the app offers as shortcuts when logging it, ' +
+      'the first one as the default amount. A label the food already has is ' +
+      're-weighed rather than added twice; nothing is removed. Only foods the ' +
+      'user added can be changed; Livsmedelsverket and Open Food Facts foods ' +
+      'are shared. Get the id from search_foods.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        foodId: { type: 'string', description: 'id from search_foods' },
+        portions: { ...PORTIONS_SCHEMA, description: 'The portions to add or correct' },
+      },
+      required: ['foodId', 'portions'],
     },
   },
   {
@@ -372,6 +425,7 @@ async function callTool(
     }
 
     let food: typeof foods.$inferSelect | undefined;
+    let created = false;
     // Not identical, but close enough to mention once the entry is in: a nudge
     // towards search_foods next time rather than a refusal of a fair call.
     let nearby: string[] = [];
@@ -438,10 +492,12 @@ async function callTool(
           carbs100g: a.carbs100g as number,
           fat100g: a.fat100g as number,
           estimated: a.estimated ?? false,
+          servings: a.portions?.map((p) => ({ label: p.label.trim(), grams: p.grams })),
         });
         await recordFoodView(tx, owner.id, row.id);
         return row;
       });
+      created = true;
     }
 
     const loggedOn = a.date ?? toDateKey();
@@ -465,6 +521,19 @@ async function callTool(
       `Logged ${a.grams}g of ${food.name} to ${a.meal} on ${loggedOn}: ` +
         `${macros.kcal} kcal, ${macros.proteinG}g protein, ` +
         `${macros.carbsG}g carbs, ${macros.fatG}g fat.` +
+        (created && a.portions?.length
+          ? `\nPortions saved: ${a.portions.map((p) => `${p.label.trim()} ${p.grams}g`).join(', ')}.`
+          : '') +
+        // Portions are only taken when a food is created; for one that
+        // already exists, say where they go rather than dropping them --
+        // and do not point at set_portions for a food it would refuse.
+        (!created && a.portions?.length
+          ? food.source === 'custom' && food.createdBy === owner.id
+            ? '\nPortions were not saved: this food already existed. Use ' +
+              'set_portions to add them to it.'
+            : `\nPortions were not saved: ${food.name} is shared reference ` +
+              'data, so its portions cannot be changed.'
+          : '') +
         (nearby.length > 0
           ? '\n\nSimilar foods were already here:\n' +
             nearby.map((n) => `  ${n}`).join('\n') +
@@ -508,6 +577,32 @@ async function callTool(
         : ' (no goal set)');
 
     return text(`${summary}\n\n${byMeal.join('\n')}`);
+  }
+
+  if (name === 'set_portions') {
+    const parsed = portionArgs.safeParse(args ?? {});
+    if (!parsed.success)
+      return text(`Invalid arguments: ${parsed.error.message}`, true);
+    const { foodId, portions } = parsed.data;
+
+    const [food] = await db.select().from(foods).where(eq(foods.id, foodId)).limit(1);
+    if (!food) return text(`No food with id ${foodId}. Try search_foods.`, true);
+    if (food.source !== 'custom' || food.createdBy !== owner.id) {
+      return text(
+        `${food.name} is shared reference data from ` +
+          `${food.source === 'slv' ? 'Livsmedelsverket' : 'Open Food Facts'}, ` +
+          'so its portions cannot be changed. Portions can be set on foods the ' +
+          'user added.',
+        true,
+      );
+    }
+
+    const now = await setPortions(db, food.id, portions);
+    return text(
+      `${food.name} now has these portions: ` +
+        now.map((s) => `${s.label} ${s.grams}g`).join(', ') +
+        '. The first is the amount the app suggests by default.',
+    );
   }
 
   if (name === 'find_duplicates') {
@@ -733,6 +828,9 @@ export const mcpRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
                 'already in the database leaves two copies of it carrying ' +
                 'different numbers. Log by foodId whenever a search finds the ' +
                 'thing you mean.\n\n' +
+                'When a food has a natural portion -- a slice, a bar, a ' +
+                'glass -- give it with portions when creating the food, or ' +
+                'set_portions later; the app offers portions as shortcuts.\n\n' +
                 'Today and yesterday are the only days that can be read or ' +
                 'changed from here.',
             });

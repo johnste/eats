@@ -8,6 +8,7 @@ import {
   sameName,
   logArgs,
   moveArgs,
+  portionArgs,
   searchArgs,
   TOOLS,
 } from '../src/routes/mcp.ts';
@@ -187,6 +188,7 @@ describe('mcp tool declarations', () => {
         'log_food',
         'get_day',
         'move_entry',
+        'set_portions',
         'find_duplicates',
         'merge_foods',
         'delete_entry',
@@ -224,6 +226,51 @@ describe('mcp tool declarations', () => {
     assert.deepEqual(required.find_duplicates, []);
     // Both halves, because guessing either one would merge the wrong food.
     assert.deepEqual(required.merge_foods, ['sourceId', 'targetId']);
+    // Which food, and what to give it: there is nothing to default.
+    assert.deepEqual(required.set_portions, ['foodId', 'portions']);
+  });
+});
+
+describe('portion sizes from an agent', () => {
+  const food = '3b07d13b-0485-4f8f-8187-9bc21cf71d3c';
+
+  it('lets log_food give a new food its portions', () => {
+    const ok = logArgs.safeParse({
+      grams: 35,
+      meal: 'breakfast',
+      name: 'Levain',
+      kcal100g: 262,
+      protein100g: 9,
+      carbs100g: 50,
+      fat100g: 1.5,
+      portions: [
+        { label: '1 slice', grams: 35 },
+        { label: '1 thick slice', grams: 50 },
+      ],
+    });
+    assert.ok(ok.success);
+  });
+
+  it('still logs without any portions at all', () => {
+    assert.ok(logArgs.safeParse({ grams: 35, meal: 'lunch', foodId: food }).success);
+  });
+
+  it('refuses a portion with no label, or one that weighs nothing', () => {
+    const bad = (portions: unknown) =>
+      !portionArgs.safeParse({ foodId: food, portions }).success;
+    assert.ok(bad([{ label: '', grams: 35 }]));
+    assert.ok(bad([{ label: '1 slice', grams: 0 }]));
+    assert.ok(bad([{ label: '1 slice' }]));
+  });
+
+  it('asks set_portions for at least one portion and at most ten', () => {
+    const many = Array.from({ length: 11 }, (_, i) => ({ label: `${i}`, grams: 10 }));
+    assert.ok(!portionArgs.safeParse({ foodId: food, portions: [] }).success);
+    assert.ok(!portionArgs.safeParse({ foodId: food, portions: many }).success);
+    assert.ok(
+      portionArgs.safeParse({ foodId: food, portions: [{ label: '1 bar', grams: 40 }] })
+        .success,
+    );
   });
 });
 
