@@ -80,7 +80,7 @@ export function WeightCard({
     <Card>
       <div className="mb-3 flex items-baseline justify-between gap-3">
         <div>
-          <p className="nums text-ink text-2xl font-medium">
+          <p className="figure text-ink text-2xl font-medium">
             {latest ? (
               // Keyed on the weight, so saving a new one pops it once; only
               // when it actually changed in front of you, not on arrival.
@@ -106,7 +106,7 @@ export function WeightCard({
         {change !== null && (
           <div className="text-right">
             <p
-              className={`nums text-sm font-medium ${
+              className={`figure text-sm font-medium ${
                 change > 0 ? 'text-fat' : 'text-accent'
               }`}
             >
@@ -221,7 +221,7 @@ export function WeightCard({
       {target !== null && weights.data && (
         <p className="text-muted mt-3 text-[13px]">
           <span className="text-ink font-medium">
-            Goal <span className="nums">{round(target)}</span> kg:
+            Goal <span className="figure">{round(target)}</span> kg:
           </span>{' '}
           {projectionSentence(projection, target, weights.data.length)}
         </p>

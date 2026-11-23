@@ -39,13 +39,13 @@ export function Add() {
   return (
     <>
       <header
-        className="bg-surface sticky z-10 -mx-4 -mt-4 mb-2 px-4 pt-2"
+        className="bg-surface/85 sticky z-10 -mx-4 -mt-4 mb-2 px-4 pt-2 backdrop-blur-md"
         style={{ top: 'env(safe-area-inset-top, 0px)' }}
       >
         {/* The heading reads as a sentence; the meal menu sits beside it
             rather than inside it, so a screen reader announces the heading
             as "Add to lunch, Today" and not as a list of every meal. */}
-        <div className="text-ink flex flex-wrap items-baseline gap-x-1.5 text-lg font-semibold">
+        <div className="text-ink flex flex-wrap items-baseline gap-x-1.5 text-lg font-medium">
           <h1>
             Add to
             <span className="sr-only">

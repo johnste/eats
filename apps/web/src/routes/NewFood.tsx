@@ -239,7 +239,7 @@ export function NewFood() {
 
   return (
     <>
-      <h1 className="text-ink mb-1 text-lg font-semibold">
+      <h1 className="text-ink mb-1 text-lg font-medium">
         {editingId ? 'Edit food' : 'New food'}
       </h1>
       <p className="text-muted mb-4 text-[13px]">

@@ -267,10 +267,18 @@ html.dragging body {
   user-select: none;
 }
 
-/* Figures are set in the mono, which is one width per digit already; the
-   tabular-nums is belt and braces for the system fallback. Pulled in a touch
-   because a mono's natural spacing is set for code, not for one number. */
+/* Digits all one width, so numbers hold still as they update. Safe on any
+   text: Space Grotesk has tabular figures of its own, so this changes the
+   digits and nothing else about a sentence. */
 .nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* A figure standing on its own -- a total, an amount, a weight -- is set in
+   the mono, which makes it read as a measurement rather than prose. Only
+   ever the number itself and its unit: put on a whole sentence, the mono
+   reads as code. Pulled in a touch because a mono's spacing is set for code. */
+.figure {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;

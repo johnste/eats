@@ -357,7 +357,7 @@ function SearchResults({
       {data.off.length > 0 && (
         <section>
           <h2 className="text-muted mb-2 text-[13px] font-medium">Open Food Facts</h2>
-          <ul className="space-y-1">
+          <ul className="divide-line divide-y">
             {data.off.map((c) => (
               <li key={c.barcode}>
                 <button
@@ -384,10 +384,14 @@ function SearchResults({
 /**
  * One row of either list: one line, name then brand, cut short rather than
  * wrapped so every row is the same height and the list scans straight down.
- * 44px tall, the smallest a thumb can hit reliably.
+ * 48px tall, comfortably over the smallest a thumb can hit reliably.
+ *
+ * Open rows with a rule between them, like the day on Today and the list on
+ * Foods, rather than a box each: on the grid paper a stack of filled boxes
+ * read as a different app.
  */
 const ROW =
-  'bg-raised border-line active:bg-surface flex min-h-11 w-full items-center rounded-xl border px-3 text-left';
+  'press active:bg-raised flex min-h-12 w-full items-center rounded-lg px-1 text-left';
 
 /** "Bregott · Arla" on a single line; the brand gives way first. */
 function FoodName({
@@ -418,7 +422,7 @@ function FoodList({
   onPick: (f: FoodResponse) => void;
 }) {
   return (
-    <ul className="space-y-1">
+    <ul className="divide-line divide-y">
       {foods.map((f) => (
         <li key={f.id}>
           <button type="button" onClick={() => onPick(f)} className={ROW}>
@@ -503,7 +507,7 @@ function QuantitySheet({
           <p className="text-muted text-center text-[11px] font-medium">
             {valid ? `In ${round(value)} g` : 'Enter an amount'}
           </p>
-          <dl className="nums grid grid-cols-4 gap-2 text-center">
+          <dl className="figure grid grid-cols-4 gap-2 text-center">
             {[
               ['kcal', Math.round(food.kcal100g * factor)],
               ['protein', round(food.protein100g * factor)],

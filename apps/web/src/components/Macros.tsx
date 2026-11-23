@@ -244,7 +244,7 @@ function IsoColumn({
       >
         {label}
       </span>
-      <span className="nums text-ink text-[13px]">
+      <span className="figure text-ink text-[13px]">
         {/* Whole numbers while it counts, or the tenths flicker past. */}
         {Math.abs(shown - value) < 0.05 ? round(value) : Math.round(shown)}
         {target !== null && <span className="text-faint">/{round(target)}</span>}
@@ -324,7 +324,7 @@ export function DaySummary({
   return (
     <div className="space-y-3">
       <div className="flex items-baseline justify-between gap-3">
-        <p className="nums text-ink text-4xl leading-none font-medium">
+        <p className="figure text-ink text-4xl leading-none font-medium">
           {Math.max(0, Math.round(shownKcal))}
           <span className="text-muted ml-1.5 text-sm font-normal">
             {target === null ? 'kcal' : `/ ${target} kcal`}
@@ -333,7 +333,7 @@ export function DaySummary({
         {remaining !== null && (
           <div className="shrink-0 text-right">
             <p
-              className={`nums text-[13px] font-medium ${
+              className={`figure text-[13px] font-medium ${
                 alarmed ? 'text-danger' : 'text-muted'
               }`}
             >
@@ -341,7 +341,7 @@ export function DaySummary({
             </p>
             {overGoal && maintenance !== null && (
               <p
-                className={`nums text-[11px] ${
+                className={`figure text-[11px] ${
                   overMaintenance ? 'text-danger' : 'text-faint'
                 }`}
               >
