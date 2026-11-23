@@ -1,13 +1,13 @@
 import { addDays, daysBetween, round, type DaySummaryResponse } from '@eats/shared';
 import { useQuery } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import {
+  Area,
   Bar,
   BarChart,
   CartesianGrid,
   ComposedChart,
   Line,
-  LineChart,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
@@ -208,6 +208,39 @@ export function Trends() {
 
 /* ------------------------------------------------------------- charts --- */
 
+/**
+ * The charts are drawn in the same line art as the columns on Today: marks
+ * are an outline filled with fine horizontal rules rather than a flat block,
+ * and the grid is dashed like a drafting grid. Hatching rather than a fill
+ * also keeps a run of thirty bars from turning into one solid wall of colour.
+ */
+function Hatch({ id, color }: { id: string; color: string }) {
+  return (
+    <pattern id={id} width="4" height="3" patternUnits="userSpaceOnUse">
+      <line
+        x1="0"
+        y1="0.5"
+        x2="4"
+        y2="0.5"
+        stroke={color}
+        strokeWidth="1"
+        opacity="0.5"
+      />
+    </pattern>
+  );
+}
+
+const grid = (
+  <CartesianGrid stroke="var(--color-line)" strokeDasharray="2 4" vertical={false} />
+);
+
+/** Each series draws itself in once, when the range first loads. */
+const drawIn = {
+  isAnimationActive: true,
+  animationDuration: 700,
+  animationEasing: 'ease-out',
+} as const;
+
 const axis = {
   tick: { fill: 'var(--color-faint)', fontSize: 11 },
   axisLine: false,
@@ -233,10 +266,15 @@ function IntakeChart({
 }) {
   const goal = rows.find((r) => r.goal)?.goal?.calories ?? null;
   const maintenance = useMaintenance();
+  // Pattern ids are document-wide, so each chart names its own.
+  const hatch = `hatch-kcal-${useId()}`;
 
   const marks = (
     <>
-      <CartesianGrid stroke="var(--color-line)" vertical={false} />
+      <defs>
+        <Hatch id={hatch} color="var(--color-mark)" />
+      </defs>
+      {grid}
       <XAxis dataKey="date" tickFormatter={shortDate} minTickGap={24} {...axis} />
       {/* The scale has to reach the lines drawn on it, or a maintenance line
           above every bar is simply clipped away and never seen. */}
@@ -274,22 +312,31 @@ function IntakeChart({
   return asBars ? (
     <BarChart data={rows} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
       {marks}
-      <Bar dataKey="kcal" fill="var(--color-mark)" radius={[4, 4, 0, 0]} />
+      <Bar
+        dataKey="kcal"
+        fill={`url(#${hatch})`}
+        stroke="var(--color-mark)"
+        strokeWidth={1.5}
+        radius={[2, 2, 0, 0]}
+        {...drawIn}
+      />
     </BarChart>
   ) : (
-    <LineChart data={rows} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+    <ComposedChart data={rows} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
       {marks}
       {/* connectNulls off: a day with nothing logged is a gap, not a line
-          drawn straight across it. */}
-      <Line
+          drawn straight across it. The hatched area under it is what makes
+          a long range read as an amount rather than a wire. */}
+      <Area
         type="monotone"
         dataKey="kcal"
         stroke="var(--color-mark)"
         strokeWidth={2}
+        fill={`url(#${hatch})`}
         dot={false}
-        isAnimationActive={false}
+        {...drawIn}
       />
-    </LineChart>
+    </ComposedChart>
   );
 }
 
@@ -315,6 +362,9 @@ function MacroChart({ rows, asBars }: { rows: DaySummaryResponse[]; asBars: bool
     fatTarget: r.goal?.fatG ?? null,
   }));
 
+  const id = useId();
+  const hatchOf = (k: MacroKey) => `hatch-${k}-${id}`;
+
   const nameOf = (key: string) => {
     const eaten = MACRO_KEYS.find((k) => k === key);
     if (eaten) return MACRO_META[eaten].label;
@@ -326,7 +376,12 @@ function MacroChart({ rows, asBars }: { rows: DaySummaryResponse[]; asBars: bool
     // Composed rather than a plain bar chart, because the targets are lines
     // drawn over the bars.
     <ComposedChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
-      <CartesianGrid stroke="var(--color-line)" vertical={false} />
+      <defs>
+        {MACRO_KEYS.map((k) => (
+          <Hatch key={k} id={hatchOf(k)} color={MACRO_META[k].color} />
+        ))}
+      </defs>
+      {grid}
       <XAxis dataKey="date" tickFormatter={shortDate} minTickGap={24} {...axis} />
       {/* The targets are series on this chart, so the scale already
           reaches them and none is clipped off the top. */}
@@ -341,9 +396,11 @@ function MacroChart({ rows, asBars }: { rows: DaySummaryResponse[]; asBars: bool
           <Bar
             key={k}
             dataKey={k}
-            fill={MACRO_META[k].color}
-            radius={[3, 3, 0, 0]}
-            isAnimationActive={false}
+            fill={`url(#${hatchOf(k)})`}
+            stroke={MACRO_META[k].color}
+            strokeWidth={1.25}
+            radius={[2, 2, 0, 0]}
+            {...drawIn}
           />
         ) : (
           <Line
@@ -353,7 +410,7 @@ function MacroChart({ rows, asBars }: { rows: DaySummaryResponse[]; asBars: bool
             stroke={MACRO_META[k].color}
             strokeWidth={2}
             dot={false}
-            isAnimationActive={false}
+            {...drawIn}
           />
         ),
       )}
