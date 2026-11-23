@@ -237,10 +237,17 @@ export function Field({
 export function Spinner({ label = 'Loading' }: { label?: string }) {
   return (
     <div className="text-faint flex items-center justify-center gap-2 py-10 text-sm">
-      <span
-        aria-hidden
-        className="border-line border-t-accent size-4 animate-spin rounded-full border-2"
-      />
+      {/* Three outlined columns taking turns, in the line art the charts are
+          drawn in, rather than a generic spinning ring. */}
+      <span aria-hidden className="flex h-4 items-end gap-[3px]">
+        {[0, 1, 2].map((i) => (
+          <span
+            key={i}
+            className="border-accent animate-bob w-1.5 rounded-[1px] border"
+            style={{ animationDelay: `${i * 140}ms` }}
+          />
+        ))}
+      </span>
       {label}
     </div>
   );

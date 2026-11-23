@@ -14,6 +14,7 @@ import {
 import { Button, Card, ErrorNote } from './ui.tsx';
 import { api, ApiError } from '../lib/api.ts';
 import { keys, useProfile, WEIGHT_WINDOW_DAYS } from '../lib/queries.ts';
+import { useRemembered, useSpring } from '../lib/useSpring.ts';
 
 const AVERAGE_DAYS = 7;
 
@@ -68,12 +69,34 @@ export function WeightCard({
     first && last && shown.length > 1 ? last.weightKg - first.weightKg : null;
   const loggedToday = latest?.measuredOn === today ? latest.weightKg : null;
 
+  // Springs from the weight last shown to the one just saved, the same way
+  // the day's totals do when food is logged.
+  const weightBefore = useRemembered('weight', latest?.weightKg ?? 0);
+  const shownWeight = useSpring(latest?.weightKg ?? 0, {
+    from: weightBefore ?? latest?.weightKg ?? 0,
+  });
+
   return (
     <Card>
       <div className="mb-3 flex items-baseline justify-between gap-3">
         <div>
           <p className="nums text-ink text-2xl font-medium">
-            {latest ? round(latest.weightKg) : '–'}
+            {latest ? (
+              // Keyed on the weight, so saving a new one pops it once; only
+              // when it actually changed in front of you, not on arrival.
+              <span
+                key={latest.weightKg}
+                className={`inline-block ${
+                  weightBefore !== undefined && weightBefore !== latest.weightKg
+                    ? 'animate-pop'
+                    : ''
+                }`}
+              >
+                {round(shownWeight)}
+              </span>
+            ) : (
+              '–'
+            )}
             <span className="text-muted ml-1 text-sm font-normal">kg</span>
           </p>
           <p className="text-faint text-xs">
