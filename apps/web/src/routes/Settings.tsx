@@ -36,7 +36,7 @@ export function Settings() {
 
   return (
     <>
-      <h1 className="text-ink mb-4 text-lg font-semibold">Settings</h1>
+      <h1 className="text-ink mb-4 text-lg font-medium">Settings</h1>
       <div className="space-y-6">
         <GoalsCard />
         <ProfileCard />
@@ -437,7 +437,7 @@ function VersionCard() {
   return (
     <Card>
       <h2 className="text-ink mb-1 text-[15px] font-semibold">Version</h2>
-      <p className="text-ink nums text-xl font-medium">{version ?? 'unknown'}</p>
+      <p className="text-ink figure text-xl font-medium">{version ?? 'unknown'}</p>
       <p className="text-faint text-xs">The date and time it was made.</p>
       <dl className="mt-3 space-y-1.5 text-[13px]">
         {buildDate && (
@@ -460,7 +460,7 @@ function VersionCard() {
         {commit && (
           <div className="flex justify-between gap-3">
             <dt className="text-muted">Commit</dt>
-            <dd className="text-ink nums">{commit}</dd>
+            <dd className="text-ink figure">{commit}</dd>
           </div>
         )}
       </dl>

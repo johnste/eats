@@ -208,7 +208,7 @@ export function Today() {
               {humanDate(date, today)}
             </h1>
             {humanDate(date, today) !== date && (
-              <p className="text-faint nums text-[11px]">{date}</p>
+              <p className="text-faint figure text-[11px]">{date}</p>
             )}
           </div>
           <StepButton
@@ -303,7 +303,7 @@ export function Today() {
                       <div className="ml-auto flex items-center gap-2">
                         {entries.length > 0 && (
                           <span
-                            className="nums text-xs font-medium"
+                            className="figure text-xs font-medium"
                             style={{ color: meta.color }}
                           >
                             {total} {meta.unit}
@@ -415,7 +415,7 @@ export function Today() {
                               ) : (
                                 <>
                                   <span
-                                    className="nums w-[4.75rem] text-right text-[13px] whitespace-nowrap"
+                                    className="figure w-[4.75rem] text-right text-[13px] whitespace-nowrap"
                                     style={{
                                       color:
                                         focus === 'kcal'

@@ -66,7 +66,7 @@ export function Trends() {
 
   return (
     <>
-      <h1 className="text-ink mb-4 text-lg font-semibold">Trends</h1>
+      <h1 className="text-ink mb-4 text-lg font-medium">Trends</h1>
 
       <div className="mb-4 flex flex-wrap gap-1.5">
         {PRESETS.map((p) => (
@@ -138,7 +138,7 @@ export function Trends() {
                 day as zero would quietly drag every number down. */}
             <div className="mb-4 flex items-baseline justify-between gap-3">
               <div>
-                <p className="nums text-ink text-2xl font-medium">
+                <p className="figure text-ink text-2xl font-medium">
                   {stats.avgKcal}
                   <span className="text-muted ml-1 text-sm font-normal">kcal/day</span>
                 </p>

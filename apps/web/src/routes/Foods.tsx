@@ -113,7 +113,7 @@ export function Foods() {
   return (
     <>
       <div className="mb-1 flex items-center justify-between gap-3">
-        <h1 className="text-ink text-lg font-semibold">Your foods</h1>
+        <h1 className="text-ink text-lg font-medium">Your foods</h1>
         <Button variant="ghost" onClick={() => navigate('/foods/new?from=foods')}>
           New food
         </Button>

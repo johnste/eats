@@ -127,7 +127,7 @@ export function EntrySheet({
         </div>
 
         {food.data && (
-          <dl className="bg-surface nums grid grid-cols-4 gap-2 rounded-xl p-3 text-center">
+          <dl className="bg-surface figure grid grid-cols-4 gap-2 rounded-xl p-3 text-center">
             {[
               ['kcal', Math.round(food.data.kcal100g * factor)],
               ['protein', round(food.data.protein100g * factor)],
