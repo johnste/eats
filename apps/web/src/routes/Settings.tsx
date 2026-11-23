@@ -437,7 +437,7 @@ function VersionCard() {
   return (
     <Card>
       <h2 className="text-ink mb-1 text-[15px] font-semibold">Version</h2>
-      <p className="text-ink nums text-xl font-semibold">{version ?? 'unknown'}</p>
+      <p className="text-ink nums text-xl font-medium">{version ?? 'unknown'}</p>
       <p className="text-faint text-xs">The date and time it was made.</p>
       <dl className="mt-3 space-y-1.5 text-[13px]">
         {buildDate && (

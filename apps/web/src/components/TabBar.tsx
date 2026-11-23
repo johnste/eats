@@ -51,14 +51,35 @@ export function TabBar() {
     return () => observer.disconnect();
   }, []);
 
+  // Which tab the indicator sits under. Worked out here rather than read off
+  // NavLink, because the indicator is one element that slides between tabs
+  // rather than five that switch on and off.
+  const active = TABS.findIndex(({ to }) =>
+    to === '/'
+      ? pathname === '/' || pathname.startsWith('/day/')
+      : pathname === to || pathname.startsWith(`${to}/`),
+  );
+
   return (
     <nav
       ref={ref}
       aria-label="Main"
-      className="bg-raised border-line fixed inset-x-0 bottom-0 z-20 border-t"
+      className="bg-surface/85 border-line fixed inset-x-0 bottom-0 z-20 border-t backdrop-blur-md"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
-      <ul className="mx-auto flex max-w-lg">
+      <ul className="relative mx-auto flex max-w-lg">
+        {active >= 0 && (
+          <li
+            aria-hidden
+            className="pointer-events-none absolute inset-y-0 left-0 flex items-start justify-center transition-transform duration-500 ease-(--ease-spring)"
+            style={{
+              width: `${100 / TABS.length}%`,
+              transform: `translateX(${active * 100}%)`,
+            }}
+          >
+            <span className="bg-accent mt-0 h-0.5 w-8 rounded-b-full" />
+          </li>
+        )}
         {TABS.map(({ to, label, icon }) => (
           <li key={to} className="flex-1">
             <NavLink
@@ -74,16 +95,19 @@ export function TabBar() {
                 }
               }}
               className={({ isActive }) =>
-                `flex min-h-14 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors ${
+                `press flex min-h-14 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors ${
                   isActive ? 'text-accent' : 'text-faint'
                 }`
               }
             >
               {({ isActive }) => (
                 <>
+                  {/* Keyed on being active, so arriving at a tab remounts
+                      its icon and plays the pop once. */}
                   <svg
+                    key={String(isActive)}
                     viewBox="0 0 24 24"
-                    className="size-5"
+                    className={`size-5 ${isActive ? 'animate-pop' : ''}`}
                     fill="none"
                     stroke="currentColor"
                     strokeWidth={isActive ? 2.2 : 1.8}
