@@ -1,5 +1,5 @@
 import { type ComponentType, lazy, Suspense } from 'react';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router';
 import { UpdatePrompt } from './components/UpdatePrompt.tsx';
 import { TabBar } from './components/TabBar.tsx';
 import { Button, Spinner } from './components/ui.tsx';
@@ -65,26 +65,33 @@ const Settings = lazyRoute(() =>
 function Shell() {
   useWarmCache(true);
   useBottomInsets();
+  const { pathname } = useLocation();
+  // Each screen rises in as you arrive at it. Keyed by section rather than
+  // path: stepping between days is still Today, and remounting it would
+  // throw away the swipe and which macro you were reading by.
+  const section = pathname.split('/')[1] === 'day' ? '' : pathname.split('/')[1];
 
   return (
     <>
       {/* Bottom padding clears the fixed tab bar plus the home indicator. */}
       <div className="mx-auto max-w-lg px-4 pt-4 pb-28">
         <Suspense fallback={<Spinner label="" />}>
-          <Routes>
-            <Route path="/" element={<Today />} />
-            <Route path="/day/:date" element={<Today />} />
-            <Route path="/add" element={<Add />} />
-            <Route path="/foods/new" element={<NewFood />} />
-            {/* Same form, populated. */}
-            <Route path="/foods/:id/edit" element={<NewFood />} />
-            <Route path="/trends" element={<Trends />} />
-            <Route path="/foods" element={<Foods />} />
-            {/* Weight is a card on Trends now; old links and installs land there. */}
-            <Route path="/weight" element={<Navigate to="/trends" replace />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+          <div key={section} className="animate-rise">
+            <Routes>
+              <Route path="/" element={<Today />} />
+              <Route path="/day/:date" element={<Today />} />
+              <Route path="/add" element={<Add />} />
+              <Route path="/foods/new" element={<NewFood />} />
+              {/* Same form, populated. */}
+              <Route path="/foods/:id/edit" element={<NewFood />} />
+              <Route path="/trends" element={<Trends />} />
+              <Route path="/foods" element={<Foods />} />
+              {/* Weight is a card on Trends now; old links and installs land there. */}
+              <Route path="/weight" element={<Navigate to="/trends" replace />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </div>
         </Suspense>
       </div>
       <TabBar />

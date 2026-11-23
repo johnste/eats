@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
 /** A bottom sheet: reachable with a thumb, and dismissable with Escape. */
@@ -14,9 +14,16 @@ export function Sheet({
   onClose: () => void;
   children: ReactNode;
 }) {
+  // Dismissing plays the sheet back down before it is unmounted. Only the
+  // dismissals the sheet owns -- the backdrop and Escape -- can wait for it;
+  // a sheet closed by its own Save button is already done with and goes at
+  // once, which also feels right: you finished, it is gone.
+  const [leaving, setLeaving] = useState(false);
+  const dismiss = useCallback(() => setLeaving(true), []);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') dismiss();
     };
     document.addEventListener('keydown', onKey);
     // Stop the page behind the sheet from scrolling with it.
@@ -26,7 +33,7 @@ export function Sheet({
       document.removeEventListener('keydown', onKey);
       document.body.style.overflow = overflow;
     };
-  }, [onClose]);
+  }, [dismiss]);
 
   // Rendered into the body, not where it was written. The day view wraps its
   // content in a positioned, z-indexed element so the swipe glow can sit
@@ -39,14 +46,21 @@ export function Sheet({
       <button
         type="button"
         aria-label="Close"
-        onClick={onClose}
-        className="absolute inset-0 bg-black/40"
+        onClick={dismiss}
+        className={`absolute inset-0 bg-black/45 backdrop-blur-[2px] ${
+          leaving ? 'animate-fade-out' : 'animate-fade-in'
+        }`}
       />
       <div
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="bg-raised border-line relative max-h-[85dvh] overflow-y-auto rounded-t-2xl border-t p-5"
+        onAnimationEnd={(e) => {
+          if (leaving && e.target === e.currentTarget) onClose();
+        }}
+        className={`bg-raised border-line relative max-h-[85dvh] overflow-y-auto rounded-t-3xl border-t p-5 ${
+          leaving ? 'animate-sheet-out' : 'animate-sheet-in'
+        }`}
         style={{
           paddingBottom:
             'calc(1.25rem + max(env(safe-area-inset-bottom), var(--keyboard-inset, 0px)))',

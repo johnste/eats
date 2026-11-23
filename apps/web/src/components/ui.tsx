@@ -30,7 +30,7 @@ export function Button({ variant = 'primary', className, ...props }: ButtonProps
       {...props}
       className={cx(
         // 44px minimum: this is a phone app and these are thumb targets.
-        'min-h-11 rounded-full px-5 text-[15px] font-medium transition-colors',
+        'press min-h-11 rounded-full px-5 text-[15px] font-medium',
         'disabled:opacity-50 disabled:pointer-events-none',
         'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
         variant === 'primary' && 'bg-accent text-surface active:brightness-95',
@@ -138,7 +138,7 @@ export function Toggle({
       aria-checked={checked}
       disabled={disabled}
       onClick={() => onChange(!checked)}
-      className="flex min-h-11 w-full items-center gap-3 py-1 text-left disabled:opacity-50"
+      className="group flex min-h-11 w-full items-center gap-3 py-1 text-left disabled:opacity-50"
     >
       <span className="min-w-0 flex-1">
         <span className="text-ink block text-[13px] font-medium">{label}</span>
@@ -146,13 +146,15 @@ export function Toggle({
       </span>
       <span
         aria-hidden
-        className={`relative inline-block h-6 w-10 shrink-0 rounded-full transition-colors ${
+        className={`relative inline-block h-6 w-10 shrink-0 rounded-full transition-colors duration-300 ${
           checked ? 'bg-accent' : 'bg-line'
         }`}
       >
+        {/* Springs across, and stretches while your finger is on it, so
+            the switch feels like it has a little give. */}
         <span
-          className={`bg-raised absolute top-0.5 size-5 rounded-full transition-[left] ${
-            checked ? 'left-[1.125rem]' : 'left-0.5'
+          className={`bg-raised absolute top-0.5 h-5 w-5 rounded-full transition-[left,width] duration-300 ease-(--ease-spring) group-active:w-6 ${
+            checked ? 'left-[1.125rem] group-active:left-[0.875rem]' : 'left-0.5'
           }`}
         />
       </span>

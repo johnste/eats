@@ -72,7 +72,7 @@ export function WeightCard({
     <Card>
       <div className="mb-3 flex items-baseline justify-between gap-3">
         <div>
-          <p className="nums text-ink text-2xl font-semibold">
+          <p className="nums text-ink text-2xl font-medium">
             {latest ? round(latest.weightKg) : '–'}
             <span className="text-muted ml-1 text-sm font-normal">kg</span>
           </p>
@@ -197,7 +197,9 @@ export function WeightCard({
 
       {target !== null && weights.data && (
         <p className="text-muted mt-3 text-[13px]">
-          <span className="text-ink nums font-medium">Goal {round(target)} kg:</span>{' '}
+          <span className="text-ink font-medium">
+            Goal <span className="nums">{round(target)}</span> kg:
+          </span>{' '}
           {projectionSentence(projection, target, weights.data.length)}
         </p>
       )}

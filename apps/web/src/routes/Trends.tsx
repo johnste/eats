@@ -138,7 +138,7 @@ export function Trends() {
                 day as zero would quietly drag every number down. */}
             <div className="mb-4 flex items-baseline justify-between gap-3">
               <div>
-                <p className="nums text-ink text-2xl font-semibold">
+                <p className="nums text-ink text-2xl font-medium">
                   {stats.avgKcal}
                   <span className="text-muted ml-1 text-sm font-normal">kcal/day</span>
                 </p>

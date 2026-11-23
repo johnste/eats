@@ -34,6 +34,33 @@ const COLLAPSED_KEY = 'eats:collapsed-meals';
  * what's in breakfast" is a standing preference, not something to redo every
  * time the app opens.
  */
+/**
+ * Entries this session has already drawn, by day, so one that was not there
+ * last time can be picked out and shown arriving. Module-level because food is
+ * logged on another screen: Today is mounted fresh when you come back, and the
+ * new entry is already in the first render it gets.
+ *
+ * A day seen for the first time marks everything as seen without highlighting
+ * any of it -- opening the app is not news.
+ */
+const seenEntries = new Map<string, Set<string>>();
+const arrivedAt = new Map<string, number>();
+const ARRIVAL_MS = 900;
+
+function isArriving(date: string, ids: string[], id: string) {
+  let seen = seenEntries.get(date);
+  if (!seen) {
+    seen = new Set(ids);
+    seenEntries.set(date, seen);
+  }
+  if (!seen.has(id)) {
+    seen.add(id);
+    arrivedAt.set(id, Date.now());
+  }
+  const at = arrivedAt.get(id);
+  return at !== undefined && Date.now() - at < ARRIVAL_MS;
+}
+
 function loadCollapsed(): Meal[] {
   try {
     const parsed: unknown = JSON.parse(localStorage.getItem(COLLAPSED_KEY) ?? '[]');
@@ -74,6 +101,8 @@ export function Today() {
   // Deleting is one tap away from a list you scroll with your thumb, so the
   // first tap only arms it. Nothing is removed until the second.
   const [confirming, setConfirming] = useState<string | null>(null);
+  // Removed, and sliding out; the delete is sent once it has gone.
+  const [leaving, setLeaving] = useState<string | null>(null);
   const [editing, setEditing] = useState<LogEntryResponse | null>(null);
   const [collapsed, setCollapsed] = useState<Meal[]>(loadCollapsed);
 
@@ -92,6 +121,10 @@ export function Today() {
   // Which measure the meal sections are reported in. Calories by default,
   // because that is the question most days.
   const [focus, setFocus] = useState<MacroFocus>('kcal');
+
+  const entryIds = day.data
+    ? Object.values(day.data.meals).flatMap((list) => list?.map((e) => e.id) ?? [])
+    : [];
 
   // Disarm on its own, so a stray tap does not leave a live delete button
   // sitting under your finger.
@@ -191,8 +224,9 @@ export function Today() {
 
         {day.data && (
           <div className="space-y-6">
-            <Card>
+            <Card className="animate-rise">
               <DaySummary
+                date={date}
                 totals={day.data.totals}
                 goal={day.data.goal}
                 maintenance={maintenance}
@@ -201,7 +235,7 @@ export function Today() {
               />
             </Card>
 
-            <Card>
+            <Card className="animate-rise [animation-delay:70ms]">
               {(Object.keys(MEAL_LABELS) as Meal[]).map((meal) => {
                 const entries = day.data.meals[meal] ?? [];
                 const meta = MACRO_META[focus];
@@ -286,7 +320,7 @@ export function Today() {
                               `/add?date=${date}&meal=${meal}&focus=${Date.now()}`,
                             );
                           }}
-                          className="text-accent bg-accent-soft grid size-11 shrink-0 place-items-center rounded-full text-lg leading-none"
+                          className="press text-accent border-accent/70 active:bg-accent-soft grid size-11 shrink-0 place-items-center rounded-full border-[1.5px] text-lg leading-none"
                         >
                           +
                         </button>
@@ -298,8 +332,23 @@ export function Today() {
                         {entries.map((entry) => (
                           <li
                             key={entry.id}
-                            className={`group flex items-center gap-2 py-1 transition-opacity ${
+                            onAnimationEnd={(e) => {
+                              if (
+                                leaving === entry.id &&
+                                e.target === e.currentTarget
+                              ) {
+                                setLeaving(null);
+                                remove.mutate(entry.id);
+                              }
+                            }}
+                            className={`group -mx-2 flex items-center gap-2 rounded-xl px-2 py-1 transition-opacity ${
                               drag.state?.entryId === entry.id ? 'opacity-40' : ''
+                            } ${
+                              leaving === entry.id
+                                ? 'animate-row-out pointer-events-none'
+                                : isArriving(date, entryIds, entry.id)
+                                  ? 'animate-entry-in'
+                                  : ''
                             }`}
                           >
                             <button
@@ -356,9 +405,9 @@ export function Today() {
                                     aria-label={`Confirm removing ${entry.food.name}`}
                                     onClick={() => {
                                       setConfirming(null);
-                                      remove.mutate(entry.id);
+                                      setLeaving(entry.id);
                                     }}
-                                    className="bg-danger text-surface rounded-full px-3 py-1 text-[13px] font-medium"
+                                    className="press bg-danger text-surface rounded-full px-3 py-1 text-[13px] font-medium"
                                   >
                                     Remove
                                   </button>
@@ -366,7 +415,7 @@ export function Today() {
                               ) : (
                                 <>
                                   <span
-                                    className="nums w-14 text-right text-[13px]"
+                                    className="nums w-[4.75rem] text-right text-[13px] whitespace-nowrap"
                                     style={{
                                       color:
                                         focus === 'kcal'
@@ -384,7 +433,7 @@ export function Today() {
                                     type="button"
                                     aria-label={`Remove ${entry.food.name}`}
                                     onClick={() => setConfirming(entry.id)}
-                                    className="text-faint active:text-danger grid size-11 shrink-0 place-items-center rounded-full"
+                                    className="press text-faint active:text-danger grid size-11 shrink-0 place-items-center rounded-full"
                                   >
                                     <svg
                                       viewBox="0 0 24 24"
@@ -461,7 +510,7 @@ function StepButton({
       aria-label={label}
       onClick={onClick}
       disabled={disabled}
-      className="text-muted grid size-11 place-items-center rounded-full disabled:opacity-25"
+      className="press text-muted grid size-11 place-items-center rounded-full disabled:opacity-25"
     >
       <svg
         viewBox="0 0 24 24"

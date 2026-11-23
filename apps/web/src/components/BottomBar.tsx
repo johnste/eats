@@ -14,7 +14,7 @@ import type { ReactNode } from 'react';
 export function BottomBar({ children }: { children: ReactNode }) {
   return (
     <div
-      className="bg-raised border-line fixed inset-x-0 z-20 border-t"
+      className="bg-surface/85 border-line fixed inset-x-0 z-20 border-t backdrop-blur-md"
       // Whichever is taller: the tab bar it has to clear, or the keyboard
       // covering the bottom of the viewport. When the keyboard is up the tab
       // bar is behind it anyway, so stacking both offsets would leave a gap.
