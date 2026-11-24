@@ -4,6 +4,12 @@ Self-hosted calorie and macro tracker. Log what you eat, track weight against a
 goal, scan barcodes and nutrition labels with your phone. Built for a handful of
 invited users on a Coolify instance, with the data in a Postgres database you own.
 
+<p align="center">
+  <img src="docs/screenshots/today.png" width="250" alt="Today: calories against the goal, protein, carbs and fat as filling cubes, and the day's meals">
+  <img src="docs/screenshots/add.png" width="250" alt="Add: recent foods for the current meal, with search, barcode scanning and a new-food button">
+  <img src="docs/screenshots/trends.png" width="250" alt="Trends: weight with a 7-day average and a projected date for the goal, and daily calories">
+</p>
+
 ## Layout
 
 ```
