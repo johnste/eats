@@ -17,7 +17,9 @@ import { loadEnv } from '../src/env.ts';
 import { and, eq } from 'drizzle-orm';
 
 const API = 'https://dataportal.livsmedelsverket.se/livsmedel/api/v1';
-const UA = 'Eats/1.0 (john@johnste.se)';
+// Livsmedelsverket gets the same identifying User-Agent as Open Food Facts.
+const env = loadEnv();
+const UA = env.OFF_USER_AGENT;
 
 /**
  * Terms matched against Livsmedelsverket's own names, which follow a house
@@ -171,7 +173,6 @@ for (const term of WANTED) {
 console.log(`matched ${chosen.size} foods; ${missed.length} terms found nothing`);
 if (missed.length) console.log('  no match:', missed.join(', '));
 
-const env = loadEnv();
 const { db, close } = createDb(env.DATABASE_URL, { max: 4 });
 
 let imported = 0;

@@ -46,7 +46,7 @@ Under **Environment Variables**, add these six. None are build-time — leave
 | `SESSION_SECRET` | A 32+ character random string (see below) |
 | `PUBLIC_URL` | `https://eats.yourdomain.tld` — the domain from step 4, no trailing slash |
 | `INVITE_BOOTSTRAP_CODE` | Your own invite code, used once |
-| `OFF_USER_AGENT` | `Eats/1.0 (john@johnste.se)` |
+| `OFF_USER_AGENT` | `Eats/1.0 (you@example.com)` — your own contact address |
 | `NODE_ENV` | `production` |
 
 `PUBLIC_URL` is what OAuth clients are told to use, because metadata documents
