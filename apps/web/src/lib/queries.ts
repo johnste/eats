@@ -33,7 +33,7 @@ export const keys = {
   day: (date: string) => ['day', date] as const,
   recent: (meal?: Meal) => ['recent', meal ?? 'any'] as const,
   // Under 'recent' so that logging anything refreshes it along with recents.
-  companions: (ids: string[]) => ['recent', 'companions', ...ids] as const,
+  suggest: (meal: Meal, date: string) => ['recent', 'suggest', meal, date] as const,
   brands: ['brands'] as const,
   myFoods: ['foods', 'mine'] as const,
   search: (q: string) => ['search', q] as const,
@@ -71,15 +71,15 @@ export const useRecentFoods = (meal?: Meal) =>
     queryFn: () => api.recentFoods(meal),
   });
 
-/** What you have eaten alongside these foods before; idle until there are some. */
-export const useCompanions = (ids: string[]) =>
+/**
+ * The history for suggesting foods at this meal: what it usually has, what
+ * it starts with, and what goes with whatever is in it already. Ranked on
+ * the client with rankSuggestions, against the weights waiting.
+ */
+export const useSuggestions = (meal: Meal, date: string) =>
   useQuery({
-    queryKey: keys.companions(ids),
-    queryFn: () => api.companions(ids),
-    enabled: ids.length > 0,
-    // Keeps the old list on screen while the next one loads, so the section
-    // does not blink out and back each time another food is picked.
-    placeholderData: (previous) => previous,
+    queryKey: keys.suggest(meal, date),
+    queryFn: () => api.suggest(meal, date),
   });
 
 /** Brands change only when a food is added, so this can sit cached a long while. */
@@ -132,6 +132,10 @@ export function useWarmCache(enabled: boolean): void {
       // The meal the Add tab will default to, so its list is already there.
       queryKey: keys.recent(meal),
       queryFn: () => api.recentFoods(meal),
+    });
+    void qc.prefetchQuery({
+      queryKey: keys.suggest(meal, today),
+      queryFn: () => api.suggest(meal, today),
     });
     void qc.prefetchQuery({ queryKey: keys.goals, queryFn: api.goals });
     void qc.prefetchQuery({

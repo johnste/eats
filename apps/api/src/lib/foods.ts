@@ -192,6 +192,113 @@ export async function companionFoods(
   return ranked.flatMap((r) => byId.get(r.foodId) ?? []);
 }
 
+/** How far back suggestions look: long enough for a habit, short enough to change. */
+const SUGGEST_DAYS = 90;
+
+/**
+ * The history behind suggesting foods for one meal on one day: for every
+ * food you have had at this meal, or alongside what is already in it, how
+ * often each. The ranking itself is shared code (rankSuggestions), since it
+ * also weighs the weights you have typed and those never reach the server.
+ *
+ * The day itself is left out of the history, so half a breakfast does not
+ * count as one that was finished, and anything already in this meal is
+ * left out of the foods, since it is on the plate already.
+ */
+export async function suggestionStats(
+  db: Database,
+  userId: string,
+  meal: Meal,
+  date: string,
+  limit = 40,
+): Promise<{
+  mealDays: number;
+  context: { id: string; name: string }[];
+  contextMeals: number;
+  foods: { id: string; meals: number; first: number; together: number }[];
+}> {
+  const history = sql`
+    select food_id, logged_on, meal, created_at from log_entries
+    where user_id = ${userId}
+      and logged_on >= ${date}::date - ${SUGGEST_DAYS}::int
+      and logged_on <> ${date}::date`;
+  const context = await db
+    .selectDistinct({ id: foods.id, name: foods.name })
+    .from(logEntries)
+    .innerJoin(foods, eq(foods.id, logEntries.foodId))
+    .where(
+      and(
+        eq(logEntries.userId, userId),
+        eq(logEntries.loggedOn, date),
+        eq(logEntries.meal, meal),
+      ),
+    );
+  const contextIds = context.map((c) => c.id);
+  // An empty IN list is a syntax error; a uuid no food has keeps it valid.
+  const ctxList = contextIds.length
+    ? sql.join(
+        contextIds.map((id) => sql`${id}::uuid`),
+        sql`, `,
+      )
+    : sql`null::uuid`;
+
+  const [totals] = await db.execute<{ meal_days: number; context_meals: number }>(sql`
+    with h as (${history})
+    select
+      (select count(distinct logged_on)::int from h where meal = ${meal}) as meal_days,
+      (select count(distinct (logged_on, meal))::int from h
+        where food_id in (${ctxList})) as context_meals`);
+
+  const rows = await db.execute<{
+    food_id: string;
+    meals: number;
+    first: number;
+    together: number;
+  }>(sql`
+    with h as (${history}),
+    this_meal as (
+      select food_id, logged_on,
+        row_number() over (partition by logged_on order by created_at) = 1 as is_first
+      from h where meal = ${meal}
+    ),
+    habit as (
+      select food_id,
+        count(distinct logged_on)::int as meals,
+        count(distinct logged_on) filter (where is_first)::int as first
+      from this_meal group by food_id
+    ),
+    -- Each meal counts once however many context foods were in it, as in
+    -- companionFoods: bread and butter together are one sandwich.
+    ctx_meals as (
+      select distinct logged_on, meal from h where food_id in (${ctxList})
+    ),
+    together as (
+      select h.food_id, count(distinct (h.logged_on, h.meal))::int as together
+      from h join ctx_meals c on c.logged_on = h.logged_on and c.meal = h.meal
+      group by h.food_id
+    )
+    select food_id,
+      coalesce(habit.meals, 0) as meals,
+      coalesce(habit.first, 0) as first,
+      coalesce(together.together, 0) as together
+    from habit full join together using (food_id)
+    ${contextIds.length ? sql`where food_id not in (${ctxList})` : sql``}
+    order by together desc, meals desc
+    limit ${limit}`);
+
+  return {
+    mealDays: totals?.meal_days ?? 0,
+    context,
+    contextMeals: totals?.context_meals ?? 0,
+    foods: rows.map((r) => ({
+      id: r.food_id,
+      meals: r.meals,
+      first: r.first,
+      together: r.together,
+    })),
+  };
+}
+
 export const isStale = (fetchedAt: Date | null): boolean =>
   fetchedAt === null ||
   Date.now() - fetchedAt.getTime() > OFF_CACHE_DAYS * 24 * 60 * 60 * 1000;

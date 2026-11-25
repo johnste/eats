@@ -11,9 +11,11 @@ import {
   hasNutrition,
   mealSchema,
   mergeFoodsBody,
+  suggestQuery,
+  suggestResponse,
   updateFoodBody,
 } from '@eats/shared';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
@@ -44,6 +46,7 @@ import {
   recentFoods,
   recordFoodView,
   searchLocal,
+  suggestionStats,
   toFoodResponse,
   upsertOffFood,
   withServings,
@@ -174,6 +177,35 @@ export const foodRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
     async (req) => {
       const user = await requireUser(req);
       return forPicking(db, user.id, await companionFoods(db, user.id, req.query.ids));
+    },
+  );
+
+  r.get(
+    '/suggest',
+    {
+      schema: {
+        querystring: suggestQuery,
+        response: { 200: suggestResponse },
+      },
+    },
+    async (req) => {
+      const user = await requireUser(req);
+      const { meal, date } = req.query;
+      const stats = await suggestionStats(db, user.id, meal, date);
+      const ids = stats.foods.map((f) => f.id);
+      const rows = ids.length
+        ? await db.select().from(foods).where(inArray(foods.id, ids))
+        : [];
+      const picking = new Map(
+        (await forPicking(db, user.id, rows)).map((f) => [f.id, f]),
+      );
+      return {
+        ...stats,
+        foods: stats.foods.flatMap((s) => {
+          const food = picking.get(s.id);
+          return food ? [{ ...food, ...s }] : [];
+        }),
+      };
     },
   );
 

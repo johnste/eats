@@ -1,4 +1,11 @@
-import { round, toDateKey, type FoodResponse, type Meal } from '@eats/shared';
+import {
+  parseWeight,
+  rankSuggestions,
+  round,
+  usualAmount,
+  type FoodResponse,
+  type Meal,
+} from '@eats/shared';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
@@ -11,10 +18,10 @@ import { WeightChips, WeightsInput } from './WeighIn.tsx';
 import { api, ApiError } from '../lib/api.ts';
 import {
   keys,
-  useCompanions,
   useLogMutations,
   useProfile,
   useRecentFoods,
+  useSuggestions,
 } from '../lib/queries.ts';
 import { MEAL_LABELS } from '../lib/labels.ts';
 import { useWeighIn, type Slot } from '../lib/useWeighIn.ts';
@@ -97,12 +104,23 @@ export function FoodPicker({
     toSearch();
   };
 
-  // What you have eaten with what is already on the plate: butter and
-  // cheese, once the bread is in.
+  // What you are likely to reach for next, before you type anything: what
+  // this meal usually has, what goes with what is in it already, and what
+  // fits the weights still waiting -- a number half typed included, so the
+  // list settles as you type it.
   const plated = plate.map((f) => f.id);
-  const companions = useCompanions(plated);
-  const companionList = (companions.data ?? []).filter((f) => !plated.includes(f.id));
-  const lastPlated = plate[plate.length - 1];
+  const suggest = useSuggestions(meal, date);
+  const typing = parseWeight(weighIn.text);
+  const waiting = [...weighIn.slots.map((s) => s.grams), ...(typing ? [typing] : [])];
+  const activeIndex = Math.max(
+    0,
+    weighIn.slots.findIndex((s) => s.id === weighIn.active?.id),
+  );
+  const suggested = suggest.data
+    ? rankSuggestions(suggest.data, { grams: waiting, activeIndex, exclude: plated })
+    : [];
+  const suggestedIds = new Set(suggested.map((f) => f.id));
+  const context = suggest.data?.context ?? [];
 
   // Runs again on every repeat tap, because the token changes each time.
   useEffect(() => {
@@ -236,12 +254,16 @@ export function FoodPicker({
     />
   ) : (
     <div className="space-y-5">
-      {lastPlated && companionList.length > 0 && (
+      {suggested.length > 0 && (
         <section>
           <h2 className="text-muted mb-2 truncate text-[13px] font-medium">
-            Goes with {plated.length > 1 ? 'these' : lastPlated.name}
+            {context.length === 0
+              ? `Usual for ${MEAL_LABELS[meal].toLowerCase()}`
+              : context.length === 1
+                ? `Goes with ${context[0]!.name}`
+                : `Goes with this ${MEAL_LABELS[meal].toLowerCase()}`}
           </h2>
-          <FoodList foods={companionList} onPick={choose} />
+          <FoodList foods={suggested} onPick={choose} showUsual={waiting.length > 0} />
         </section>
       )}
       <section>
@@ -254,7 +276,11 @@ export function FoodPicker({
             Search, scan a barcode, or add a food yourself.
           </Empty>
         )}
-        <FoodList foods={recent.data ?? []} onPick={choose} />
+        {/* What is suggested above is not listed twice. */}
+        <FoodList
+          foods={(recent.data ?? []).filter((f) => !suggestedIds.has(f.id))}
+          onPick={choose}
+        />
       </section>
     </div>
   );
@@ -417,19 +443,30 @@ function FoodName({
 function FoodList({
   foods,
   onPick,
+  showUsual = false,
 }: {
   foods: FoodResponse[];
   onPick: (f: FoodResponse) => void;
+  /** With weights waiting, how much you usually have, to match them against. */
+  showUsual?: boolean;
 }) {
   return (
     <ul className="divide-line divide-y">
-      {foods.map((f) => (
-        <li key={f.id}>
-          <button type="button" onClick={() => onPick(f)} className={ROW}>
-            <FoodName name={f.name} brand={f.brand} estimated={f.estimated} />
-          </button>
-        </li>
-      ))}
+      {foods.map((f) => {
+        const usual = showUsual ? usualAmount(f) : null;
+        return (
+          <li key={f.id}>
+            <button type="button" onClick={() => onPick(f)} className={`${ROW} gap-3`}>
+              <FoodName name={f.name} brand={f.brand} estimated={f.estimated} />
+              {usual !== null && (
+                <span className="text-faint nums ml-auto shrink-0 text-[13px]">
+                  ~{round(usual)} g
+                </span>
+              )}
+            </button>
+          </li>
+        );
+      })}
     </ul>
   );
 }

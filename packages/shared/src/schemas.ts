@@ -162,6 +162,37 @@ export const companionsQuery = z.object({
     .pipe(z.array(z.uuid()).min(1).max(20)),
 });
 
+/** What to suggest for one meal on one day. */
+export const suggestQuery = z.object({
+  meal: mealSchema,
+  date: dateKey,
+});
+
+/**
+ * Foods worth offering before you type anything, with the history behind
+ * each one. The counts come back raw rather than as a score, because the
+ * ranking also weighs the weights you have typed and still have to match,
+ * and those change with every keystroke -- the client ranks (rankSuggestions).
+ */
+export const suggestResponse = z.object({
+  /** Days in the window that had this meal at all. */
+  mealDays: z.number(),
+  /** Already in this meal on this day: what the rest should go with. */
+  context: z.array(z.object({ id: z.string(), name: z.string() })),
+  /** Past meals that had any of the context foods in them. */
+  contextMeals: z.number(),
+  foods: z.array(
+    foodResponse.extend({
+      /** Days it was in this meal. */
+      meals: z.number(),
+      /** Days it was the first thing logged to this meal. */
+      first: z.number(),
+      /** Past meals it shared with any of the context foods. */
+      together: z.number(),
+    }),
+  ),
+});
+
 export const foodSearchQuery = z.object({
   q: z.string().min(1).max(100),
   limit: z.coerce.number().int().min(1).max(50).default(20),
@@ -332,3 +363,5 @@ export type ErrorResponse = z.infer<typeof errorResponse>;
 export type OffCandidate = z.infer<typeof offCandidate>;
 export type FoodSearchResponse = z.infer<typeof foodSearchResponse>;
 export type BarcodeLookupResponse = z.infer<typeof barcodeLookupResponse>;
+export type SuggestResponse = z.infer<typeof suggestResponse>;
+export type SuggestedFood = SuggestResponse['foods'][number];

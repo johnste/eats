@@ -1,4 +1,10 @@
-import { parseWeight, pickSlot, splitWeights, type FoodResponse } from '@eats/shared';
+import {
+  parseWeight,
+  pickSlot,
+  splitWeights,
+  usualAmount,
+  type FoodResponse,
+} from '@eats/shared';
 import { useEffect, useRef, useState } from 'react';
 
 /**
@@ -25,10 +31,6 @@ interface State {
 }
 
 const EMPTY: State = { text: '', slots: [], activeId: null, forced: false };
-
-/** How much of a food you usually have, or its portion, or nothing. */
-export const usualFor = (food: FoodResponse): number | null =>
-  food.usualGrams ?? food.servings[0]?.grams ?? null;
 
 const newId = (): string =>
   typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -162,7 +164,7 @@ export function useWeighIn(date: string) {
       const slot = pickSlot(
         s.slots,
         activeOf(s)?.id ?? null,
-        usualFor(food),
+        usualAmount(food),
         s.forced,
       )!;
       const slots = s.slots.filter((x) => x.id !== slot.id);

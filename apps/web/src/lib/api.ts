@@ -13,6 +13,7 @@ import type {
   Meal,
   OcrResponse,
   ProfileBody,
+  SuggestResponse,
   UserResponse,
 } from '@eats/shared';
 
@@ -119,8 +120,8 @@ export const api = {
     get<FoodSearchResponse>(`/foods/search?q=${encodeURIComponent(q)}`),
   recentFoods: (meal?: Meal) =>
     get<FoodResponse[]>(`/foods/recent${meal ? `?meal=${meal}` : ''}`),
-  companions: (ids: string[]) =>
-    get<FoodResponse[]>(`/foods/companions?ids=${ids.join(',')}`),
+  suggest: (meal: Meal, date: string) =>
+    get<SuggestResponse>(`/foods/suggest?meal=${meal}&date=${date}`),
   barcode: (code: string) => get<BarcodeLookupResponse>(`/foods/barcode/${code}`),
   food: (id: string) => get<FoodResponse>(`/foods/${id}`),
   myFoods: () => get<MyFoodResponse[]>('/foods/mine'),
