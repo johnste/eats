@@ -33,7 +33,8 @@ export const keys = {
   day: (date: string) => ['day', date] as const,
   recent: (meal?: Meal) => ['recent', meal ?? 'any'] as const,
   // Under 'recent' so that logging anything refreshes it along with recents.
-  suggest: (meal: Meal, date: string) => ['recent', 'suggest', meal, date] as const,
+  suggest: (meal: Meal, date: string, withIds: string[] = []) =>
+    ['recent', 'suggest', meal, date, ...withIds] as const,
   brands: ['brands'] as const,
   myFoods: ['foods', 'mine'] as const,
   search: (q: string) => ['search', q] as const,
@@ -76,10 +77,17 @@ export const useRecentFoods = (meal?: Meal) =>
  * it starts with, and what goes with whatever is in it already. Ranked on
  * the client with rankSuggestions, against the weights waiting.
  */
-export const useSuggestions = (meal: Meal, date: string) =>
+export const useSuggestions = (meal: Meal, date: string, withIds: string[] = []) =>
   useQuery({
-    queryKey: keys.suggest(meal, date),
-    queryFn: () => api.suggest(meal, date),
+    queryKey: keys.suggest(meal, date, withIds),
+    queryFn: () => api.suggest(meal, date, withIds),
+    // Picking a food onto the plate asks again with it included; keep the
+    // old list up meanwhile so it does not blink out and back. Only for the
+    // same meal and day, though -- another meal's list would be wrong.
+    placeholderData: (previous, prevQuery) =>
+      prevQuery?.queryKey[2] === meal && prevQuery.queryKey[3] === date
+        ? previous
+        : undefined,
   });
 
 /** Brands change only when a food is added, so this can sit cached a long while. */
@@ -182,6 +190,9 @@ export function useLogMutations(date: string) {
 
   const add = useMutation({ mutationFn: api.addEntry, onSuccess: settle });
 
+  /** A weighed plate, all at once or not at all. */
+  const addMany = useMutation({ mutationFn: api.addEntries, onSuccess: settle });
+
   /**
    * Editing can move an entry to another day, so both the day it left and the
    * day it arrived on have to be refetched -- invalidating only the current
@@ -262,5 +273,5 @@ export function useLogMutations(date: string) {
     onSettled: settle,
   });
 
-  return { add, update, copy, remove };
+  return { add, addMany, update, copy, remove };
 }

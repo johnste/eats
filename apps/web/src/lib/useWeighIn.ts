@@ -11,14 +11,17 @@ import { useEffect, useRef, useState } from 'react';
  * Weighing several things in a row: bread, butter, cheese, each read off the
  * scale and remembered, then matched to foods one search at a time.
  *
- * Weights you have typed but not yet given a food are slots. Picking a food
- * takes one -- the active slot, unless the food's usual amount clearly
- * belongs to another (pickSlot) -- and the caller logs it there and then.
+ * Each weight is a slot. Picking a food fills one -- the active slot, unless
+ * the food's usual amount clearly belongs to another open one (pickSlot) --
+ * and nothing is logged until every slot has a food and the whole plate is
+ * confirmed, so a half-matched plate never lands on the log.
  */
 
 export interface Slot {
   id: string;
   grams: number;
+  /** The food it is going to be logged as, once picked. */
+  food?: FoodResponse;
 }
 
 interface State {
@@ -78,9 +81,15 @@ function save(date: string, state: State) {
 const toSlots = (grams: number[]): Slot[] =>
   grams.map((g) => ({ id: newId(), grams: g }));
 
-/** The active slot, falling back to the first one waiting. */
+/** Slots still waiting for a food. */
+const openOf = (s: State): Slot[] => s.slots.filter((x) => !x.food);
+
+/**
+ * The active slot: the one you tapped, else the first still waiting. Null
+ * once every weight has its food.
+ */
 const activeOf = (s: State): Slot | null =>
-  s.slots.find((x) => x.id === s.activeId) ?? s.slots[0] ?? null;
+  s.slots.find((x) => x.id === s.activeId) ?? openOf(s)[0] ?? null;
 
 /** Fold any half-typed weight into a slot, as if a separator had followed it. */
 function committed(s: State): State {
@@ -151,35 +160,47 @@ export function useWeighIn(date: string) {
     },
 
     /**
-     * The weight this food should be logged at, taken out of the waiting
-     * list. Null when nothing is waiting, which is the caller's cue to ask
-     * for an amount the usual way.
+     * Put this food on a weight: the slot you tapped, or else the open slot
+     * it fits. The slot is returned, filled; null when no slot is open,
+     * which is the caller's cue to ask for an amount the usual way.
      */
     take(food: FoodResponse): Slot | null {
       const s = committed(ref.current);
-      if (s.slots.length === 0) {
+      const active = activeOf(s);
+      const open = openOf(s);
+      const target =
+        s.forced && active
+          ? active
+          : pickSlot(
+              open,
+              active && !active.food ? active.id : null,
+              usualAmount(food),
+            );
+      if (!target) {
         apply(s);
         return null;
       }
-      const slot = pickSlot(
-        s.slots,
-        activeOf(s)?.id ?? null,
-        usualAmount(food),
-        s.forced,
-      )!;
-      const slots = s.slots.filter((x) => x.id !== slot.id);
-      // Back to the order you weighed in.
-      apply({ ...s, slots, activeId: slots[0]?.id ?? null, forced: false });
-      return slot;
+      const filled = { ...target, food };
+      const slots = s.slots.map((x) => (x.id === target.id ? filled : x));
+      // On to the next weight still waiting, in the order you weighed.
+      apply({ ...s, slots, activeId: null, forced: false });
+      return filled;
     },
 
-    /**
-     * A weight back in line, first and active -- after an undo, or a failed
-     * add -- so the very next pick takes it.
-     */
-    putBack(slot: Slot) {
+    /** Every weight has its food, and there is at least one. */
+    get ready(): boolean {
+      return state.slots.length > 0 && state.slots.every((x) => x.food);
+    },
+
+    /** Done with these: they are on the log now. */
+    clear() {
+      apply({ ...ref.current, slots: [], activeId: null, forced: false });
+    },
+
+    /** Back from the log after an undo, ahead of anything typed since. */
+    restore(slots: Slot[]) {
       const s = ref.current;
-      apply({ ...s, slots: [slot, ...s.slots], activeId: slot.id, forced: true });
+      apply({ ...s, slots: [...slots, ...s.slots], activeId: null, forced: false });
     },
   };
 }

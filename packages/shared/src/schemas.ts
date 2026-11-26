@@ -166,6 +166,15 @@ export const companionsQuery = z.object({
 export const suggestQuery = z.object({
   meal: mealSchema,
   date: dateKey,
+  /**
+   * Foods picked for this meal but not logged yet, which count as already
+   * in it: what you have put on the plate so far.
+   */
+  with: z
+    .string()
+    .optional()
+    .transform((v) => (v ?? '').split(',').filter(Boolean))
+    .pipe(z.array(z.uuid()).max(20)),
 });
 
 /**

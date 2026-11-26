@@ -14,7 +14,7 @@ import { BottomBar, BottomBarSpacer } from './BottomBar.tsx';
 import { Sheet } from './Sheet.tsx';
 import { Button, Empty, ErrorNote, EstimatedMark, Field, Spinner } from './ui.tsx';
 import { AddSplitButton } from './MealMenu.tsx';
-import { WeightChips, WeightsInput } from './WeighIn.tsx';
+import { WeighList, WeightsInput } from './WeighIn.tsx';
 import { api, ApiError } from '../lib/api.ts';
 import {
   keys,
@@ -57,70 +57,81 @@ export function FoodPicker({
     searchRef.current?.focus();
   };
 
-  const { add, remove } = useLogMutations(date);
-  /** Foods logged from this screen this visit, most recent last. */
-  const [plate, setPlate] = useState<FoodResponse[]>([]);
-  /** The last thing logged by weight, while it can still be undone. */
-  const [last, setLast] = useState<{
-    entryId: string;
-    food: FoodResponse;
-    slot: Slot;
-  } | null>(null);
+  const { addMany, remove } = useLogMutations(date);
+  /** The last plate added, while it can still be undone. */
+  const [last, setLast] = useState<{ entryIds: string[]; slots: Slot[] } | null>(null);
 
   /**
    * Picking a food. With nothing weighed this is the familiar amount sheet.
-   * With a weight waiting, the weight is already known, so the food goes on
-   * the log there and then and you are put straight back in an empty search
-   * -- tapping a row in the list takes focus away from it, and the next food
-   * is the next thing you will type.
+   * With a weight waiting, the food goes on that weight -- not on the log
+   * yet -- and you are put straight back in an empty search: tapping a row
+   * takes focus away from it, and the next food is the next thing you type.
    */
   const choose = (food: FoodResponse) => {
-    const slot = weighIn.take(food);
-    if (!slot) {
+    if (!weighIn.take(food)) {
       setPicked(food);
       return;
     }
+    setLast(null);
     toSearch();
-    add.mutate(
-      { foodId: food.id, grams: slot.grams, meal, loggedOn: date },
+  };
+
+  /** Every weight has its food: the whole plate onto the log in one go. */
+  const confirm = () => {
+    const slots = weighIn.slots.filter((s) => s.food);
+    if (!weighIn.ready) return;
+    addMany.mutate(
       {
-        onSuccess: (entry) => {
-          setLast({ entryId: entry.id, food, slot });
-          setPlate((prev) => [...prev.filter((f) => f.id !== food.id), food]);
+        entries: slots.map((s) => ({
+          foodId: s.food!.id,
+          grams: s.grams,
+          meal,
+          loggedOn: date,
+        })),
+      },
+      {
+        onSuccess: (entries) => {
+          setLast({ entryIds: entries.map((e) => e.id), slots });
+          weighIn.clear();
         },
-        // Not logged, so the weight is still waiting for a food.
-        onError: () => weighIn.putBack(slot),
       },
     );
   };
 
-  /** Wrong food: off the log, and its weight back first in line. */
+  /** Not what you meant: off the log, and back on the plate to fix. */
   const undo = () => {
     if (!last) return;
-    remove.mutate(last.entryId);
-    weighIn.putBack(last.slot);
-    setPlate((prev) => prev.filter((f) => f.id !== last.food.id));
+    for (const id of last.entryIds) remove.mutate(id);
+    weighIn.restore(last.slots);
     setLast(null);
     toSearch();
   };
 
   // What you are likely to reach for next, before you type anything: what
-  // this meal usually has, what goes with what is in it already, and what
-  // fits the weights still waiting -- a number half typed included, so the
-  // list settles as you type it.
-  const plated = plate.map((f) => f.id);
-  const suggest = useSuggestions(meal, date);
+  // this meal usually has, what goes with what is on the plate already --
+  // picked or logged -- and what fits the weights still waiting, a number
+  // half typed included, so the list settles as you type it.
+  const onPlate = weighIn.slots.flatMap((s) => (s.food ? [s.food.id] : []));
+  const suggest = useSuggestions(meal, date, onPlate);
   const typing = parseWeight(weighIn.text);
-  const waiting = [...weighIn.slots.map((s) => s.grams), ...(typing ? [typing] : [])];
+  const open = weighIn.slots.filter((s) => !s.food);
+  const waiting = [...open.map((s) => s.grams), ...(typing ? [typing] : [])];
   const activeIndex = Math.max(
     0,
-    weighIn.slots.findIndex((s) => s.id === weighIn.active?.id),
+    open.findIndex((s) => s.id === weighIn.active?.id),
   );
   const suggested = suggest.data
-    ? rankSuggestions(suggest.data, { grams: waiting, activeIndex, exclude: plated })
+    ? rankSuggestions(suggest.data, { grams: waiting, activeIndex, exclude: onPlate })
     : [];
   const suggestedIds = new Set(suggested.map((f) => f.id));
   const context = suggest.data?.context ?? [];
+  // Ranked so what you eat at this meal is at the top of the list.
+  const recent = useRecentFoods(meal);
+  // Recents, less what is suggested above or already on the plate: nothing
+  // listed twice.
+  const otherRecent = (recent.data ?? []).filter(
+    (f) => !suggestedIds.has(f.id) && !onPlate.includes(f.id),
+  );
 
   // Runs again on every repeat tap, because the token changes each time.
   useEffect(() => {
@@ -128,8 +139,6 @@ export function FoodPicker({
     searchRef.current?.focus();
   }, [autoFocusToken]);
 
-  // Ranked so what you eat at this meal is at the top of the list.
-  const recent = useRecentFoods(meal);
   const debounced = useDebounced(query, 300);
   const search = useQuery({
     queryKey: keys.search(debounced),
@@ -169,11 +178,14 @@ export function FoodPicker({
             ✓
           </span>
           <span className="text-muted min-w-0 flex-1 truncate">
-            <span className="nums text-ink">{round(last.slot.grams)} g</span>{' '}
-            <span className="text-ink">
-              {last.food.name}
-              <EstimatedMark show={last.food.estimated} />
-            </span>{' '}
+            {last.slots.length === 1 ? (
+              <>
+                <span className="nums text-ink">{round(last.slots[0]!.grams)} g</span>{' '}
+                <span className="text-ink">{last.slots[0]!.food!.name}</span>
+              </>
+            ) : (
+              <span className="text-ink">{last.slots.length} foods</span>
+            )}{' '}
             added to {MEAL_LABELS[meal].toLowerCase()}
           </span>
           <button
@@ -185,7 +197,15 @@ export function FoodPicker({
           </button>
         </p>
       )}
-      {weighIn.slots.length > 0 && <WeightChips weighIn={weighIn} onNext={toSearch} />}
+      {weighIn.slots.length > 0 && (
+        <WeighList
+          weighIn={weighIn}
+          mealLabel={MEAL_LABELS[meal].toLowerCase()}
+          pending={addMany.isPending}
+          onNext={toSearch}
+          onConfirm={confirm}
+        />
+      )}
       <div className="flex gap-2">
         <WeightsInput weighIn={weighIn} onNext={toSearch} />
         <input
@@ -266,22 +286,21 @@ export function FoodPicker({
           <FoodList foods={suggested} onPick={choose} showUsual={waiting.length > 0} />
         </section>
       )}
-      <section>
-        <h2 className="text-muted mb-2 text-[13px] font-medium">
-          Recent · {MEAL_LABELS[meal]} first
-        </h2>
-        {recent.isPending && <Spinner />}
-        {recent.data?.length === 0 && (
-          <Empty title="Nothing logged yet">
-            Search, scan a barcode, or add a food yourself.
-          </Empty>
-        )}
-        {/* What is suggested above is not listed twice. */}
-        <FoodList
-          foods={(recent.data ?? []).filter((f) => !suggestedIds.has(f.id))}
-          onPick={choose}
-        />
-      </section>
+      {/* Hidden when everything in it is already listed above. */}
+      {(recent.isPending || recent.data?.length === 0 || otherRecent.length > 0) && (
+        <section>
+          <h2 className="text-muted mb-2 text-[13px] font-medium">
+            Recent · {MEAL_LABELS[meal]} first
+          </h2>
+          {recent.isPending && <Spinner />}
+          {recent.data?.length === 0 && (
+            <Empty title="Nothing logged yet">
+              Search, scan a barcode, or add a food yourself.
+            </Empty>
+          )}
+          <FoodList foods={otherRecent} onPick={choose} />
+        </section>
+      )}
     </div>
   );
 
@@ -291,15 +310,13 @@ export function FoodPicker({
       {resolve.error instanceof ApiError && (
         <ErrorNote>{resolve.error.message}</ErrorNote>
       )}
-      {add.error instanceof ApiError && <ErrorNote>{add.error.message}</ErrorNote>}
+      {addMany.error instanceof ApiError && (
+        <ErrorNote>{addMany.error.message}</ErrorNote>
+      )}
 
       {results}
 
-      <BottomBarSpacer
-        className={
-          ['h-24', 'h-36', 'h-48'][(weighIn.slots.length > 0 ? 1 : 0) + (last ? 1 : 0)]
-        }
-      />
+      <BottomBarSpacer />
       <BottomBar>{controls}</BottomBar>
 
       {scanning && (

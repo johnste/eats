@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 
 /**
  * Pins an input just above the tab bar, in reach of a thumb.
@@ -12,8 +12,26 @@ import type { ReactNode } from 'react';
  * with <BottomBarSpacer /> or their last rows sit underneath it.
  */
 export function BottomBar({ children }: { children: ReactNode }) {
+  // Measured rather than guessed, since what is in the bar changes its
+  // height -- a list of weights grows it a row at a time.
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const root = document.documentElement;
+    const observer = new ResizeObserver(() =>
+      root.style.setProperty('--bottombar-h', `${el.offsetHeight}px`),
+    );
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      root.style.removeProperty('--bottombar-h');
+    };
+  }, []);
+
   return (
     <div
+      ref={ref}
       className="bg-surface/85 border-line fixed inset-x-0 z-20 border-t backdrop-blur-md"
       // Whichever is taller: the tab bar it has to clear, or the keyboard
       // covering the bottom of the viewport. When the keyboard is up the tab
@@ -32,7 +50,7 @@ export function BottomBar({ children }: { children: ReactNode }) {
   );
 }
 
-/** Height to match the bar above it; a taller bar passes a taller class. */
-export function BottomBarSpacer({ className = 'h-24' }: { className?: string }) {
-  return <div aria-hidden className={className} />;
+/** Height to match the bar above it, as measured. */
+export function BottomBarSpacer() {
+  return <div aria-hidden style={{ height: 'var(--bottombar-h, 6rem)' }} />;
 }

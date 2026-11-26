@@ -198,8 +198,11 @@ const SUGGEST_DAYS = 90;
 /**
  * The history behind suggesting foods for one meal on one day: for every
  * food you have had at this meal, or alongside what is already in it, how
- * often each. The ranking itself is shared code (rankSuggestions), since it
- * also weighs the weights you have typed and those never reach the server.
+ * often each. What is in it already is what is logged there plus `picked`,
+ * the foods on a plate still being put together.
+ *
+ * The ranking itself is shared code (rankSuggestions), since it also weighs
+ * the weights you have typed and those never reach the server.
  *
  * The day itself is left out of the history, so half a breakfast does not
  * count as one that was finished, and anything already in this meal is
@@ -210,6 +213,7 @@ export async function suggestionStats(
   userId: string,
   meal: Meal,
   date: string,
+  picked: string[] = [],
   limit = 40,
 ): Promise<{
   mealDays: number;
@@ -222,7 +226,7 @@ export async function suggestionStats(
     where user_id = ${userId}
       and logged_on >= ${date}::date - ${SUGGEST_DAYS}::int
       and logged_on <> ${date}::date`;
-  const context = await db
+  const logged = await db
     .selectDistinct({ id: foods.id, name: foods.name })
     .from(logEntries)
     .innerJoin(foods, eq(foods.id, logEntries.foodId))
@@ -233,6 +237,16 @@ export async function suggestionStats(
         eq(logEntries.meal, meal),
       ),
     );
+  const extra = picked.filter((id) => !logged.some((c) => c.id === id));
+  const context = extra.length
+    ? [
+        ...logged,
+        ...(await db
+          .select({ id: foods.id, name: foods.name })
+          .from(foods)
+          .where(inArray(foods.id, extra))),
+      ]
+    : logged;
   const contextIds = context.map((c) => c.id);
   // An empty IN list is a syntax error; a uuid no food has keeps it valid.
   const ctxList = contextIds.length

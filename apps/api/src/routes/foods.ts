@@ -190,8 +190,8 @@ export const foodRoutes: FastifyPluginAsync<AppDeps> = async (app, deps) => {
     },
     async (req) => {
       const user = await requireUser(req);
-      const { meal, date } = req.query;
-      const stats = await suggestionStats(db, user.id, meal, date);
+      const { meal, date, with: picked } = req.query;
+      const stats = await suggestionStats(db, user.id, meal, date, picked);
       const ids = stats.foods.map((f) => f.id);
       const rows = ids.length
         ? await db.select().from(foods).where(inArray(foods.id, ids))
