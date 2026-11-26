@@ -58,7 +58,9 @@ export function Sheet({
         onAnimationEnd={(e) => {
           if (leaving && e.target === e.currentTarget) onClose();
         }}
-        className={`bg-raised border-line relative max-h-[85dvh] overflow-y-auto rounded-t-3xl border-t p-5 ${
+        // On a wider screen it keeps to the content column rather than
+        // stretching a 100 g field across the whole window.
+        className={`bg-raised border-line relative max-h-[85dvh] w-full overflow-y-auto rounded-t-3xl border-t p-5 sm:mx-auto sm:max-w-lg sm:border-x ${
           leaving ? 'animate-sheet-out' : 'animate-sheet-in'
         }`}
         style={{

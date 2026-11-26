@@ -64,7 +64,9 @@ export function TabBar() {
     <nav
       ref={ref}
       aria-label="Main"
-      className="bg-surface/85 border-line fixed inset-x-0 bottom-0 z-20 border-t backdrop-blur-md"
+      // Edge to edge on a phone; on anything wider, docked under the
+      // content column rather than stretched across the whole window.
+      className="bg-surface/85 border-line fixed inset-x-0 bottom-0 z-20 mx-auto border-t backdrop-blur-md sm:max-w-lg sm:border-x"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
       <ul className="relative mx-auto flex max-w-lg">
