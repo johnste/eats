@@ -502,12 +502,15 @@ function QuantitySheet({
   const serving = food.servings.find((s) => s.id === portion?.id);
   const { add } = useLogMutations(date);
 
-  /** n of the portion; grams follow whenever n is a usable number. */
-  const setCount = (count: string) => {
-    if (!serving) return;
-    setPortion({ id: serving.id, count });
+  /**
+   * n of a portion -- the chosen one, unless another is given; grams follow
+   * whenever n is a usable number.
+   */
+  const setCount = (count: string, of = serving) => {
+    if (!of) return;
+    setPortion({ id: of.id, count });
     const n = Number.parseFloat(count.replace(',', '.'));
-    if (Number.isFinite(n) && n > 0) setGrams(String(round(n * serving.grams)));
+    if (Number.isFinite(n) && n > 0) setGrams(String(round(n * of.grams)));
   };
   const counted = Number.parseFloat((portion?.count ?? '').replace(',', '.'));
   // Stepping from 1.5 goes to the whole number either side, not to 2.5.
@@ -544,65 +547,63 @@ function QuantitySheet({
           invalid={grams !== '' && !valid}
         />
 
+        {/* The chosen portion counts itself: step it with − and +, or tap
+            the number and type one -- 2, or 1,5 for half again. The others
+            stay plain chips; tapping one switches to it, at one. */}
         {food.servings.length > 0 && (
           <div className="flex flex-wrap items-center gap-2">
-            {food.servings.map((s) => {
-              const current = portion?.id === s.id;
-              return (
+            {food.servings.map((s) =>
+              serving?.id === s.id && portion ? (
+                <div
+                  key={s.id}
+                  role="group"
+                  aria-label={`${s.label}, ${round(s.grams)} g each`}
+                  className="border-accent bg-accent-soft text-accent flex min-h-11 items-center rounded-full border text-[13px] font-medium"
+                >
+                  <button
+                    type="button"
+                    onClick={() => step(-1)}
+                    disabled={Number.isFinite(counted) && counted <= 1}
+                    aria-label="One fewer"
+                    className="grid size-11 shrink-0 place-items-center rounded-full text-lg active:bg-accent/15 disabled:opacity-40"
+                  >
+                    −
+                  </button>
+                  <input
+                    value={portion.count}
+                    onChange={(e) => setCount(e.target.value)}
+                    onFocus={(e) => e.target.select()}
+                    inputMode="decimal"
+                    aria-label={`Number of ${s.label}`}
+                    aria-invalid={!(counted > 0) || undefined}
+                    className={`bg-raised text-ink nums focus:border-accent h-8 w-10 rounded-lg border text-center focus:outline-none ${
+                      counted > 0 ? 'border-line' : 'border-danger'
+                    }`}
+                  />
+                  <span className="px-1.5 whitespace-nowrap">
+                    × {s.label} · {round(s.grams)} g
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => step(1)}
+                    aria-label="One more"
+                    className="grid size-11 shrink-0 place-items-center rounded-full text-lg active:bg-accent/15"
+                  >
+                    +
+                  </button>
+                </div>
+              ) : (
                 <button
                   key={s.id}
                   type="button"
-                  aria-pressed={current}
-                  onClick={() => {
-                    setPortion({ id: s.id, count: '1' });
-                    setGrams(String(round(s.grams)));
-                  }}
-                  className={`active:bg-surface rounded-full border px-3 py-1.5 text-[13px] ${
-                    current
-                      ? 'border-accent bg-accent-soft text-accent font-medium'
-                      : 'border-line text-muted'
-                  }`}
+                  aria-pressed={false}
+                  onClick={() => setCount('1', s)}
+                  className="border-line text-muted active:bg-surface rounded-full border px-3 py-1.5 text-[13px]"
                 >
                   {s.label} · {round(s.grams)} g
                 </button>
-              );
-            })}
-          </div>
-        )}
-
-        {/* How many of the chosen portion: step it, or tap the number and
-            type one -- 2, or 1,5 for half again. */}
-        {serving && portion && (
-          <div className="flex items-center gap-2">
-            <span className="text-muted flex-1 text-[13px] font-medium">How many?</span>
-            <button
-              type="button"
-              onClick={() => step(-1)}
-              disabled={Number.isFinite(counted) && counted <= 1}
-              aria-label="One fewer"
-              className="border-line text-ink active:bg-surface grid size-11 place-items-center rounded-full border text-lg disabled:opacity-40"
-            >
-              −
-            </button>
-            <input
-              value={portion.count}
-              onChange={(e) => setCount(e.target.value)}
-              onFocus={(e) => e.target.select()}
-              inputMode="decimal"
-              aria-label={`Number of ${serving.label}`}
-              aria-invalid={!(counted > 0) || undefined}
-              className={`bg-raised text-ink nums focus:border-accent min-h-11 w-14 rounded-2xl border text-center focus:outline-none ${
-                counted > 0 ? 'border-line' : 'border-danger'
-              }`}
-            />
-            <button
-              type="button"
-              onClick={() => step(1)}
-              aria-label="One more"
-              className="border-line text-ink active:bg-surface grid size-11 place-items-center rounded-full border text-lg"
-            >
-              +
-            </button>
+              ),
+            )}
           </div>
         )}
 
