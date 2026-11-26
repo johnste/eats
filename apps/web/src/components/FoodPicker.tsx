@@ -491,7 +491,31 @@ function QuantitySheet({
   const [grams, setGrams] = useState(
     food.servings[0] ? String(round(food.servings[0].grams)) : '100',
   );
+  /**
+   * The portion being counted, and how many of it -- two biscuits, three
+   * slices. Kept as typed, so a half-typed count is not snapped back while
+   * you type it. Typing grams yourself leaves portions behind.
+   */
+  const [portion, setPortion] = useState<{ id: string; count: string } | null>(
+    food.servings[0] ? { id: food.servings[0].id, count: '1' } : null,
+  );
+  const serving = food.servings.find((s) => s.id === portion?.id);
   const { add } = useLogMutations(date);
+
+  /** n of the portion; grams follow whenever n is a usable number. */
+  const setCount = (count: string) => {
+    if (!serving) return;
+    setPortion({ id: serving.id, count });
+    const n = Number.parseFloat(count.replace(',', '.'));
+    if (Number.isFinite(n) && n > 0) setGrams(String(round(n * serving.grams)));
+  };
+  const counted = Number.parseFloat((portion?.count ?? '').replace(',', '.'));
+  // Stepping from 1.5 goes to the whole number either side, not to 2.5.
+  const step = (by: 1 | -1) => {
+    const n = Number.isFinite(counted) ? counted : 1;
+    const next = by > 0 ? Math.floor(n) + 1 : Math.max(1, Math.ceil(n) - 1);
+    setCount(String(next));
+  };
 
   const value = Number.parseFloat(grams.replace(',', '.'));
   const valid = Number.isFinite(value) && value > 0;
@@ -507,7 +531,10 @@ function QuantitySheet({
         <Field
           label="Amount"
           value={grams}
-          onChange={(e) => setGrams(e.target.value)}
+          onChange={(e) => {
+            setGrams(e.target.value);
+            setPortion(null);
+          }}
           // Selected rather than cleared, so the number is still there to
           // nudge up or down from, while typing replaces it outright.
           autoSelect
@@ -518,15 +545,18 @@ function QuantitySheet({
         />
 
         {food.servings.length > 0 && (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {food.servings.map((s) => {
-              const current = valid && Math.abs(value - s.grams) < 0.05;
+              const current = portion?.id === s.id;
               return (
                 <button
                   key={s.id}
                   type="button"
                   aria-pressed={current}
-                  onClick={() => setGrams(String(round(s.grams)))}
+                  onClick={() => {
+                    setPortion({ id: s.id, count: '1' });
+                    setGrams(String(round(s.grams)));
+                  }}
                   className={`active:bg-surface rounded-full border px-3 py-1.5 text-[13px] ${
                     current
                       ? 'border-accent bg-accent-soft text-accent font-medium'
@@ -540,9 +570,49 @@ function QuantitySheet({
           </div>
         )}
 
+        {/* How many of the chosen portion: step it, or tap the number and
+            type one -- 2, or 1,5 for half again. */}
+        {serving && portion && (
+          <div className="flex items-center gap-2">
+            <span className="text-muted flex-1 text-[13px] font-medium">How many?</span>
+            <button
+              type="button"
+              onClick={() => step(-1)}
+              disabled={Number.isFinite(counted) && counted <= 1}
+              aria-label="One fewer"
+              className="border-line text-ink active:bg-surface grid size-11 place-items-center rounded-full border text-lg disabled:opacity-40"
+            >
+              −
+            </button>
+            <input
+              value={portion.count}
+              onChange={(e) => setCount(e.target.value)}
+              onFocus={(e) => e.target.select()}
+              inputMode="decimal"
+              aria-label={`Number of ${serving.label}`}
+              aria-invalid={!(counted > 0) || undefined}
+              className={`bg-raised text-ink nums focus:border-accent min-h-11 w-14 rounded-2xl border text-center focus:outline-none ${
+                counted > 0 ? 'border-line' : 'border-danger'
+              }`}
+            />
+            <button
+              type="button"
+              onClick={() => step(1)}
+              aria-label="One more"
+              className="border-line text-ink active:bg-surface grid size-11 place-items-center rounded-full border text-lg"
+            >
+              +
+            </button>
+          </div>
+        )}
+
         <div className="bg-surface space-y-2 rounded-xl p-3">
           <p className="text-muted text-center text-[11px] font-medium">
-            {valid ? `In ${round(value)} g` : 'Enter an amount'}
+            {!valid || (portion && !(counted > 0))
+              ? 'Enter an amount'
+              : serving && counted !== 1
+                ? `In ${round(counted)} × ${serving.label} · ${round(value)} g`
+                : `In ${round(value)} g`}
           </p>
           <dl className="figure grid grid-cols-4 gap-2 text-center">
             {[
@@ -577,7 +647,7 @@ function QuantitySheet({
         <AddSplitButton
           meal={initialMeal}
           label={(m) => `Add to ${m}`}
-          disabled={!valid}
+          disabled={!valid || (portion !== null && !(counted > 0))}
           pending={add.isPending}
           onAdd={(to) =>
             add.mutate(
