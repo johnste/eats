@@ -124,7 +124,7 @@ export function WeightCard({
         <>
           {/* The daily line is mostly water; the 7-day average is the
               signal, so it is the emphasised mark and the raw points recede. */}
-          <div className="-ml-2 h-44">
+          <div className="-ml-2 h-44 lg:h-64">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={shown} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
                 <CartesianGrid stroke="var(--color-line)" vertical={false} />
@@ -277,7 +277,9 @@ function TodayWeight({
         <label className="text-muted shrink-0 text-[13px]" htmlFor="today-weight">
           Today
         </label>
-        <div className="relative min-w-0 flex-1">
+        {/* Capped on a wide screen: a weight is five characters, and a
+            field the width of the chart above made it look like a search. */}
+        <div className="relative min-w-0 flex-1 lg:max-w-xs">
           <input
             id="today-weight"
             value={value}

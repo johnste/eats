@@ -73,8 +73,14 @@ function Shell() {
 
   return (
     <>
-      {/* Bottom padding clears the fixed tab bar plus the home indicator. */}
-      <div className="mx-auto max-w-lg px-4 pt-4 pb-28">
+      {/* Bottom padding clears the fixed tab bar plus the home indicator.
+          Trends alone widens on a large screen: charts are the one thing
+          here that is better for the room. */}
+      <div
+        className={`mx-auto max-w-lg px-4 pt-4 pb-28 ${
+          section === 'trends' ? 'lg:max-w-5xl' : ''
+        }`}
+      >
         <Suspense fallback={<Spinner label="" />}>
           <div key={section} className="animate-rise">
             <Routes>

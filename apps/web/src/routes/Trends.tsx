@@ -132,7 +132,8 @@ export function Trends() {
       )}
 
       {summary.data && stats.logged > 0 && (
-        <div className="space-y-6">
+        // Side by side on a large screen, under the full-width weight chart.
+        <div className="space-y-6 lg:grid lg:grid-cols-2 lg:gap-10 lg:space-y-0">
           <Card>
             {/* Averaged over days that were actually logged. Counting a blank
                 day as zero would quietly drag every number down. */}
@@ -150,7 +151,7 @@ export function Trends() {
               </div>
             </div>
 
-            <div className="-ml-2 h-52">
+            <div className="-ml-2 h-52 lg:h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <IntakeChart rows={rows} asBars={asBars} />
               </ResponsiveContainer>
@@ -183,7 +184,7 @@ export function Trends() {
                 ` — targets ${round(stats.goal.proteinG)}, ${round(stats.goal.carbsG)} and ${round(stats.goal.fatG)}`}
               .
             </p>
-            <div className="-ml-2 h-52">
+            <div className="-ml-2 h-52 lg:h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <MacroChart rows={rows} asBars={macrosAsBars} />
               </ResponsiveContainer>
